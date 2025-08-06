@@ -4,9 +4,9 @@
 
 ## Abstract
 
-This repository contains the implementation and evaluation code for WebMall-Interfaces, a comprehensive comparison of different agent interfaces for web-based tasks. LLM agents use different architectures and interfaces to interact with the World Wide Web: some rely on traditional web browsers to navigate HTML pages, others retrieve web content by querying search engines, while others interact with site-specific Web APIs via the Model Context Protocol (MCP) or standardized interfaces like NLWeb.
+This repository contains the implementation and evaluation code for WebMall-Interfaces, an experimental comparison of different agent interfaces for web-based tasks. LLM agents use different architectures and interfaces to interact with the World Wide Web: some rely on traditional web browsers to navigate HTML pages, others retrieve web content by querying search engines, while others interact with site-specific Web APIs via the Model Context Protocol (MCP) or standardized interfaces like NLWeb.
 
-This study presents the first experimental comparison of these four architectures using the same set of 91 e-commerce tasks across four simulated shops of the [WebMall benchmark](https://github.com/wbsg-uni-mannheim/WebMall). We compare the effectiveness (success rate, F1) and efficiency (runtime, token usage) of RAG agents, MCP agents, NLWeb agents, and browser-based HTML agents. The experiments demonstrate that specialized agents can deliver equal and in certain cases superior performance compared to browser-based agents, while incurring 5-10 times lower token costs.
+This study presents the first experimental comparison of these four architectures using the same set of 91 e-commerce tasks across four simulated shops of the [WebMall benchmark](https://github.com/wbsg-uni-mannheim/WebMall). We compare the effectiveness (success rate, F1) and efficiency (runtime, token usage) of RAG agents, MCP agents, NLWeb agents, and browser-based HTML agents. The experiments show that RAG and MCP agents can deliver equal and in certain cases superior performance compared to browser-based agents, while consuming 5-10 times less tokens.
 
 For detailed information about the benchmark design, interface specifications, and evaluation results, please refer to our [website](https://wbsg-uni-mannheim.github.io/WebMall-Interfaces/).
 
