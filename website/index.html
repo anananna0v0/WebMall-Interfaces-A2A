@@ -255,10 +255,10 @@
                 the operational cost of each agent as well as its energy consumption and environmental impact.
               </p>
               <p>
-                In our WebMall experiments, the MCP, RAG, and NLWeb agents achieve comparable — and in many cases higher — task completion rates than
-                the Browser Agent (AX+MEM), while using 5–10× fewer tokens. On basic tasks, the NLWeb agent achieves the highest completion rate (up
-                to 88% with Claude 4 Sonnet), and the RAG agent shows strong performance across both basic and advanced tasks. All three alternatives
-                use significantly fewer tokens than the browser-based agent.
+                In our WebMall experiments, the MCP, RAG, and NLWeb Agents achieve comparable — and in many cases higher — task completion rates than
+                the HTML Agent (AX+MEM), while using 5–10× fewer tokens. On basic tasks, the NLWeb Agent achieves the highest completion rate (up to
+                88% with Claude 4 Sonnet), and the RAG Agent shows strong performance across both basic and advanced tasks. All three alternatives use
+                significantly fewer tokens than the HTML Agent.
               </p>
             </div>
           </div>
@@ -273,7 +273,7 @@
         <div class="content">
           <p>
             The section below describes the four different architectures that we compare in our experimental study as well as the interfaces that
-            agents and e-shops use for communication.
+            agents and Webshops use for communication.
           </p>
         </div>
       </div>
@@ -287,7 +287,7 @@
             <h3 class="title is-4">2.1 Browser-based Agent (HTML Agent)</h3>
             <div class="content">
               <p>
-                The HTML Agent accesses the webshops via their traditional HTML interfaces intended for human use. We employ the AX+MEM Browser Agent
+                The HTML Agent accesses the Webshops via their traditional HTML interfaces intended for human use. We employ the AX+MEM HTML Agent
                 from the
                 <a href="https://wbsg-uni-mannheim.github.io/WebMall/" target="_blank">WebMall benchmark</a> for our experiments. The agent is
                 implemented using the
@@ -309,7 +309,7 @@
               </ol>
 
               <p>
-                More details about the AX+MEM Browser Agent are on the
+                More details about the AX+MEM HTML Agent are on the
                 <a href="https://wbsg-uni-mannheim.github.io/WebMall/" target="_blank">WebMall benchmark</a> page.
               </p>
             </div>
@@ -326,8 +326,8 @@
             <h3 class="title is-4">2.2 Agent querying a Search Engine (RAG Agent)</h3>
             <div class="content">
               <p>
-                The RAG agent does not directly access the e-shops but interacts with a search engine that has crawled and indexed all pages of all
-                e-shops. Our RAG implementation uses
+                The RAG Agent does not directly access the Webshops but interacts with a search engine that has crawled and indexed all pages of all
+                Webshops. Our RAG implementation uses
                 <a href="https://www.elastic.co/elasticsearch/vector-database" target="_blank">Elasticsearch</a>
                 to create a unified search index containing scraped content from all four WebMall shops. Before indexing, we remove navigation
                 elements and HTML tags from the pages using the
@@ -481,24 +481,24 @@ async def checkout_cart_techtalk(
             <h3 class="title is-4">2.4 Agent querying NLWeb Sites (NLWeb Agent)</h3>
             <div class="content">
               <p>
-                The NLWeb agent interacts with websites through a standardized natural language interface provided by website vendors. The vendor must
-                implement and host an "ask" endpoint that accepts natural language queries and returns structured responses according to the
+                The NLWeb Agent interacts with NLWeb Sites through a standardized natural language interface provided by the site vendors. The vendor
+                must implement and host an "ask" endpoint that accepts natural language queries and returns structured responses according to the
                 Schema.org format.
                 <a href="https://github.com/nlweb-ai/NLWeb" target="_blank">NLWeb</a>
                 (Natural Language for Web), proposed and supported by
                 <a href="https://www.microsoft.com/en-us/research/blog/nlweb-a-blueprint-for-web-agent-interfaces/" target="_blank">Microsoft</a>,
                 provides a standardized mechanism for this interaction. It operates by leveraging existing semi-structured data, particularly
-                Schema.org markup, to create a semantic layer over a website's content.
+                Schema.org markup, to create a semantic layer over a site's content.
               </p>
               <p>
-                In our implementation, we create one dedicated Elasticsearch index per webshop that enables semantic search of that website's content.
-                Each NLWeb server processes natural language queries by generating embeddings and performing cosine similarity search against its
-                shop-specific index. Additionally, we create an MCP server per shop to enable other functionality like cart management and checkout
-                operations, complementing the <code>ask</code> tool for product search.
+                In our implementation, we create one dedicated Elasticsearch index per Webshop (NLWeb Site) that enables semantic search of that
+                site's content. Each NLWeb server processes natural language queries by generating embeddings and performing cosine similarity search
+                against its shop-specific index. Additionally, we create an MCP server per shop to enable other functionality like cart management and
+                checkout operations, complementing the <code>ask</code> tool for product search.
               </p>
               <p>
-                The agent uses the same <a href="https://www.langchain.com/langgraph" target="_blank">LangGraph</a> framework as the other agents. An
-                example of an <code>ask</code> tool call and response can be found
+                The NLWeb Agent uses the same <a href="https://www.langchain.com/langgraph" target="_blank">LangGraph</a> framework as the other
+                agents. An example of an <code>ask</code> tool call and response can be found
                 <a href="https://github.com/wbsg-uni-mannheim/WebMall-Interfaces/blob/main/website/examples/nlweb_query.json" target="_blank">here</a
                 >.
               </p>
@@ -758,8 +758,8 @@ async def checkout_cart_techtalk(
             <div class="content">
               <p>
                 We evaluated each agent interface on the complete WebMall benchmark task set. The evaluation compares the performance of different
-                agent architectures: RAG Agent, MCP Agent, and NLWeb Agent. For comparison, we also include results from the strongest-performing
-                browser-based agent on the WebMall benchmark, AX+MEM, subsequently referred to as Browser Agent.
+                agent architectures: RAG Agent, MCP Agent, and NLWeb Agent. For comparison, we also include results from the strongest-performing HTML
+                Agent configuration on the WebMall benchmark, AX+MEM.
               </p>
               <p>
                 Every agent interface is evaluated with both GPT-4.1 (gpt-4.1-2025-04-14) and Claude 4 Sonnet (claude-sonnet-4-20250514) to assess
