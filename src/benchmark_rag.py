@@ -97,7 +97,7 @@ async def search_products(query: str, match_count: int = 30, use_hybrid: bool = 
     match_count = max(1, min(100, match_count))
 
     print(
-        f"\n🔍 SEARCH TOOL: Query='{query}', Results={match_count}, Mode={'hybrid' if use_hybrid else 'semantic'}")
+        f"\n🔍 SEARCH TOOL: Query='{query}', Results={match_count}, Mode={'sematic' if use_hybrid else 'semantic'}")
 
     # Get embedding for the query
     query_embedding, embedding_tokens = await get_embedding(query)
@@ -205,6 +205,8 @@ def get_model(model_name: str = "gpt-4", temperature: float = 0.0) -> Any:
         Initialized LangChain chat model
     """
     if model_name.startswith("gpt") or model_name.startswith("o1"):
+        if model_name == "gpt-5":
+            return ChatOpenAI(model="gpt-5", temperature=1)
         # OpenAI models
         return ChatOpenAI(model=model_name, temperature=temperature)
     elif model_name.startswith("claude"):

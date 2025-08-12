@@ -3,8 +3,8 @@ import json
 import logging
 import numpy as np
 from typing import Dict, List, Optional, Any, Tuple
-from elasticsearch import AsyncElasticsearch, Elasticsearch
-from elasticsearch.exceptions import RequestError, NotFoundError
+from elasticsearch8 import AsyncElasticsearch, Elasticsearch
+from elasticsearch8.exceptions import RequestError, NotFoundError
 from dotenv import load_dotenv
 import asyncio
 import re

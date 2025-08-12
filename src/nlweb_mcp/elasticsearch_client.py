@@ -2,8 +2,8 @@ import json
 import logging
 import numpy as np
 from typing import Dict, List, Optional, Any
-from elasticsearch import Elasticsearch
-from elasticsearch.exceptions import RequestError, NotFoundError
+from elasticsearch8 import Elasticsearch
+from elasticsearch8.exceptions import RequestError, NotFoundError
 
 # Handle both relative and absolute imports
 try:
@@ -232,7 +232,7 @@ class ElasticsearchClient:
     
     def bulk_index_products(self, index_name: str, products: List[Dict[str, Any]]):
         """Bulk index multiple products"""
-        from elasticsearch.helpers import bulk
+        from elasticsearch8.helpers import bulk
         
         actions = []
         for i, product in enumerate(products):
