@@ -235,7 +235,7 @@ function createCostTable(
             RAG_Agent: "RAG Agent",
             API_MCP: "MCP Agent",
             NlWeb_elastic: "NLWeb Agent",
-            "AX+Mem": "HTML Agent (Browser)",
+            "AX+Mem": "HTML Agent",
         };
         tdInterface.textContent = nameMap[row.interface] || row.interface;
         tr.appendChild(tdInterface);
@@ -397,7 +397,7 @@ function createResultsTable(data, filterFunc, InterfaceNames, taskType) {
                     RAG_Agent: "RAG Agent",
                     API_MCP: "MCP Agent",
                     NlWeb_elastic: "NLWeb Agent",
-                    "AX+Mem": "HTML Agent (Browser)",
+                    "AX+Mem": "HTML Agent",
                 };
                 value = nameMap[value] || value;
             }
@@ -692,7 +692,7 @@ function createCategoryResultsTable(data, InterfaceNames, filterTaskType) {
     const tbody = document.createElement("tbody");
 
     let lastCategory = null;
-    
+
     // Helper function to get task count for a category based on task type
     const getCategoryTaskCount = (originalCategoryName, taskType) => {
         // Count tasks per category from WebMall task definitions
@@ -700,21 +700,21 @@ function createCategoryResultsTable(data, InterfaceNames, filterTaskType) {
         const categoryTaskCounts = {
             Basic: {
                 "Find Specific Product": 12,
-                "Find Cheapest Offer": 10, 
+                "Find Cheapest Offer": 10,
                 "Best Fit Specific": 11,
                 "Add to Cart": 7,
-                "Checkout": 8
+                Checkout: 8,
             },
             Advanced: {
                 "Cheapest Best Fit Specific": 10,
                 "Best Fit Vague": 8,
                 "Cheapest Best Fit Vague": 6,
-                "Substitutes": 6,
+                Substitutes: 6,
                 "Find Compatible Products": 5,
-                "End To End": 8
-            }
+                "End To End": 8,
+            },
         };
-        
+
         const counts = categoryTaskCounts[taskType] || {};
         return counts[originalCategoryName] || 0;
     };
@@ -763,7 +763,10 @@ function createCategoryResultsTable(data, InterfaceNames, filterTaskType) {
             }
 
             // Add task count to category display name
-            const taskCount = getCategoryTaskCount(currentCategory, filterTaskType);
+            const taskCount = getCategoryTaskCount(
+                currentCategory,
+                filterTaskType
+            );
             if (taskCount > 0) {
                 categoryDisplayName += ` (${taskCount} tasks)`;
             }
