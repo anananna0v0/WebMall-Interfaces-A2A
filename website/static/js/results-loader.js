@@ -557,7 +557,7 @@ async function loadResults() {
             // Add task type header with count
             const header = document.createElement("h4");
             header.className = "title is-5";
-            header.textContent = `${taskType} Tasks - Cost & Performance (${taskCounts[taskType]} tasks)`;
+            header.textContent = `${taskType} Tasks - Cost & Effectiveness (${taskCounts[taskType]} tasks)`;
             costContainer.appendChild(header);
 
             // Create and append table

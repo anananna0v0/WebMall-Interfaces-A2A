@@ -258,8 +258,8 @@
               <p>
                 In our WebMall experiments, the MCP, RAG, and NLWeb Agents achieve comparable — and in many cases higher — task completion rates than
                 the HTML Agent (AX+MEM), while using 5–10× fewer tokens. On basic tasks, the NLWeb Agent achieves the highest completion rate (up to
-                88% with Claude 4 Sonnet), and the RAG Agent shows strong performance across both basic and advanced tasks. All three alternatives use
-                significantly fewer tokens than the HTML Agent.
+                88% with Claude 4 Sonnet), and the RAG Agent shows competitive effectiveness across both basic and advanced tasks. All three
+                alternatives use significantly fewer tokens than the HTML Agent.
               </p>
             </div>
           </div>
@@ -424,38 +424,23 @@
               </p>
               <div class="code-block">
                 <pre>
-// E-Store Athletes (Shop 1) checkout signature
-async def checkout(
+// E-Store Athletes (Shop 1) search signature — no sorting
+async def search_products(
     ctx: Context,
-    first_name: str,
-    last_name: str,
-    email: str,
-    phone: str,
-    address_1: str,
-    city: str,
-    state: str,
-    postcode: str,
-    country: str,
-    credit_card_number: str,
-    credit_card_expiry: str,
-    credit_card_cvc: str
+    query: str,
+    per_page: int = 10,
+    page: int = 1,
+    include_descriptions: bool = False
 ) -> str
 
-// TechTalk (Shop 2) checkout signature  
-async def checkout_cart_techtalk(
+// TechTalk (Shop 2) search signature — supports sorting
+async def find_items_techtalk(
     ctx: Context,
-    customer_first_name: str,
-    customer_last_name: str,
-    customer_email: str,
-    customer_phone: str,
-    shipping_street: str,
-    shipping_city: str,
-    shipping_state: str,
-    shipping_zip: str,
-    shipping_country_code: str,
-    payment_card_number: str,
-    card_expiration_date: str,
-    card_security_code: str
+    query: str,
+    limit: int = 5,
+    page_num: int = 1,
+    sort_by_price: str = "none",
+    include_descriptions: bool = False
 ) -> str</pre
                 >
               </div>
@@ -593,6 +578,13 @@ async def checkout_cart_techtalk(
                     <td>Multi-modal observations (HTML/AXTree/Visual)</td>
                   </tr>
                   <tr>
+                    <td>Data Freshness</td>
+                    <td>Index-based; stale between crawls</td>
+                    <td>Live via APIs (where supported)</td>
+                    <td>Often live (implementation-dependent)</td>
+                    <td>Reads current pages</td>
+                  </tr>
+                  <tr>
                     <td>
                       <strong>Agent Architecture</strong>
                     </td>
@@ -626,33 +618,7 @@ async def checkout_cart_techtalk(
                     <td>Agent selects shops</td>
                     <td>Sequential shop visits</td>
                   </tr>
-                  <tr>
-                    <td>
-                      <strong>Processing Details</strong>
-                    </td>
-                    <td colspan="4"></td>
-                  </tr>
-                  <tr>
-                    <td>Embedding Fields</td>
-                    <td>Title, Content, Composite</td>
-                    <td>Title, Content, Composite</td>
-                    <td>Title, Content, Composite</td>
-                    <td>N/A</td>
-                  </tr>
-                  <tr>
-                    <td>Embedding Model</td>
-                    <td>OpenAI text-embedding-3-small</td>
-                    <td>OpenAI text-embedding-3-small</td>
-                    <td>OpenAI text-embedding-3-small</td>
-                    <td>N/A</td>
-                  </tr>
-                  <tr>
-                    <td>Result Ranking</td>
-                    <td>Cosine similarity score</td>
-                    <td>Cosine similarity score</td>
-                    <td>Cosine similarity score</td>
-                    <td>Page order/relevance</td>
-                  </tr>
+
                   <tr>
                     <td>
                       <strong>Agent Capabilities</strong>
@@ -758,14 +724,14 @@ async def checkout_cart_techtalk(
             <h2 class="title is-3">4. Experimental Results</h2>
             <div class="content">
               <p>
-                We evaluated each agent interface on the complete WebMall benchmark task set. The evaluation compares the performance of different
-                agent architectures: RAG Agent, MCP Agent, and NLWeb Agent. For comparison, we also include results from the strongest-performing HTML
-                Agent configuration on the WebMall benchmark, AX+MEM.
+                We evaluated each agent interface on the complete WebMall benchmark task set. The evaluation compares the effectiveness of different
+                agent architectures: RAG Agent, MCP Agent, and NLWeb Agent. For comparison, we also include results from the strongest HTML Agent
+                configuration on the WebMall benchmark, <a href="https://wbsg-uni-mannheim.github.io/WebMall/#results" target="_blank">AX+MEM</a>.
               </p>
               <p>
                 Every agent interface is evaluated with both GPT-4.1 (gpt-4.1-2025-04-14) and Claude 4 Sonnet (claude-sonnet-4-20250514) to assess
-                model-dependent performance variations. Note that our experiments do not utilize prompt caching. Detailed execution logs for all runs
-                are available in our
+                variations in effectiveness across models. Note that our experiments do not utilize prompt caching. Detailed execution logs for all
+                runs are available in our
                 <a href="https://github.com/wbsg-uni-mannheim/WebMall-Interfaces/tree/main/results/v1" target="_blank">GitHub repository</a>,
                 organized by interface type and model. For quick understanding of agent behavior,
                 <a href="https://github.com/wbsg-uni-mannheim/WebMall-Interfaces/tree/main/results/v1/shortened_logs" target="_blank"
@@ -775,7 +741,7 @@ async def checkout_cart_techtalk(
               </p>
 
               <h3 class="title is-4">4.1 Evaluation Metrics</h3>
-              <p>We assess performance using four metrics derived from comparing the agent's response against the ground truth solutions:</p>
+              <p>We assess effectiveness using four metrics derived from comparing the agent's response against the ground truth solutions:</p>
               <ul>
                 <li>
                   <strong>Task Completion Rate</strong>: Binary metric (0 or 1) measuring exact task completion. An agent achieves 1.0 only if no
@@ -792,7 +758,7 @@ async def checkout_cart_techtalk(
                 <li><strong>F1 Score</strong>: Harmonic mean of precision and recall.</li>
               </ul>
 
-              <h3 class="title is-4">4.2 Performance by Task Type</h3>
+              <h3 class="title is-4">4.2 Effectiveness by Task Type</h3>
               <p>
                 The results are shown in the following tables, sorted by completion rate and categorized by task type. Best results per metric are
                 highlighted in bold.
@@ -801,7 +767,7 @@ async def checkout_cart_techtalk(
                 <!-- Results table will be inserted here -->
               </div>
 
-              <h3 class="title is-4">4.3 Performance by Category</h3>
+              <h3 class="title is-4">4.3 Effectiveness by Category</h3>
               <p>
                 Results grouped by task complexity:
                 <strong>Basic</strong> tasks include straightforward operations like finding specific products and simple checkout processes, while
@@ -813,9 +779,7 @@ async def checkout_cart_techtalk(
               </div>
 
               <h3 class="title is-4">4.4 Cost & Runtime Analysis</h3>
-              <p>
-                Cost and execution time analysis based on model pricing and actual performance from our experiments. Token prices as of July 2025:
-              </p>
+              <p>Cost and execution time analysis based on model pricing and actual results from our experiments. Token prices as of July 2025:</p>
               <ul>
                 <li>
                   <strong>GPT-4.1</strong>: $2.00/MTok input, $8.00/MTok output (<a
@@ -842,30 +806,35 @@ async def checkout_cart_techtalk(
                 <!-- Cost tables will be inserted here -->
               </div>
 
-              <h3 class="title is-4">4.5 Cost vs Performance Comparison</h3>
+              <h3 class="title is-4">4.5 Cost vs Effectiveness Comparison</h3>
               <p>
-                The scatter plot below visualizes the relationship between cost and performance across different agent interfaces and models. 
-                Each point represents a combination of interface type (RAG, MCP, NLWeb, HTML) and language model (GPT-4.1, Claude 4 Sonnet).
+                The scatter plot below visualizes the relationship between cost and effectiveness across different agent interfaces and models. Each
+                point represents a combination of interface type (RAG, MCP, NLWeb, HTML) and language model (GPT-4.1, Claude 4 Sonnet).
               </p>
-              <div style="text-align: center; margin: 1rem 0;">
+              <div style="text-align: center; margin: 1rem 0">
                 <div class="buttons has-addons is-centered">
                   <button class="button is-primary is-selected" id="btnAll" onclick="updateScatterChart('all', this)">All Tasks</button>
                   <button class="button" id="btnBasic" onclick="updateScatterChart('basic', this)">Basic Tasks</button>
                   <button class="button" id="btnAdvanced" onclick="updateScatterChart('advanced', this)">Advanced Tasks</button>
                 </div>
               </div>
-              <div style="max-width: 900px; margin: 2rem auto;">
+              <div style="max-width: 900px; margin: 2rem auto">
                 <canvas id="costPerformanceChart" width="900" height="600"></canvas>
               </div>
 
               <h3 class="title is-4">Key Findings</h3>
               <ul>
                 <li>
-                  <strong>Performance</strong>: Specialized interfaces match or exceed browser-based performance, with NLWeb achieving 88% completion
+                  <strong>Effectiveness</strong>: RAG, MCP, and NLWeb match or exceed HTML-based effectiveness, with NLWeb achieving 88% completion
                   rate on basic tasks.
                 </li>
                 <li>
-                  <strong>Efficiency</strong>: Alternative interfaces use 5-10x fewer tokens than browser-based agents, translating to significant
+                  <strong>Viability</strong>: GPT-4.1 with RAG delivers low average cost per task (about $0.02 on basic tasks in our runs) with solid
+                  effectiveness (about 83% completion), making it a practical option for basic shopping tasks. For advanced tasks, effectiveness is
+                  mixed across interfaces and models, so selection should consider task complexity and cost trade-offs.
+                </li>
+                <li>
+                  <strong>Efficiency</strong>: Alternative interfaces use 5-10x fewer tokens than HTML-based agents, translating to significant
                   cost savings.
                 </li>
                 <li>
@@ -951,7 +920,13 @@ python benchmark_api_mcp.py      # API MCP interface</pre
                   href="#Zhang2025"
                   >Zhang 2025</a
                 >], which compares API agents to GUI agents. This paper introduces a set of dimensions for comparing API and GUI agents and reports
-                the results of an experimental evaluation using 27 office-related tasks, involving Word, Excel, and PPT.
+                the results of an experimental evaluation using 27 office-related tasks, involving Word, Excel, and PPT. Complementary to these, [<a
+                  href="#Lyu2025"
+                  >Lyu 2025</a
+                >] introduces <em>DeepShop</em>, a benchmark for shopping agents with complex, multi-attribute queries that require filters and
+                sorting; it finds that RAG struggles without web interaction and that agents face difficulties with filters/sorting, resulting in low
+                overall success rates. DeepShop evaluates on live e-commerce sites that change over time, so exact runs are less reproducible than the
+                controlled, repeatable experiments in this work.
               </p>
               <p>
                 A survey of agents for computer use, including Web agents, is presented by [<a href="#Sager2025">Sager 2025</a>]. [<a
@@ -1013,6 +988,11 @@ python benchmark_api_mcp.py      # API MCP interface</pre
                   From Semantic Web and MAS to Agentic AI: A Unified Narrative of the Web of Agents</a
                 >. arXiv:2507.10644, 2025.
               </p>
+              <p id="Lyu2025">
+                [Lyu 2025] Lyu, Yougang, Xiaoyu Zhang, Lingyong Yan, Maarten de Rijke, Zhaochun Ren, Xiuying Chen:
+                <a href="https://arxiv.org/abs/2506.02839" target="_blank"> DeepShop: A Benchmark for Deep Research Shopping Agents</a>.
+                arXiv:2506.02839, 2025.
+              </p>
             </div>
           </div>
         </div>
@@ -1035,177 +1015,193 @@ python benchmark_api_mcp.py      # API MCP interface</pre
     <script src="./static/js/bulma-slider.min.js"></script>
     <script src="./static/js/interfaces.js"></script>
     <script src="./static/js/results-loader.js"></script>
-    
+
     <script>
-      // Cost vs Performance Scatter Plot
+      // Cost vs Effectiveness Scatter Plot
       let costPerfChart = null;
-      
-      // Performance data for different task categories - from actual CSV results
+
+      // Effectiveness data for different task categories - from actual CSV results
       const performanceData = {
         all: {
           // Calculate all as weighted average: (basic * 48 + advanced * 43) / 91
-          'RAG_GPT-4.1': { cost: 0.03, performance: 64 },
-          'MCP_GPT-4.1': { cost: 0.07, performance: 49 },
-          'NLWeb_GPT-4.1': { cost: 0.075, performance: 52 },
-          'HTML_GPT-4.1': { cost: 0.345, performance: 56 },
-          'RAG_Claude 4 Sonnet': { cost: 0.20, performance: 67 },
-          'MCP_Claude 4 Sonnet': { cost: 0.75, performance: 63 },
-          'NLWeb_Claude 4 Sonnet': { cost: 0.16, performance: 68 },
-          'HTML_Claude 4 Sonnet': { cost: 1.155, performance: 61 }
+          "RAG_GPT-4.1": { cost: 0.03, performance: 64 },
+          "MCP_GPT-4.1": { cost: 0.07, performance: 49 },
+          "NLWeb_GPT-4.1": { cost: 0.075, performance: 52 },
+          "HTML_GPT-4.1": { cost: 0.345, performance: 56 },
+          "RAG_Claude 4 Sonnet": { cost: 0.2, performance: 67 },
+          "MCP_Claude 4 Sonnet": { cost: 0.75, performance: 63 },
+          "NLWeb_Claude 4 Sonnet": { cost: 0.16, performance: 68 },
+          "HTML_Claude 4 Sonnet": { cost: 1.155, performance: 61 },
         },
         basic: {
-          'RAG_GPT-4.1': { cost: 0.02, performance: 83 },
-          'MCP_GPT-4.1': { cost: 0.06, performance: 71 },
-          'NLWeb_GPT-4.1': { cost: 0.06, performance: 69 },
-          'HTML_GPT-4.1': { cost: 0.29, performance: 75 },
-          'RAG_Claude 4 Sonnet': { cost: 0.11, performance: 85 },
-          'MCP_Claude 4 Sonnet': { cost: 0.65, performance: 79 },
-          'NLWeb_Claude 4 Sonnet': { cost: 0.13, performance: 88 },
-          'HTML_Claude 4 Sonnet': { cost: 0.94, performance: 71 }
+          "RAG_GPT-4.1": { cost: 0.02, performance: 83 },
+          "MCP_GPT-4.1": { cost: 0.06, performance: 71 },
+          "NLWeb_GPT-4.1": { cost: 0.06, performance: 69 },
+          "HTML_GPT-4.1": { cost: 0.29, performance: 75 },
+          "RAG_Claude 4 Sonnet": { cost: 0.11, performance: 85 },
+          "MCP_Claude 4 Sonnet": { cost: 0.65, performance: 79 },
+          "NLWeb_Claude 4 Sonnet": { cost: 0.13, performance: 88 },
+          "HTML_Claude 4 Sonnet": { cost: 0.94, performance: 71 },
         },
         advanced: {
-          'RAG_GPT-4.1': { cost: 0.04, performance: 44 },
-          'MCP_GPT-4.1': { cost: 0.08, performance: 26 },
-          'NLWeb_GPT-4.1': { cost: 0.09, performance: 33 },
-          'HTML_GPT-4.1': { cost: 0.40, performance: 35 },
-          'RAG_Claude 4 Sonnet': { cost: 0.29, performance: 47 },
-          'MCP_Claude 4 Sonnet': { cost: 0.85, performance: 44 },
-          'NLWeb_Claude 4 Sonnet': { cost: 0.19, performance: 46 },
-          'HTML_Claude 4 Sonnet': { cost: 1.37, performance: 49 }
-        }
+          "RAG_GPT-4.1": { cost: 0.04, performance: 44 },
+          "MCP_GPT-4.1": { cost: 0.08, performance: 26 },
+          "NLWeb_GPT-4.1": { cost: 0.09, performance: 33 },
+          "HTML_GPT-4.1": { cost: 0.4, performance: 35 },
+          "RAG_Claude 4 Sonnet": { cost: 0.29, performance: 47 },
+          "MCP_Claude 4 Sonnet": { cost: 0.85, performance: 44 },
+          "NLWeb_Claude 4 Sonnet": { cost: 0.19, performance: 46 },
+          "HTML_Claude 4 Sonnet": { cost: 1.37, performance: 49 },
+        },
       };
-      
+
       function updateScatterChart(category, buttonElement) {
         // Update button states
-        document.querySelectorAll('.buttons button').forEach(btn => {
-          btn.classList.remove('is-primary', 'is-selected');
+        document.querySelectorAll(".buttons button").forEach((btn) => {
+          btn.classList.remove("is-primary", "is-selected");
         });
-        
+
         // Handle button element
         if (buttonElement) {
-          buttonElement.classList.add('is-primary', 'is-selected');
+          buttonElement.classList.add("is-primary", "is-selected");
         } else {
           // Initial load - select the All Tasks button
-          const allTasksButton = document.getElementById('btnAll');
+          const allTasksButton = document.getElementById("btnAll");
           if (allTasksButton) {
-            allTasksButton.classList.add('is-primary', 'is-selected');
+            allTasksButton.classList.add("is-primary", "is-selected");
           }
         }
-        
+
         const data = performanceData[category];
-        const ctx = document.getElementById('costPerformanceChart');
-        
+        const ctx = document.getElementById("costPerformanceChart");
+
         if (costPerfChart) {
           costPerfChart.destroy();
         }
-        
+
         // Define different point styles for models
         const pointStyles = {
-          'GPT-4.1': 'circle',
-          'Claude 4 Sonnet': 'rect'
+          "GPT-4.1": "circle",
+          "Claude 4 Sonnet": "rect",
         };
-        
+
         costPerfChart = new Chart(ctx, {
-          type: 'scatter',
+          type: "scatter",
           data: {
             datasets: [
               {
-                label: 'RAG (GPT-4.1)',
-                data: [{
-                  x: data['RAG_GPT-4.1'].cost,
-                  y: data['RAG_GPT-4.1'].performance
-                }],
-                backgroundColor: '#FF6384',
-                borderColor: '#FF6384',
-                pointStyle: 'circle',
+                label: "RAG (GPT-4.1)",
+                data: [
+                  {
+                    x: data["RAG_GPT-4.1"].cost,
+                    y: data["RAG_GPT-4.1"].performance,
+                  },
+                ],
+                backgroundColor: "#FF6384",
+                borderColor: "#FF6384",
+                pointStyle: "circle",
                 pointRadius: 10,
-                pointHoverRadius: 12
+                pointHoverRadius: 12,
               },
               {
-                label: 'RAG (Claude 4)',
-                data: [{
-                  x: data['RAG_Claude 4 Sonnet'].cost,
-                  y: data['RAG_Claude 4 Sonnet'].performance
-                }],
-                backgroundColor: '#FF6384',
-                borderColor: '#FF6384',
-                pointStyle: 'rect',
+                label: "RAG (Claude 4)",
+                data: [
+                  {
+                    x: data["RAG_Claude 4 Sonnet"].cost,
+                    y: data["RAG_Claude 4 Sonnet"].performance,
+                  },
+                ],
+                backgroundColor: "#FF6384",
+                borderColor: "#FF6384",
+                pointStyle: "rect",
                 pointRadius: 10,
-                pointHoverRadius: 12
+                pointHoverRadius: 12,
               },
               {
-                label: 'MCP (GPT-4.1)',
-                data: [{
-                  x: data['MCP_GPT-4.1'].cost,
-                  y: data['MCP_GPT-4.1'].performance
-                }],
-                backgroundColor: '#36A2EB',
-                borderColor: '#36A2EB',
-                pointStyle: 'circle',
+                label: "MCP (GPT-4.1)",
+                data: [
+                  {
+                    x: data["MCP_GPT-4.1"].cost,
+                    y: data["MCP_GPT-4.1"].performance,
+                  },
+                ],
+                backgroundColor: "#36A2EB",
+                borderColor: "#36A2EB",
+                pointStyle: "circle",
                 pointRadius: 10,
-                pointHoverRadius: 12
+                pointHoverRadius: 12,
               },
               {
-                label: 'MCP (Claude 4)',
-                data: [{
-                  x: data['MCP_Claude 4 Sonnet'].cost,
-                  y: data['MCP_Claude 4 Sonnet'].performance
-                }],
-                backgroundColor: '#36A2EB',
-                borderColor: '#36A2EB',
-                pointStyle: 'rect',
+                label: "MCP (Claude 4)",
+                data: [
+                  {
+                    x: data["MCP_Claude 4 Sonnet"].cost,
+                    y: data["MCP_Claude 4 Sonnet"].performance,
+                  },
+                ],
+                backgroundColor: "#36A2EB",
+                borderColor: "#36A2EB",
+                pointStyle: "rect",
                 pointRadius: 10,
-                pointHoverRadius: 12
+                pointHoverRadius: 12,
               },
               {
-                label: 'NLWeb (GPT-4.1)',
-                data: [{
-                  x: data['NLWeb_GPT-4.1'].cost,
-                  y: data['NLWeb_GPT-4.1'].performance
-                }],
-                backgroundColor: '#4BC0C0',
-                borderColor: '#4BC0C0',
-                pointStyle: 'circle',
+                label: "NLWeb (GPT-4.1)",
+                data: [
+                  {
+                    x: data["NLWeb_GPT-4.1"].cost,
+                    y: data["NLWeb_GPT-4.1"].performance,
+                  },
+                ],
+                backgroundColor: "#4BC0C0",
+                borderColor: "#4BC0C0",
+                pointStyle: "circle",
                 pointRadius: 10,
-                pointHoverRadius: 12
+                pointHoverRadius: 12,
               },
               {
-                label: 'NLWeb (Claude 4)',
-                data: [{
-                  x: data['NLWeb_Claude 4 Sonnet'].cost,
-                  y: data['NLWeb_Claude 4 Sonnet'].performance
-                }],
-                backgroundColor: '#4BC0C0',
-                borderColor: '#4BC0C0',
-                pointStyle: 'rect',
+                label: "NLWeb (Claude 4)",
+                data: [
+                  {
+                    x: data["NLWeb_Claude 4 Sonnet"].cost,
+                    y: data["NLWeb_Claude 4 Sonnet"].performance,
+                  },
+                ],
+                backgroundColor: "#4BC0C0",
+                borderColor: "#4BC0C0",
+                pointStyle: "rect",
                 pointRadius: 10,
-                pointHoverRadius: 12
+                pointHoverRadius: 12,
               },
               {
-                label: 'HTML (GPT-4.1)',
-                data: [{
-                  x: data['HTML_GPT-4.1'].cost,
-                  y: data['HTML_GPT-4.1'].performance
-                }],
-                backgroundColor: '#FFCE56',
-                borderColor: '#FFCE56',
-                pointStyle: 'circle',
+                label: "HTML (GPT-4.1)",
+                data: [
+                  {
+                    x: data["HTML_GPT-4.1"].cost,
+                    y: data["HTML_GPT-4.1"].performance,
+                  },
+                ],
+                backgroundColor: "#FFCE56",
+                borderColor: "#FFCE56",
+                pointStyle: "circle",
                 pointRadius: 10,
-                pointHoverRadius: 12
+                pointHoverRadius: 12,
               },
               {
-                label: 'HTML (Claude 4)',
-                data: [{
-                  x: data['HTML_Claude 4 Sonnet'].cost,
-                  y: data['HTML_Claude 4 Sonnet'].performance
-                }],
-                backgroundColor: '#FFCE56',
-                borderColor: '#FFCE56',
-                pointStyle: 'rect',
+                label: "HTML (Claude 4)",
+                data: [
+                  {
+                    x: data["HTML_Claude 4 Sonnet"].cost,
+                    y: data["HTML_Claude 4 Sonnet"].performance,
+                  },
+                ],
+                backgroundColor: "#FFCE56",
+                borderColor: "#FFCE56",
+                pointStyle: "rect",
                 pointRadius: 10,
-                pointHoverRadius: 12
-              }
-            ]
+                pointHoverRadius: 12,
+              },
+            ],
           },
           options: {
             responsive: true,
@@ -1213,78 +1209,75 @@ python benchmark_api_mcp.py      # API MCP interface</pre
             plugins: {
               title: {
                 display: true,
-                text: `Cost vs Performance: ${category.charAt(0).toUpperCase() + category.slice(1)} Tasks`,
+                text: `Cost vs Effectiveness: ${category.charAt(0).toUpperCase() + category.slice(1)} Tasks`,
                 font: {
-                  size: 18
-                }
+                  size: 18,
+                },
               },
               legend: {
-                position: 'right',
+                position: "right",
                 labels: {
                   font: {
-                    size: 12
+                    size: 12,
                   },
                   usePointStyle: true,
-                  padding: 15
-                }
+                  padding: 15,
+                },
               },
               tooltip: {
                 callbacks: {
-                  label: function(context) {
-                    return [
-                      `Cost: $${context.parsed.x.toFixed(4)} per task`,
-                      `Completion Rate: ${context.parsed.y.toFixed(1)}%`
-                    ];
-                  }
-                }
-              }
+                  label: function (context) {
+                    return [`Cost: $${context.parsed.x.toFixed(4)} per task`, `Completion Rate: ${context.parsed.y.toFixed(1)}%`];
+                  },
+                },
+              },
             },
             scales: {
               x: {
-                type: 'logarithmic',
-                position: 'bottom',
+                type: "logarithmic",
+                position: "bottom",
                 title: {
                   display: true,
-                  text: 'Average Cost per Task ($) - Log Scale',
+                  text: "Average Cost per Task ($) - Log Scale",
                   font: {
-                    size: 14
-                  }
+                    size: 14,
+                  },
                 },
                 min: 0.01,
                 max: 2,
                 ticks: {
-                  callback: function(value) {
+                  callback: function (value) {
                     if ([0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2].includes(value)) {
-                      return '$' + value.toFixed(2);
+                      return "$" + value.toFixed(2);
                     }
-                    return '';
-                  }
-                }
+                    return "";
+                  },
+                },
               },
               y: {
                 title: {
                   display: true,
-                  text: 'Task Completion Rate (%)',
+                  text: "Task Completion Rate (%)",
                   font: {
-                    size: 14
-                  }
-                },
-                min: category === 'basic' ? 65 : category === 'advanced' ? 20 : 45,
-                max: category === 'basic' ? 90 : category === 'advanced' ? 55 : 70,
-                ticks: {
-                  callback: function(value) {
-                    return value + '%';
+                    size: 14,
                   },
-                  stepSize: 5
-                }
-              }
-            }
-          }
+                },
+                min: category === "basic" ? 65 : category === "advanced" ? 20 : 45,
+                max: category === "basic" ? 90 : category === "advanced" ? 55 : 70,
+                ticks: {
+                  callback: function (value) {
+                    return value + "%";
+                  },
+                  stepSize: 5,
+                },
+              },
+            },
+          },
         });
       }
-      
-      document.addEventListener('DOMContentLoaded', function() {
-        updateScatterChart('all');
+
+      document.addEventListener("DOMContentLoaded", function () {
+        updateScatterChart("all");
       });
     </script>
   </body>
