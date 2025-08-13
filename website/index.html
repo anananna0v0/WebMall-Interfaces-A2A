@@ -767,6 +767,27 @@ async def find_items_techtalk(
                 <!-- Results table will be inserted here -->
               </div>
 
+              <div id="findings-4-2-basic" class="content">
+                <h5 class="title is-5">Key Findings</h5>
+                <ul>
+                  <li>
+                    NLWeb with Claude Sonnet achieves the highest completion rate (88%) for basic tasks, while using fewer tokens than the HTML Agent.
+                  </li>
+                  <li>RAG delivers strong basic-task effectiveness with substantially lower token usage than the HTML Agent.</li>
+                  <li>HTML Agents consume 5–10× more tokens than other interfaces without consistent advantages in completion rate.</li>
+                </ul>
+              </div>
+
+              <div id="findings-4-2-advanced" class="content">
+                <h5 class="title is-5">Key Findings</h5>
+                <ul>
+                  <li>
+                    HTML with Claude Sonnet attains the highest completion rate for advanced tasks (~49%) but with substantially higher token usage.
+                  </li>
+                  <li>Differences across models are pronounced in advanced tasks; Claude tends to outperform GPT‑4.1 across interfaces.</li>
+                </ul>
+              </div>
+
               <h3 class="title is-4">4.3 Effectiveness by Category</h3>
               <p>
                 Results grouped by task complexity:
@@ -776,6 +797,36 @@ async def find_items_techtalk(
               </p>
               <div id="results-by-category" class="results-table">
                 <!-- Results table will be inserted here -->
+              </div>
+
+              <div id="findings-4-3-basic" class="content">
+                <h5 class="title is-5">Key Findings</h5>
+                <ul>
+                  <li>
+                    Find Specific Product: Structured/indexed approaches (RAG, NLWeb, MCP) reach or approach very high completion, while the HTML
+                    Agent trails on this category.
+                  </li>
+                  <li>Find Cheapest Offer: RAG achieves strong effectiveness with lower token usage than the HTML Agent.</li>
+                  <li>Best Fit Specific: HTML underperforms compared to structured/indexed interfaces.</li>
+                  <li>
+                    Checkout: API- and tool-based interfaces (MCP, NLWeb, RAG) are more reliable and efficient than HTML for transactional steps.
+                  </li>
+                </ul>
+              </div>
+
+              <div id="findings-4-3-advanced" class="content">
+                <h5 class="title is-5">Key Findings</h5>
+                <ul>
+                  <li>Best Fit Vague: NLWeb performs well on vague requirement matching when standardized data is available.</li>
+                  <li>
+                    Cheapest Best Fit Vague and Find Compatible Products: Completion rates are low across all interfaces, reflecting the difficulty of
+                    these tasks.
+                  </li>
+                  <li>
+                    End-to-End: Standardized product data and transactional APIs (NLWeb/MCP) enable strong multi-step performance; RAG remains
+                    efficient on extended tasks.
+                  </li>
+                </ul>
               </div>
 
               <h3 class="title is-4">4.4 Cost & Runtime Analysis</h3>
@@ -806,6 +857,24 @@ async def find_items_techtalk(
                 <!-- Cost tables will be inserted here -->
               </div>
 
+              <div id="findings-4-4-basic" class="content">
+                <h5 class="title is-5">Key Findings</h5>
+                <ul>
+                  <li>RAG with GPT-4.1 shows a favorable cost–effectiveness profile on basic tasks.</li>
+                  <li>NLWeb with Claude Sonnet provides the highest accuracy at higher cost and latency.</li>
+                  <li>MCP with Claude Sonnet tends to be costlier due to higher prompt token usage.</li>
+                </ul>
+              </div>
+
+              <div id="findings-4-4-advanced" class="content">
+                <h5 class="title is-5">Key Findings</h5>
+                <ul>
+                  <li>HTML with Claude Sonnet achieves the highest completion rate, but at higher cost and runtime.</li>
+                  <li>RAG with GPT-4.1 offers competitive completion with much lower cost and latency.</li>
+                  <li>NLWeb with Claude Sonnet balances effectiveness and efficiency relative to MCP and HTML.</li>
+                </ul>
+              </div>
+
               <h3 class="title is-4">4.5 Cost vs Effectiveness Comparison</h3>
               <p>
                 The scatter plot below visualizes the relationship between cost and effectiveness across different agent interfaces and models. Each
@@ -834,8 +903,8 @@ async def find_items_techtalk(
                   mixed across interfaces and models, so selection should consider task complexity and cost trade-offs.
                 </li>
                 <li>
-                  <strong>Efficiency</strong>: Alternative interfaces use 5-10x fewer tokens than HTML-based agents, translating to significant
-                  cost savings.
+                  <strong>Efficiency</strong>: Alternative interfaces use 5-10x fewer tokens than HTML-based agents, translating to significant cost
+                  savings.
                 </li>
                 <li>
                   <strong>Speed</strong>: RAG and API-based agents complete tasks faster due to direct data access without page navigation overhead.

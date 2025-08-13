@@ -460,6 +460,8 @@ function createResultsTable(data, filterFunc, InterfaceNames, taskType) {
     return table;
 }
 
+// Key Findings are authored statically in index.html
+
 async function loadResults() {
     try {
         // Load runtime data
@@ -505,6 +507,20 @@ async function loadResults() {
             tableWrapper.className = "results-table";
             tableWrapper.appendChild(table);
             container.appendChild(tableWrapper);
+
+            // Place Key Findings (content authored in index.html) right after each table
+            const findingsIdByType = {
+                Basic: "findings-4-2-basic",
+                Advanced: "findings-4-2-advanced",
+            };
+            const findingsNode = document.getElementById(
+                findingsIdByType[taskType]
+            );
+            if (findingsNode) {
+                container.appendChild(findingsNode);
+            }
+
+            // Key Findings for 4.2 rendered in index.html
         });
 
         // Load by category results
@@ -540,6 +556,20 @@ async function loadResults() {
                 taskType
             );
             categoryContainer.appendChild(table);
+
+            // Place Key Findings for 4.3 under the corresponding table
+            const catFindingsIdByType = {
+                Basic: "findings-4-3-basic",
+                Advanced: "findings-4-3-advanced",
+            };
+            const catFindingsNode = document.getElementById(
+                catFindingsIdByType[taskType]
+            );
+            if (catFindingsNode) {
+                categoryContainer.appendChild(catFindingsNode);
+            }
+
+            // Key Findings for 4.3 rendered in index.html
         });
 
         // Create cost analysis tables (split by Basic and Advanced)
@@ -569,6 +599,20 @@ async function loadResults() {
                 runtimeData // Pass the runtime data
             );
             costContainer.appendChild(table);
+
+            // Place Key Findings for 4.4 under the corresponding table
+            const costFindingsIdByType = {
+                Basic: "findings-4-4-basic",
+                Advanced: "findings-4-4-advanced",
+            };
+            const costFindingsNode = document.getElementById(
+                costFindingsIdByType[taskType]
+            );
+            if (costFindingsNode) {
+                costContainer.appendChild(costFindingsNode);
+            }
+
+            // Key Findings for 4.4 rendered in index.html
         });
     } catch (error) {
         console.error("Error loading results:", error);
