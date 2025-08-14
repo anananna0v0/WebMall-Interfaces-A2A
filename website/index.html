@@ -539,7 +539,7 @@ async def find_items_techtalk(
                 <tbody>
                   <tr>
                     <td>
-                      <strong>E-Shop</strong>
+                      <strong>E-Shops</strong>
                     </td>
                     <td colspan="4"></td>
                   </tr>
@@ -676,12 +676,12 @@ async def find_items_techtalk(
             <h2 class="title is-3">4. Experimental Results</h2>
             <div class="content">
               <p>
-                We evaluated each agent interface on the complete WebMall benchmark task set. The evaluation compares the effectiveness of different
+                We evaluated each agent on the complete WebMall task set. The evaluation compares the effectiveness of different
                 agent architectures: RAG Agent, MCP Agent, and NLWeb Agent. For comparison, we also include results from the strongest HTML Agent
-                configuration on the WebMall benchmark, <a href="https://wbsg-uni-mannheim.github.io/WebMall/#results" target="_blank">AX+MEM</a>.
+                configuration from the original WebMall benchmark, <a href="https://wbsg-uni-mannheim.github.io/WebMall/#results" target="_blank">AX+MEM</a>.
               </p>
               <p>
-                Every agent interface is evaluated with both GPT-4.1 (gpt-4.1-2025-04-14) and Claude 4 Sonnet (claude-sonnet-4-20250514) to assess
+                Every agent architecture is evaluated in combination with both GPT-4.1 (gpt-4.1-2025-04-14) and Claude 4 Sonnet (claude-sonnet-4-20250514) to assess
                 variations in effectiveness across models. Note that our experiments do not utilize prompt caching. Detailed execution logs for all
                 runs are available in our
                 <a href="https://github.com/wbsg-uni-mannheim/WebMall-Interfaces/tree/main/results/v1" target="_blank">GitHub repository</a>,
@@ -689,7 +689,7 @@ async def find_items_techtalk(
                 <a href="https://github.com/wbsg-uni-mannheim/WebMall-Interfaces/tree/main/results/v1/shortened_logs" target="_blank"
                   >shortened execution logs</a
                 >
-                containing one successful task execution per agent interface and model are also available.
+                containing one successful task execution per agent and model are also available.
               </p>
 
               <h3 class="title is-4">4.1 Evaluation Metrics</h3>
@@ -697,14 +697,14 @@ async def find_items_techtalk(
               <ul>
                 <li>
                   <strong>Task Completion Rate</strong>: Binary metric (0 or 1) measuring exact task completion. An agent achieves 1.0 only if no
-                  elements are missing and no additional elements are returned.
+                  correct product is missing and no additional products are returned.
                 </li>
                 <li>
-                  <strong>Precision</strong>: Fraction of agent-returned URLs that are correct (intersection ÷ total URLs returned). Higher precision
+                  <strong>Precision</strong>: Fraction of the products returned by the agent that are correct (intersection ÷ total products returned). Higher precision
                   means fewer incorrect products.
                 </li>
                 <li>
-                  <strong>Recall</strong>: Fraction of correct URLs that the agent found (intersection ÷ total correct URLs). Higher recall means
+                  <strong>Recall</strong>: Fraction of correct products that the agent found (intersection ÷ total correct products). Higher recall means
                   fewer missing products.
                 </li>
                 <li><strong>F1 Score</strong>: Harmonic mean of precision and recall.</li>
@@ -726,7 +726,7 @@ async def find_items_techtalk(
                     NLWeb with Claude Sonnet achieves the highest completion rate (88%) for basic tasks, while using fewer tokens than the HTML Agent.
                   </li>
                   <li>RAG delivers strong basic-task effectiveness with substantially lower token usage than the HTML Agent.</li>
-                  <li>HTML Agents consume 5–10× more tokens than other interfaces without consistent advantages in completion rate.</li>
+                  <li>The HTML agents consume 5–10× more tokens than other agents without consistent advantages in completion rate.</li>
                 </ul>
               </div>
 
@@ -736,7 +736,7 @@ async def find_items_techtalk(
                   <li>
                     HTML with Claude Sonnet attains the highest completion rate for advanced tasks (~49%) but with substantially higher token usage.
                   </li>
-                  <li>Differences across models are pronounced in advanced tasks; Claude tends to outperform GPT‑4.1 across interfaces.</li>
+                  <li>Differences across models are pronounced in advanced tasks; Claude tends to outperform GPT 4.1 across all agent architectures.</li>
                 </ul>
               </div>
 
@@ -744,8 +744,7 @@ async def find_items_techtalk(
               <p>
                 Results grouped by task complexity:
                 <strong>Basic</strong> tasks include straightforward operations like finding specific products and simple checkout processes, while
-                <strong>Advanced</strong> tasks require complex reasoning such as interpreting vague requirements, finding substitutes, and multi-step
-                workflows.
+                <strong>Advanced</strong> tasks require complex reasoning such as interpreting vague requirements, finding substitutes, and compatible products.
               </p>
               <div id="results-by-category" class="results-table">
                 <!-- Results table will be inserted here -->
@@ -756,7 +755,7 @@ async def find_items_techtalk(
                 <ul>
                   <li>
                     Find Specific Product: Structured/indexed approaches (RAG, NLWeb, MCP) reach or approach very high completion, while the HTML
-                    Agent trails on this category.
+                    agent trails on this category.
                   </li>
                   <li>Find Cheapest Offer: RAG achieves strong effectiveness with lower token usage than the HTML Agent.</li>
                   <li>Best Fit Specific: HTML underperforms compared to structured/indexed interfaces.</li>
@@ -771,18 +770,18 @@ async def find_items_techtalk(
                 <ul>
                   <li>Best Fit Vague: NLWeb performs well on vague requirement matching when standardized data is available.</li>
                   <li>
-                    Cheapest Best Fit Vague and Find Compatible Products: Completion rates are low across all interfaces, reflecting the difficulty of
+                    Cheapest Best Fit Vague and Find Compatible Products: Completion rates are low across all agents, reflecting the difficulty of
                     these tasks.
                   </li>
                   <li>
-                    End-to-End: Standardized product data and transactional APIs (NLWeb/MCP) enable strong multi-step performance; RAG remains
+                    End-to-End: Standardized product data and transactional APIs (NLWeb/MCP) enable strong end-to-end performance; RAG remains
                     efficient on extended tasks.
                   </li>
                 </ul>
               </div>
 
               <h3 class="title is-4">4.4 Cost & Runtime Analysis</h3>
-              <p>Cost and execution time analysis based on model pricing and actual results from our experiments. Token prices as of July 2025:</p>
+              <p>Cost and execution time analysis based on model pricing and runtime results from our experiments. Token prices as of July 2025:</p>
               <ul>
                 <li>
                   <strong>GPT-4.1</strong>: $2.00/MTok input, $8.00/MTok output (<a
