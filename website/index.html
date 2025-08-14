@@ -383,22 +383,21 @@
             <h3 class="title is-4">2.3 Agent querying Web APIs via MCP (MCP Agent)</h3>
             <div class="content">
               <p>
-                The MCP agent interacts with websites through structured APIs provided by website vendors. These APIs are exposed via the
+                This architecture assumes that the e-shops provide proprietary API as well as MCP descriptions of the APIs. The agent interacts with the e-shops by calling shop-specific functions. These APIs are exposed via the
                 <a href="https://modelcontextprotocol.io" target="_blank">Model Context Protocol (MCP)</a>, originally proposed by
                 <a href="https://www.anthropic.com/news/model-context-protocol" target="_blank">Anthropic</a>. MCP is an open protocol designed to
                 standardize communication between LLM applications and external tools or data sources. Instead of parsing unstructured web content, an
-                agent (the MCP <em>Host</em>) connects to a dedicated MCP <em>Server</em> that exposes a well-defined set of tools. These tools wrap
-                the Web API and can be implemented by the website vendor directly or by a third party.
+                agent (the MCP <em>Host</em>) connects to a dedicated MCP <em>Server</em> that exposes a well-defined set of tools (functions). 
               </p>
               <p>
                 In our setup, we run four independent MCP servers, one for each WebMall shop. These servers expose tools for actions like search, cart
-                management, and checkout. However, to simulate a realistic, multi-provider environment, the WebAPIs are heterogeneous - the data
+                management, and checkout. However, to simulate a realistic, multi-shop environment, the WebAPIs are heterogeneous - the data
                 format and tools returned by each server are intentionally different. This heterogeneity forces the agent to adapt to different API
                 responses from each shop, testing its ability to handle diverse, non-standardized data structures, which reflects the reality of
-                integrating with multiple independent web services.
+                integrating with multiple independent web APIs.
               </p>
               <p>
-                The agent leverages the same <a href="https://www.langchain.com/langgraph" target="_blank">LangGraph</a> framework as the RAG agent.
+                The MCP agent is implemented using the same <a href="https://www.langchain.com/langgraph" target="_blank">LangGraph</a> framework as the RAG agent.
                 It uses MCP tools exposed by each shop's server for product search, cart management, and checkout operations.
               </p>
 
@@ -419,8 +418,7 @@
                 <li><strong>Response Handling:</strong> The agent receives a structured but potentially heterogeneous JSON response.</li>
               </ol>
               <p>
-                The heterogeneity of WebAPIs is evident in how different shops implement the same functionality. For example, checkout operations have
-                completely different signatures and parameter names:
+                The example below illustrates the heterogeneity of WebAPIs by comparing the search methods of two shops. <code>search_products</code> and <code>find_items_techtalk</code> use different parameter names, while the second method offers the possiblity to sort by price, which is not possible in the first method.
               </p>
               <div class="code-block">
                 <pre>
@@ -467,17 +465,17 @@ async def find_items_techtalk(
             <h3 class="title is-4">2.4 Agent querying NLWeb Sites (NLWeb Agent)</h3>
             <div class="content">
               <p>
-                The NLWeb Agent interacts with NLWeb Sites through a standardized natural language interface provided by the site vendors. The vendor
-                must implement and host an "ask" endpoint that accepts natural language queries and returns structured responses according to the
-                Schema.org format.
+                The NLWeb agent interacts with the e-shops through a standardized natural language interface that needs to be offered by all NLWeb sites. Each e-shop
+                must implement "ask" endpoint that accepts natural language queries and returns structured responses using the
+                schema.org format.
                 <a href="https://github.com/nlweb-ai/NLWeb" target="_blank">NLWeb</a>
                 (Natural Language for Web), proposed and supported by
                 <a href="https://www.microsoft.com/en-us/research/blog/nlweb-a-blueprint-for-web-agent-interfaces/" target="_blank">Microsoft</a>,
-                provides a standardized mechanism for this interaction. It operates by leveraging existing semi-structured data, particularly
-                Schema.org markup, to create a semantic layer over a site's content.
+                provides a standardized mechanism for this interaction. It leverages existing semi-structured formats, particularly
+                schema.org and RSS, to create a semantic layer over a site's content.
               </p>
               <p>
-                In our implementation, we create one dedicated Elasticsearch index per Webshop (NLWeb Site) that enables semantic search of that
+                In our implementation, we create one dedicated Elasticsearch index per e-shop (NLWeb Site) that enables semantic search of that
                 site's content. Each NLWeb server processes natural language queries by generating embeddings and performing cosine similarity search
                 against its shop-specific index. Additionally, we create an MCP server per shop to enable other functionality like cart management and
                 checkout operations, complementing the <code>ask</code> tool for product search.
@@ -504,7 +502,7 @@ async def find_items_techtalk(
                   The server generates an embedding from the query and performs a cosine similarity search against the pre-computed vectors in its
                   dedicated Elasticsearch index.
                 </li>
-                <li><strong>Standardized Response:</strong> The agent receives a list of products in the standardized Schema.org JSON format.</li>
+                <li><strong>Standardized Response:</strong> The agent receives a list of products in the standardized schema.org JSON format.</li>
               </ol>
               <p>
                 The complete implementation is available in the
@@ -524,6 +522,9 @@ async def find_items_techtalk(
         <div class="columns is-centered">
           <div class="column is-full-width">
             <h2 class="title is-3">2.5 Comparison of the Different Architectures</h2>
+			              <p>
+                The table below compares the four different architectures along the features offered by the e-shops and the functionality implemented by the agents.
+              </p>
             <div class="results-table">
               <table class="table is-striped is-hoverable is-fullwidth">
                 <thead>
@@ -538,92 +539,50 @@ async def find_items_techtalk(
                 <tbody>
                   <tr>
                     <td>
-                      <strong>Website Infrastructure</strong>
+                      <strong>E-Shop</strong>
                     </td>
                     <td colspan="4"></td>
                   </tr>
                   <tr>
-                    <td>Data Source</td>
-                    <td>Web scraping (HTML)</td>
-                    <td>API access</td>
-                    <td>API access</td>
-                    <td>Real-time HTML + AXTree + Screenshots</td>
+                    <td>Interface offered</td>
+                    <td>HTML pages</td>
+                    <td>proprietary APIs</td>
+                    <td>standaardized API</td>
+                    <td>HTML pages + search box</td>
                   </tr>
                   <tr>
-                    <td>Data Storage</td>
-                    <td>Unified Elasticsearch Index</td>
-                    <td>Per-Shop Elasticsearch Indices</td>
-                    <td>Per-Shop Elasticsearch Indices</td>
-                    <td>Browser state only</td>
+                    <td>Search Functonality</td>
+                    <td>Not used as shops are crawled</td>
+                    <td>Search product data</td>
+                    <td>Search product data</td>
+                    <td>Search free text</td>
                   </tr>
                   <tr>
-                    <td>Index Content</td>
-                    <td>Unstructured Text</td>
-                    <td>Structured Product Data</td>
-                    <td>Structured Product Data</td>
+                    <td>Search Response</td>
                     <td>N/A</td>
-                  </tr>
-                  <tr>
-                    <td>Preprocessing</td>
-                    <td>HTML cleaning</td>
-                    <td>None required</td>
-                    <td>Schema.org translation</td>
-                    <td>AXTree generation</td>
-                  </tr>
-                  <tr>
-                    <td>Response Format</td>
-                    <td>Document fields (title, content, url)</td>
-                    <td>Heterogeneous per-shop JSON</td>
-                    <td>Standardized Schema.org</td>
-                    <td>Multi-modal observations (HTML/AXTree/Visual)</td>
-                  </tr>
-                  <tr>
-                    <td>Data Freshness</td>
-                    <td>Index-based; stale between crawls</td>
-                    <td>Live via APIs (where supported)</td>
-                    <td>Often live (implementation-dependent)</td>
-                    <td>Reads current pages</td>
+                    <td>heterogenous JSON</td>
+                    <td>schema.org products</td>
+                    <td>HTML result list</td>
                   </tr>
                   <tr>
                     <td>
-                      <strong>Agent Architecture</strong>
+                      <strong>Agent</strong>
                     </td>
                     <td colspan="4"></td>
                   </tr>
                   <tr>
-                    <td>Search Type</td>
-                    <td>Semantic (KNN on embeddings)</td>
-                    <td>Semantic (KNN on embeddings)</td>
-                    <td>Semantic (KNN on embeddings)</td>
-                    <td>DOM/AXTree traversal + visual navigation</td>
-                  </tr>
-                  <tr>
                     <td>Communication Protocol</td>
-                    <td>Direct Python Functions</td>
+                    <td>direct calls to search engine</td>
                     <td>JSON-RPC via MCP</td>
                     <td>JSON-RPC via MCP</td>
-                    <td>Playwright + Chrome DevTools Protocol</td>
+                    <td>HTML over HTTP</td>
                   </tr>
                   <tr>
                     <td>Query Strategy</td>
                     <td>Multi-query generation</td>
                     <td>Multi-query possible per shop</td>
                     <td>Multi-query possible per shop</td>
-                    <td>Multi-action sequences per step</td>
-                  </tr>
-                  <tr>
-                    <td>Shop Selection</td>
-                    <td>Searches all shops at once</td>
-                    <td>Agent selects shops</td>
-                    <td>Agent selects shops</td>
-                    <td>Sequential shop visits</td>
-                  </tr>
-
-                  <tr>
-                    <td>
-                      <strong>Agent Capabilities</strong>
-                    </td>
-                    <td colspan="4"></td>
+                    <td>Site search and browsing</td>
                   </tr>
                   <tr>
                     <td>Search Refinement</td>
@@ -633,22 +592,15 @@ async def find_items_techtalk(
                     <td>Interactive page exploration</td>
                   </tr>
                   <tr>
-                    <td>Cross-shop Comparison</td>
-                    <td>Native (unified index)</td>
-                    <td>Sequential MCP calls</td>
-                    <td>Sequential MCP calls</td>
-                    <td>Sequential browsing</td>
-                  </tr>
-                  <tr>
                     <td>Cart Management</td>
-                    <td>Python tool functions</td>
+                    <td>direct functions calls</td>
                     <td>MCP tool invocation</td>
                     <td>MCP tool invocation</td>
                     <td>Browser interactions</td>
                   </tr>
                   <tr>
                     <td>Checkout Process</td>
-                    <td>Direct function calls</td>
+                    <td>direct functions calls</td>
                     <td>MCP tool invocation</td>
                     <td>MCP tool invocation</td>
                     <td>Form filling & submission</td>
@@ -894,21 +846,22 @@ async def find_items_techtalk(
               <h3 class="title is-4">Key Findings</h3>
               <ul>
                 <li>
-                  <strong>Effectiveness</strong>: RAG, MCP, and NLWeb match or exceed HTML-based effectiveness, with NLWeb achieving 88% completion
-                  rate on basic tasks.
+                  <strong>Effectiveness:</strong> The task completion rates are mixed and strongly depend on the specific model/architecture combination. The RAG, MCP, and NLWeb agents often match or exceed the effectiveness of the HTML agent. 
+				  The completion rates for the basic task set are rather high, with the NLWeb agent achieving the best result (88%).
+				  For the advanced tasks, the completion rates remain below 50% for all model/architecture combinations. This shows that the agents can in principle also solve advanced tasks, but are still not relyable enough for practical deployment.
+                </li>
+				<li>
+                  <strong>Efficiency:</strong> The RAG, MCP, and NLWeb agents use 5-10 times less tokens than the HTML agent, translating to significantly lower costs.
                 </li>
                 <li>
-                  <strong>Viability</strong>: GPT-4.1 with RAG delivers low average cost per task (about $0.02 on basic tasks in our runs) with solid
+                  <strong>Runtime:</strong> RAG and MCP-based agents complete tasks faster due to direct data access without page navigation overhead.
+                </li>
+                <li>
+                  <strong>Viability:</strong> GPT-4.1 with RAG delivers low average cost per task (about $0.02 on basic tasks in our runs) with solid
                   effectiveness (about 83% completion), making it a practical option for basic shopping tasks. For advanced tasks, effectiveness is
                   mixed across interfaces and models, so selection should consider task complexity and cost trade-offs.
                 </li>
-                <li>
-                  <strong>Efficiency</strong>: Alternative interfaces use 5-10x fewer tokens than HTML-based agents, translating to significant cost
-                  savings.
-                </li>
-                <li>
-                  <strong>Speed</strong>: RAG and API-based agents complete tasks faster due to direct data access without page navigation overhead.
-                </li>
+
               </ul>
             </div>
           </div>
