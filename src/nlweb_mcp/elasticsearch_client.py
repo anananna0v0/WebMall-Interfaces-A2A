@@ -192,6 +192,15 @@ class ElasticsearchClient:
             logger.error(f"Failed to create index {index_name}: {e}")
             raise
     
+    def index_document(self, index_name, document):
+        """
+        Insert a single document into the specified Elasticsearch index.
+        """
+        try:
+            self.client.index(index=index_name, document=document)
+        except Exception as e:
+            print(f"[ERROR] Failed to index document into {index_name}: {e}")
+
     def create_composite_embedding(self, title_embedding: List[float], content_embedding: List[float]) -> List[float]:
         """Create weighted composite embedding from title and content embeddings"""
         try:

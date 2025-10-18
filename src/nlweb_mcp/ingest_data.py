@@ -12,6 +12,17 @@ from dotenv import load_dotenv
 # load_dotenv("../../.env")
 load_dotenv()
 
+# --- Offline mode flag ---
+import os
+
+OFFLINE_MODE = os.getenv("OFFLINE_MODE", "false").lower() == "true"
+OFFLINE_DATA_DIR = os.getenv("OFFLINE_DATA_DIR", "./data")
+
+if OFFLINE_MODE:
+    print(f"[Offline mode enabled] Loading data from {OFFLINE_DATA_DIR}")
+else:
+    print("[Online mode] Using WooCommerce API as data source")
+
 # Handle both relative and absolute imports
 try:
     from .elasticsearch_client import ElasticsearchClient
@@ -36,6 +47,38 @@ def setup_logging(debug: bool = False):
         ]
     )
 
+import pandas as pd
+
+def offline_import_to_elasticsearch(es_client, data_dir):
+    """
+    Read local CSVs from data_dir and index them into Elasticsearch.
+    Each CSV (webmall_1.csv ... webmall_4.csv) becomes its own index.
+    """
+    csv_files = [f"webmall_{i}.csv" for i in range(1, 5)]
+    for csv_name in csv_files:
+        csv_path = os.path.join(data_dir, csv_name)
+        index_name = csv_name.replace(".csv", "_nlweb")
+        print(f"[Offline import] Processing {csv_path} → index: {index_name}")
+
+        if not os.path.exists(csv_path):
+            print(f"⚠️  File not found: {csv_path}, skipping.")
+            continue
+
+        df = pd.read_csv(csv_path)
+        df = df.fillna("") # Replace NaN with empty strings
+        print(f"  Loaded {len(df)} rows.")
+
+        # Create or reset index before inserting
+        es_client.create_index(index_name, force_recreate=True)
+
+        # Take first row and convert to dict
+        sample_doc = df.iloc[0].to_dict()
+
+        # Index into Elasticsearch
+        es_client.index_document(index_name, sample_doc)
+        print(f"  Indexed 1 sample document into {index_name}")
+
+
 def main():
     parser = argparse.ArgumentParser(description='Ingest data for NLWeb MCP servers')
     parser.add_argument('--shop', choices=list(WEBMALL_SHOPS.keys()) + ['all'], 
@@ -53,7 +96,13 @@ def main():
         # Initialize components
         logger.info("Initializing Elasticsearch client...")
         es_client = ElasticsearchClient()
-        
+
+        # --- Offline ingestion shortcut ---
+        if OFFLINE_MODE:
+            offline_import_to_elasticsearch(es_client, OFFLINE_DATA_DIR)
+            print("[Offline ingestion completed]")
+            return 0
+
         import os
 
         if os.getenv("USE_EMBEDDINGS", "true").lower() == "false":
@@ -71,6 +120,7 @@ def main():
         # if not embedding_service.test_embedding_service():
         #     logger.error("Embedding service test failed")
         #     return 1
+
         if embedding_service:
             if not embedding_service.test_embedding_service():
                 logger.error("Embedding service test failed")
@@ -125,3 +175,4 @@ def main():
 
 if __name__ == "__main__":
     exit(main())
+
