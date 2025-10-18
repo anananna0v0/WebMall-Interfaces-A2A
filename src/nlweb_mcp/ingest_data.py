@@ -6,6 +6,7 @@ Data ingestion script for NLWeb MCP implementation
 import logging
 import argparse
 import json
+from elasticsearch import helpers
 from datetime import datetime
 from dotenv import load_dotenv
 
@@ -71,13 +72,16 @@ def offline_import_to_elasticsearch(es_client, data_dir):
         # Create or reset index before inserting
         es_client.create_index(index_name, force_recreate=True)
 
-        # Take first row and convert to dict
-        sample_doc = df.iloc[0].to_dict()
+        actions = [
+            {
+                "_index": index_name,
+                "_source": row.to_dict()
+            }
+            for _, row in df.iterrows()
+        ]
 
-        # Index into Elasticsearch
-        es_client.index_document(index_name, sample_doc)
-        print(f"  Indexed 1 sample document into {index_name}")
-
+        helpers.bulk(es_client.client, actions)
+        print(f"  Indexed {len(df)} documents into {index_name}")
 
 def main():
     parser = argparse.ArgumentParser(description='Ingest data for NLWeb MCP servers')
