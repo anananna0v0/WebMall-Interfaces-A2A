@@ -9,7 +9,8 @@ import json
 from datetime import datetime
 from dotenv import load_dotenv
 
-load_dotenv("../../.env")
+# load_dotenv("../../.env")
+load_dotenv()
 
 # Handle both relative and absolute imports
 try:
@@ -53,14 +54,31 @@ def main():
         logger.info("Initializing Elasticsearch client...")
         es_client = ElasticsearchClient()
         
-        logger.info("Initializing embedding service...")
-        embedding_service = EmbeddingService()
+        import os
+
+        if os.getenv("USE_EMBEDDINGS", "true").lower() == "false":
+            logger.info("Skipping embedding initialization (USE_EMBEDDINGS=false)")
+            embedding_service = None
+        else:
+            logger.info("Initializing embedding service...")
+            from embedding_service import EmbeddingService
+            embedding_service = EmbeddingService()
+
+        # logger.info("Initializing embedding service...")
+        # embedding_service = EmbeddingService()
         
         # Test embedding service
-        if not embedding_service.test_embedding_service():
-            logger.error("Embedding service test failed")
-            return 1
-        
+        # if not embedding_service.test_embedding_service():
+        #     logger.error("Embedding service test failed")
+        #     return 1
+        if embedding_service:
+            if not embedding_service.test_embedding_service():
+                logger.error("Embedding service test failed")
+                return 1
+            else:
+                logger.info("Embedding service disabled (USE_EMBEDDINGS=false)")
+
+
         # Initialize ingestion pipeline
         logger.info("Initializing data ingestion pipeline...")
         pipeline = DataIngestionPipeline(es_client, embedding_service)
