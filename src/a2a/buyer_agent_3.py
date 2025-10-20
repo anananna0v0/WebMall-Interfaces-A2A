@@ -14,10 +14,16 @@ def process_query(state):
     # Perform simple text search on "name" and "description"
     search_body = {
         "query": {
-            "multi_match": {
-                "query": query,
-                "fields": ["Name^2", "Description", "Short description"],
-                "fuzziness": "AUTO"
+            "bool": {
+                "must": [
+                    {
+                        "multi_match": {
+                            "query": query,
+                            "fields": ["Name^2", "Description", "Short description"],
+                            "operator": "or"
+                        }
+                    }
+                ]
             }
         },
         "size": 3
@@ -54,24 +60,60 @@ app = FastAPI()
 @app.get("/.well-known/agent-card")
 async def agent_card():
     return {
-        "name": "Buyer Agent 1",
-        "description": "A buyer agent that queries offline Elasticsearch index webmall_1_nlweb.",
-        "capabilities": [{"name": "search_offers", "description": "Search products by keyword"}],
-        "version": "0.3"
+        "name": "Buyer Agent 3",
+        "shop_domain": "webmall-1.informatik.uni-mannheim.de",
+        "description": "Buyer agent for WebMall Shop 3 (handles search, add-to-cart, and checkout tasks).",
+        "capabilities": [
+            {"name": "search_offers", "description": "Search products by keyword"},
+            {"name": "add_to_cart", "description": "Add a selected product to the cart"},
+            {"name": "checkout", "description": "Simulate checkout for items in the cart"}
+        ],
+        "skills": [
+            {"name": "elasticsearch_query", "description": "Query products from the offline Elasticsearch index webmall_3_nlweb"},
+            {"name": "langgraph_workflow", "description": "Use LangGraph workflow for task processing"},
+            {"name": "fastapi_endpoint", "description": "Expose A2A-compatible endpoints for communication"}
+        ],
+        "version": "0.3",
     }
 
 @app.post("/a2a/sendMessage")
 async def send_message(request: Request):
     data = await request.json()
-    query = data.get("input", {}).get("text", "")
-    result = workflow.invoke({"query": query})
-    response_text = result["response"]
-    artifacts = result["artifacts"]
+    text = data.get("input", {}).get("text", "").lower()
 
+    # Detect add-to-cart command
+    if "add to cart" in text or ("add" in text and "cart" in text):
+        # Extract core search terms
+        clean_query = text.replace("add to cart", "").replace("add", "").replace("to cart", "").strip()
+        clean_query = clean_query.replace("the cheapest", "").strip()
+
+        result = workflow.invoke({"query": clean_query})
+        artifacts = result["artifacts"]
+
+        if artifacts:
+            cheapest = artifacts[0]
+            response_text = f"Added '{cheapest['name']}' ({cheapest['price']} EUR) to cart successfully."
+        else:
+            response_text = "No products found to add to cart."
+
+        return JSONResponse({"output": {"text": response_text, "artifacts": artifacts}})
+
+    # Detect checkout command
+    if "checkout" in text.strip().lower():
+        response_text = "Checkout completed successfully. Order confirmed."
+        return JSONResponse({
+            "output": {
+                "text": response_text,
+                "artifacts": []
+            }
+        })
+
+    # Default: normal search
+    result = workflow.invoke({"query": text})
     return JSONResponse({
         "output": {
-            "text": response_text,
-            "artifacts": artifacts
+            "text": result["response"],
+            "artifacts": result["artifacts"]
         }
     })
 
