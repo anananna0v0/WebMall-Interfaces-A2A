@@ -1,23 +1,52 @@
+import time
 import requests
 
-BUYER_URL = "http://localhost:10001/a2a/sendMessage"
+BUYER_URLS = [
+    "http://localhost:10001/a2a/sendMessage",
+    "http://localhost:10002/a2a/sendMessage",
+    "http://localhost:10003/a2a/sendMessage",
+    "http://localhost:10004/a2a/sendMessage"
+]
 
 def main():
-    # This simulates an A2A client sending a task to the Buyer
-    payload = {
-        "input": {
-            "text": "Find me a 13-inch laptop under 1000 EUR"
-        }
-    }
-    response = requests.post(BUYER_URL, json=payload)
-    if response.status_code == 200:
+    query = "Find me a wireless mouse"
+    best_price = float('inf')
+    best_item = None
+
+    print(f"Query: {query}\n")
+
+    for url in BUYER_URLS:
+        start_time = time.time()  # Record the start time
+        response = requests.post(url, json={"input": {"text": query}})
+        elapsed = time.time() - start_time  # Calculate the duration
+
         data = response.json()
-        print("\n=== Coordinator received response from Buyer ===")
-        print("Text:", data["output"]["text"])
-        for item in data["output"]["artifacts"]:
-            print(f"- {item['name']} | {item['price']} EUR | {item['url']}")
+        artifacts = data["output"]["artifacts"]
+
+        print(f"--- {url} ---")
+        print(f"Response time: {elapsed:.2f} sec")
+
+        for item in artifacts:
+            price_str = str(item.get("price", "0")).replace(",", ".")
+            name = item.get("name", "Unknown product")
+            url_link = item.get("url", "")
+            print(f"  {name} | {price_str} | {url_link}")
+
+            try:
+                price = float(price_str)
+                if price < best_price:
+                    best_price = price
+                    best_item = item
+            except:
+                continue
+        print()
+
+    if best_item:
+        print(f"\nCheapest item: {best_item['name']} | {best_item['price']} EUR | {best_item['url']}")
     else:
-        print("Request failed:", response.status_code, response.text)
+        print("No matching items found.")
+
+
 
 if __name__ == "__main__":
     main()
