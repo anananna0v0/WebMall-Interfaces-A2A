@@ -1,122 +1,122 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
 from elasticsearch import Elasticsearch
-from langgraph.graph import Graph, END
+from openai import OpenAI
+from dotenv import load_dotenv
+import json
+
+# --- Environment setup ---
+load_dotenv()
+client = OpenAI()
 
 # --- Elasticsearch setup ---
 es = Elasticsearch("http://localhost:9200")  # default local ES endpoint
 INDEX_NAME = "webmall_3_nlweb"
 
-# --- LangGraph logic (still acts as the "brain") ---
-def process_query(state):
-    query = state.get("query", "")
+# --- FastAPI setup (A2A layer) ---
+app = FastAPI()
 
-    # Perform simple text search on "name" and "description"
+
+@app.get("/.well-known/agent-card")
+async def agent_card():
+    return {
+        "name": "Buyer Agent 1",
+        "shop_domain": "webmall-3.informatik.uni-mannheim.de",
+        "description": "Buyer agent for WebMall Shop 1 (handles search, add-to-cart, and checkout tasks).",
+        "capabilities": [
+            {"name": "search_offers", "description": "Search products by keyword"},
+            {"name": "add_to_cart", "description": "Add a selected product to the cart"},
+            {"name": "checkout", "description": "Simulate checkout for items in the cart"},
+        ],
+        "skills": [
+            {"name": "elasticsearch_query", "description": "Query products from the offline Elasticsearch index webmall_1_nlweb"},
+            {"name": "llm_reasoning", "description": "Use GPT-5-mini to select the best results based on search context"},
+            {"name": "fastapi_endpoint", "description": "Expose A2A-compatible endpoints for communication"},
+        ],
+        "version": "0.4",
+    }
+
+
+@app.post("/a2a/sendMessage")
+async def handle_message(request: Request):
+    data = await request.json()
+    query = data["input"]["text"]
+
+    # --- Step 1: Search Elasticsearch ---
     search_body = {
         "query": {
-            "bool": {
-                "must": [
-                    {
-                        "multi_match": {
-                            "query": query,
-                            "fields": ["Name^2", "Description", "Short description"],
-                            "operator": "or"
-                        }
-                    }
-                ]
+            "multi_match": {
+                "query": query,
+                "fields": ["title^2", "description"],
+                "operator": "or",
             }
         },
-        "size": 3
+        "size": 5,
     }
 
     try:
         results = es.search(index=INDEX_NAME, body=search_body)
         hits = results["hits"]["hits"]
-        artifacts = []
-        for hit in hits:
-            source = hit["_source"]
-            artifacts.append({
-                "name": source.get("Name", "Unknown product"),
-                "price": source.get("Regular price", "N/A"),
-                "url": source.get("Images", "N/A")
-            })
-        response = f"Found {len(artifacts)} results for query: '{query}'"
-    except Exception as e:
-        response = f"Error searching Elasticsearch: {str(e)}"
-        artifacts = []
 
-    return {"response": response, "artifacts": artifacts}
-
-# --- LangGraph workflow ---
-graph = Graph()
-graph.add_node("process", process_query)
-graph.set_entry_point("process")
-graph.add_edge("process", END)
-workflow = graph.compile()
-
-# --- FastAPI setup (A2A layer) ---
-app = FastAPI()
-
-@app.get("/.well-known/agent-card")
-async def agent_card():
-    return {
-        "name": "Buyer Agent 3",
-        "shop_domain": "webmall-1.informatik.uni-mannheim.de",
-        "description": "Buyer agent for WebMall Shop 3 (handles search, add-to-cart, and checkout tasks).",
-        "capabilities": [
-            {"name": "search_offers", "description": "Search products by keyword"},
-            {"name": "add_to_cart", "description": "Add a selected product to the cart"},
-            {"name": "checkout", "description": "Simulate checkout for items in the cart"}
-        ],
-        "skills": [
-            {"name": "elasticsearch_query", "description": "Query products from the offline Elasticsearch index webmall_3_nlweb"},
-            {"name": "langgraph_workflow", "description": "Use LangGraph workflow for task processing"},
-            {"name": "fastapi_endpoint", "description": "Expose A2A-compatible endpoints for communication"}
-        ],
-        "version": "0.3",
-    }
-
-@app.post("/a2a/sendMessage")
-async def send_message(request: Request):
-    data = await request.json()
-    text = data.get("input", {}).get("text", "").lower()
-
-    # Detect add-to-cart command
-    if "add to cart" in text or ("add" in text and "cart" in text):
-        # Extract core search terms
-        clean_query = text.replace("add to cart", "").replace("add", "").replace("to cart", "").strip()
-        clean_query = clean_query.replace("the cheapest", "").strip()
-
-        result = workflow.invoke({"query": clean_query})
-        artifacts = result["artifacts"]
-
-        if artifacts:
-            cheapest = artifacts[0]
-            response_text = f"Added '{cheapest['name']}' ({cheapest['price']} EUR) to cart successfully."
-        else:
-            response_text = "No products found to add to cart."
-
-        return JSONResponse({"output": {"text": response_text, "artifacts": artifacts}})
-
-    # Detect checkout command
-    if "checkout" in text.strip().lower():
-        response_text = "Checkout completed successfully. Order confirmed."
-        return JSONResponse({
-            "output": {
-                "text": response_text,
-                "artifacts": []
+        top_products = [
+            {
+                "name": h["_source"].get("title", "Unknown"),
+                "price": h["_source"].get("price", "N/A"),
+                "url": h["_source"].get("url", ""),
             }
-        })
+            for h in hits
+        ]
+        import sys
+        print("[DEBUG] top_products:", json.dumps(top_products, indent=2))
+        sys.stdout.flush()
 
-    # Default: normal search
-    result = workflow.invoke({"query": text})
-    return JSONResponse({
-        "output": {
-            "text": result["response"],
-            "artifacts": result["artifacts"]
-        }
-    })
+    except Exception as e:
+        print(f"[Elasticsearch Error] {e}")
+        top_products = []
 
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=10003)
+    # --- Step 2: Reasoning with LLM ---
+    try:
+        response = client.chat.completions.create(
+            model="gpt-5-mini",
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        f"You are a buyer agent helping a customer find products from '{INDEX_NAME}'. "
+                        "You are given the top 5 search results from the local Elasticsearch index. "
+                        "Pick the 2 most relevant ones to the user query and return them as JSON: "
+                        "[{\"name\": ..., \"price\": ..., \"url\": ...}]. "
+                        "If no relevant products are found, return []."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": f"User query: {query}\n\nTop search results:\n{json.dumps(top_products, indent=2)}",
+                },
+            ],
+        )
+
+        # Try to parse model output as JSON
+        raw_output = response.choices[0].message.content
+        try:
+            answer = json.loads(raw_output)
+        except json.JSONDecodeError:
+            print("[Warning] Model did not return valid JSON.")
+            print("[RAW OUTPUT]:", raw_output)
+            sys.stdout.flush()
+            answer = []
+
+
+        # Optional: print token usage
+        usage = getattr(response, "usage", None)
+        if usage:
+            print(f"[Buyer Agent 1] Tokens used: {usage.total_tokens}")
+
+    except Exception as e:
+        print(f"[LLM Error] {e}")
+        answer = []
+
+    # --- Step 3: Return final A2A-compatible response ---
+    return {"output": {"artifacts": answer}}
+
+
+# --- Run with: uvicorn src.a2a.buyer_agent_3:app --port 10001 ---
