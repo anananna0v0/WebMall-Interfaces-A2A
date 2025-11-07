@@ -1,107 +1,179 @@
 from fastapi import FastAPI, Request
-from openai import OpenAI
-import aiohttp, asyncio, json
+from fastapi.responses import JSONResponse
+import requests
+import os
+import json
+from datetime import datetime
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parents[2]  
+RESULTS_DIR = BASE_DIR / "results"
+RESULTS_DIR.mkdir(exist_ok=True)
+log_path = RESULTS_DIR / "coordinator_reasoning_log.jsonl"
+
+# === import ChatOpenAI  ===
+try:
+    from langchain_openai import ChatOpenAI
+    print("[DEBUG] Imported ChatOpenAI from langchain_openai ")
+    LLM_AVAILABLE = True
+except ImportError as e:
+    print("[DEBUG] Failed to import ChatOpenAI ", e)
+    ChatOpenAI = None
+    LLM_AVAILABLE = False
+
 from dotenv import load_dotenv
-
-# --- Environment setup ---
 load_dotenv()
-client = OpenAI()
 
-# --- FastAPI app ---
 app = FastAPI()
 
-# --- Buyer agent endpoints ---
 BUYER_URLS = [
     "http://localhost:10001/a2a/sendMessage",
     "http://localhost:10002/a2a/sendMessage",
     "http://localhost:10003/a2a/sendMessage",
-    "http://localhost:10004/a2a/sendMessage",
+    "http://localhost:10004/a2a/sendMessage"
 ]
 
+def decide_task_with_llm(user_input: str):
+    default_task = "search"
+    default_query = user_input
+    default_reasoning = "(LLM not available; defaulting to search)"
+    if not LLM_AVAILABLE:
+        return default_task, default_query, default_reasoning
+
+    prompt = f"""
+You are a coordinator agent reasoning module.
+
+For the given user message:
+1. Briefly explain your reasoning (1-2 sentences).
+2. Decide the task type (search / add_to_cart / checkout).
+3. If applicable, produce a concise query (2–6 words).
+
+Format your output as JSON:
+{{
+  "reasoning": "<short explanation>",
+  "task": "search",
+  "query": "wireless mouse"
+}}
+
+User message: "{user_input}"
+"""
+    llm = ChatOpenAI(model="gpt-5-mini", temperature=0.2)
+    try:
+        llm_response = llm.invoke(prompt)
+        parsed = json.loads(llm_response.content.strip())
+        reasoning = parsed.get("reasoning", default_reasoning)
+        task = parsed.get("task", default_task).lower()
+        refined_query = parsed.get("query", default_query)
+        return task, refined_query, reasoning
+    except Exception:
+        return default_task, default_query, default_reasoning
 
 @app.get("/.well-known/agent-card")
 async def agent_card():
     return {
         "name": "Coordinator Agent",
-        "description": "Coordinates all Buyer agents and aggregates results.",
+        "description": "Coordinates multiple Buyer agents, aggregates results, and selects the best offer.",
         "capabilities": [
-            {"name": "coordinate_search", "description": "Send user query to all buyers and merge their responses"},
-            {"name": "summarize_results", "description": "Use GPT-5-mini to summarize and rank offers"},
+            {"name": "assign_tasks", "description": "Send user queries to Buyer agents"},
+            {"name": "aggregate_results", "description": "Aggregate and compare Buyer responses"}
         ],
-        "version": "0.4",
+        "skills": [
+            {"name": "LLM_reasoning", "description": "Use LLM to analyze user requests"},
+            {"name": "multi_agent_coordination", "description": "Coordinate multiple Buyer agents"}
+        ],
+        "version": "0.2"
     }
 
-
-# --- helper to query a single buyer ---
-async def query_buyer(session, url, query):
-    try:
-        async with session.post(url, json={"input": {"text": query}}, timeout=60) as resp:
-            data = await resp.json()
-            artifacts = data.get("output", {}).get("artifacts", [])
-            if isinstance(artifacts, str):
-                try:
-                    artifacts = json.loads(artifacts)
-                except Exception:
-                    artifacts = []
-            return {"url": url, "artifacts": artifacts}
-    except Exception as e:
-        print(f"[Coordinator] Error contacting {url}: {e}")
-        return {"url": url, "artifacts": []}
-
-
 @app.post("/a2a/sendMessage")
-async def handle_message(request: Request):
+async def send_message(request: Request):
     data = await request.json()
-    query = data["input"]["text"]
+    text = data.get("input", {}).get("text", "").strip()
+    task, refined_query, reasoning = decide_task_with_llm(text)
 
-    # --- Step 1: Query all buyers in parallel ---
-    async with aiohttp.ClientSession() as session:
-        tasks = [query_buyer(session, url, query) for url in BUYER_URLS]
-        buyer_results = await asyncio.gather(*tasks)
+    # === write reasoning log ===
+    with open(log_path, "a") as f:
+        f.write(json.dumps({
+            "timestamp": datetime.now().isoformat(),
+            "input": text,
+            "reasoning": reasoning,
+            "task": task,
+            "refined_query": refined_query
+        }) + "\n")
 
-    # --- Step 2: Flatten all offers ---
-    all_artifacts = []
-    for r in buyer_results:
-        for a in r["artifacts"]:
-            if isinstance(a, dict):
-                a["source_buyer"] = r["url"]
-                all_artifacts.append(a)
-
-    print(f"[Coordinator] Received {len(all_artifacts)} total offers from buyers.")
-
-    # --- Step 3: Ask LLM to summarize / rank best 3 offers ---
-    if not all_artifacts:
-        return {"output": {"artifacts": []}}
-
-    prompt = (
-        "You are a shopping coordinator combining offers from multiple stores. "
-        "Given these product options, select the 3 best matches for the user query. "
-        "Return them as JSON list with fields: name, price, url, source_buyer.\n\n"
-        f"User query: {query}\n\nOffers:\n{json.dumps(all_artifacts, indent=2)}"
-    )
-
-    try:
-        response = client.chat.completions.create(
-            model="gpt-5-mini",
-            messages=[
-                {"role": "system", "content": "You are a neutral and precise shopping assistant."},
-                {"role": "user", "content": prompt},
-            ],
-        )
-        raw_output = response.choices[0].message.content
+    results = []
+    for url in BUYER_URLS:
         try:
-            summary = json.loads(raw_output)
-        except json.JSONDecodeError:
-            print("[Coordinator Warning] LLM returned non-JSON output.")
-            summary = []
-        usage = getattr(response, "usage", None)
-        if usage:
-            print(f"[Coordinator] Tokens used: {usage.total_tokens}")
-    except Exception as e:
-        print(f"[Coordinator Error] {e}")
-        summary = []
+            response = requests.post(url, json={"input": {"text": refined_query}}, timeout=15)
+            buyer_data = response.json().get("output", {})
+            artifacts = buyer_data.get("artifacts", [])
+            results.extend(artifacts)
+        except Exception as e:
+            print(f"[Coordinator] Failed to contact {url}: {e}")
 
-    return {"output": {"artifacts": summary}}
+    # === Decide output type based on user input ===
+    user_lower = text.lower()
 
+    def is_cheapest_query(q: str) -> bool:
+        """Return True if the query asks for the cheapest or lowest price."""
+        keywords = ["cheapest", "lowest", "best offer", "lowest price"]
+        return any(k in q for k in keywords)
 
-# Run with: uvicorn src.a2a.coordinator_agent:app --port 11000 --reload
+    def is_all_offers_query(q: str) -> bool:
+        """Return True if the query asks for all offers or a full list."""
+        keywords = ["all offers", "list", "show all"]
+        return any(k in q for k in keywords)
+
+    # === Branch selection ===
+    if is_all_offers_query(user_lower):
+        # Return all valid offers, sorted by price
+        valid_results = []
+        for item in results:
+            try:
+                price = float(item.get("price", 0))
+                if price > 0:
+                    valid_results.append(item)
+            except Exception:
+                continue
+
+        if valid_results:
+            results_sorted = sorted(valid_results, key=lambda x: float(x["price"]))
+            response_text = f"Found {len(results_sorted)} offers for '{refined_query}'."
+            return JSONResponse({"output": {"text": response_text, "artifacts": results_sorted}})
+        else:
+            return JSONResponse({"output": {"text": "No results found from Buyers.", "artifacts": []}})
+
+    elif is_cheapest_query(user_lower):
+        # Find the cheapest offer(s)
+        valid_results = []
+        for item in results:
+            try:
+                price = float(item.get("price", 0))
+                if price > 0:
+                    valid_results.append(item)
+            except Exception:
+                continue
+
+        if not valid_results:
+            return JSONResponse({"output": {"text": "No valid offers found.", "artifacts": []}})
+
+        min_price = min(float(item["price"]) for item in valid_results)
+        cheapest_items = [item for item in valid_results if float(item["price"]) == min_price]
+
+        if len(cheapest_items) == 1:
+            response_text = f"Best offer: {cheapest_items[0]['name']} ({cheapest_items[0]['price']} EUR)"
+        else:
+            response_text = f"Found {len(cheapest_items)} offers sharing the lowest price ({min_price} EUR)."
+
+        return JSONResponse({"output": {"text": response_text, "artifacts": cheapest_items}})
+
+    else:
+        # Default: return all results
+        if results:
+            response_text = f"Found {len(results)} offers for '{refined_query}'."
+            return JSONResponse({"output": {"text": response_text, "artifacts": results}})
+        else:
+            return JSONResponse({"output": {"text": "No results found from Buyers.", "artifacts": []}})
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=11000)

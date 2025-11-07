@@ -211,3 +211,16 @@ class ElasticsearchClient:
         except Exception as e:
             logger.error(f"Semantic search failed: {e}")
             return []
+        
+    def search_hybrid_fallback(self, index_name: str, query: str, embedding_service, top_k: int = 10):
+        """Keyword-first search; fallback to semantic search if too few results."""
+        # Step 1: keyword search
+        keyword_results = self.search_keyword(index_name, query, top_k)
+        if len(keyword_results) >= 3:
+            return keyword_results
+
+        # Step 2: fallback to semantic search
+        query_embedding = embedding_service.create_embedding(query)
+        semantic_results = self.search_semantic(index_name, query_embedding, top_k)
+        return semantic_results
+

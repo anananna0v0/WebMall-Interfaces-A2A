@@ -1,3 +1,6 @@
+# This file is reused from the original NLWeb-MCP implementation.
+# No modification needed for WooCommerce ingestion.
+
 import openai
 import logging
 import time
@@ -12,7 +15,7 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-print(OPENAI_API_KEY)
+# print(OPENAI_API_KEY)
 
 class EmbeddingService:
     def __init__(self, api_key: str = OPENAI_API_KEY, model: str = EMBEDDING_MODEL):
