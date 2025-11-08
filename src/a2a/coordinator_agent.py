@@ -1,179 +1,307 @@
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
-import requests
+# --- 1. Imports ---
 import os
 import json
+import httpx  # For async HTTP requests
+import asyncio  # For concurrent delegation
 from datetime import datetime
 from pathlib import Path
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+from typing import List, Dict, Any
 
-BASE_DIR = Path(__file__).resolve().parents[2]  
-RESULTS_DIR = BASE_DIR / "results"
-RESULTS_DIR.mkdir(exist_ok=True)
-log_path = RESULTS_DIR / "coordinator_reasoning_log.jsonl"
-
-# === import ChatOpenAI  ===
+# --- Imports from user's file ---
+from dotenv import load_dotenv
+from langchain_community.callbacks import get_openai_callback
 try:
+    # Using LangChain as per the provided file
     from langchain_openai import ChatOpenAI
-    print("[DEBUG] Imported ChatOpenAI from langchain_openai ")
+    from langchain_core.messages import SystemMessage, HumanMessage
+    from langchain_core.output_parsers import JsonOutputParser
+    print("[DEBUG] Imported ChatOpenAI from langchain_openai")
     LLM_AVAILABLE = True
 except ImportError as e:
-    print("[DEBUG] Failed to import ChatOpenAI ", e)
+    print(f"[DEBUG] Failed to import ChatOpenAI, {e}")
     ChatOpenAI = None
     LLM_AVAILABLE = False
 
-from dotenv import load_dotenv
+# --- 2. Configuration (from user's file) ---
 load_dotenv()
 
 app = FastAPI()
 
+# --- Paths ---
+BASE_DIR = Path(__file__).resolve().parents[2]
+RESULTS_DIR = BASE_DIR / "results"
+RESULTS_DIR.mkdir(exist_ok=True)
+log_path = RESULTS_DIR / "coordinator_reasoning_log.jsonl"
+
+# --- Buyer URLs ---
 BUYER_URLS = [
     "http://localhost:10001/a2a/sendMessage",
     "http://localhost:10002/a2a/sendMessage",
     "http://localhost:10003/a2a/sendMessage",
-    "http://localhost:10004/a2a/sendMessage"
+    "http://localhost:10004/a2a/sendMessage",
 ]
 
-def decide_task_with_llm(user_input: str):
-    default_task = "search"
-    default_query = user_input
-    default_reasoning = "(LLM not available; defaulting to search)"
-    if not LLM_AVAILABLE:
-        return default_task, default_query, default_reasoning
+# --- LLM Initialization ---
+if LLM_AVAILABLE:
+    llm = ChatOpenAI(model="gpt-5-mini", temperature=0, model_kwargs={"response_format": {"type": "json_object"}}) # <-- 已修正
+    synthesizer_llm = ChatOpenAI(model="gpt-5-mini", temperature=0.2)
+else:
+    llm = None
+    synthesizer_llm = None
 
-    prompt = f"""
-You are a coordinator agent reasoning module.
+# --- 3. Pydantic Models (for A2A Protocol and API) ---
 
-For the given user message:
-1. Briefly explain your reasoning (1-2 sentences).
-2. Decide the task type (search / add_to_cart / checkout).
-3. If applicable, produce a concise query (2–6 words).
+class A2AMessage(BaseModel):
+    """
+    The "A2A Protocol" payload we send to Buyers.
+    We send the raw query to let the Buyer Agent use its own "agentic behaviour".
+    """
+    user_query: str
 
-Format your output as JSON:
-{{
-  "reasoning": "<short explanation>",
-  "task": "search",
-  "query": "wireless mouse"
-}}
+class BuyerResponse(BaseModel):
+    """
+    The standardized response we expect back from each Buyer Agent.
+    """
+    agent_id: str  # e.g., "buyer_agent_10001"
+    status: str    # "success" or "error"
+    content: Any   # Can be a list of products, a confirmation, or an error message
 
-User message: "{user_input}"
-"""
-    llm = ChatOpenAI(model="gpt-5-mini", temperature=0.2)
+class UserRequest(BaseModel):
+    query: str
+
+class FinalResponse(BaseModel):
+    natural_language_response: str
+    raw_data: List[BuyerResponse]
+
+# --- 4. Logging Utility ---
+
+def log_reasoning(log_data: Dict[str, Any]):
+    """
+    Appends a log entry to the coordinator_reasoning_log.jsonl file.
+    """
     try:
-        llm_response = llm.invoke(prompt)
-        parsed = json.loads(llm_response.content.strip())
-        reasoning = parsed.get("reasoning", default_reasoning)
-        task = parsed.get("task", default_task).lower()
-        refined_query = parsed.get("query", default_query)
-        return task, refined_query, reasoning
-    except Exception:
-        return default_task, default_query, default_reasoning
+        with open(log_path, 'a', encoding='utf-8') as f:
+            log_entry = {
+                "timestamp": datetime.now().isoformat(),
+                **log_data
+            }
+            f.write(json.dumps(log_entry) + '\n')
+    except Exception as e:
+        print(f"[ERROR] Failed to write to log file: {e}")
 
-@app.get("/.well-known/agent-card")
-async def agent_card():
-    return {
-        "name": "Coordinator Agent",
-        "description": "Coordinates multiple Buyer agents, aggregates results, and selects the best offer.",
-        "capabilities": [
-            {"name": "assign_tasks", "description": "Send user queries to Buyer agents"},
-            {"name": "aggregate_results", "description": "Aggregate and compare Buyer responses"}
-        ],
-        "skills": [
-            {"name": "LLM_reasoning", "description": "Use LLM to analyze user requests"},
-            {"name": "multi_agent_coordination", "description": "Coordinate multiple Buyer agents"}
-        ],
-        "version": "0.2"
-    }
+# --- 5. Core Logic: LLM Helpers ---
 
-@app.post("/a2a/sendMessage")
-async def send_message(request: Request):
-    data = await request.json()
-    text = data.get("input", {}).get("text", "").strip()
-    task, refined_query, reasoning = decide_task_with_llm(text)
+async def get_task_intent(user_query: str) -> Dict[str, Any]:
+    # [LLM DECISION 1: Classify Intent]
+    # Uses gpt-5-mini to classify the user's intent.
+    if not llm:
+        return {"intent": "UNKNOWN", "error": "LLM not available"}
 
-    # === write reasoning log ===
-    with open(log_path, "a") as f:
-        f.write(json.dumps({
-            "timestamp": datetime.now().isoformat(),
-            "input": text,
-            "reasoning": reasoning,
-            "task": task,
-            "refined_query": refined_query
-        }) + "\n")
+    print(f"[Coordinator] Classifying intent for: {user_query}")
+    
+    # Define the parser
+    parser = JsonOutputParser()
+    
+    # Define the prompt
+    prompt = [
+        SystemMessage(content=(
+            "You are an expert system. Your job is to classify the user's intent for a web mall. "
+            "Possible intents are: 'SEARCH' (finding products), "
+            "'ADD_TO_CART' (adding a specific item), "
+            "'CHECKOUT' (completing the purchase), "
+            "or 'UNKNOWN' (for anything else). "
+            "Respond ONLY with a JSON object like {\"intent\": \"YOUR_CLASSIFICATION\"}."
+        )),
+        HumanMessage(content=user_query)
+    ]
+    
+    try:
+        token_usage = 0
+        # --- New: Add token tracking ---
+        with get_openai_callback() as cb:
+            # Create the chain: prompt | model | parser
+            chain = llm | parser
+            result_json = await chain.ainvoke(prompt)
+            token_usage = cb.total_tokens # Get token count
+            print(f"[Coordinator] Intent LLM Token Usage: {token_usage}")
+        
+        log_reasoning({
+            "step": "intent_classification",
+            "query": user_query,
+            "result": result_json,
+            "token_usage": token_usage # Add to log
+        })
+        return result_json
+    except Exception as e:
+        print(f"[Coordinator] LLM Intent classification failed: {e}")
+        return {"intent": "UNKNOWN", "error": str(e)}
+    
+async def synthesize_results(buyer_responses: List[BuyerResponse], user_query: str) -> str:
+    # [LLM DECISION 2: Synthesize Results]
+    # Uses gpt-5-mini to summarize the findings from all buyers.
+    if not synthesizer_llm:
+        return "LLM not available. Found some results."
 
-    results = []
-    for url in BUYER_URLS:
-        try:
-            response = requests.post(url, json={"input": {"text": refined_query}}, timeout=15)
-            buyer_data = response.json().get("output", {})
-            artifacts = buyer_data.get("artifacts", [])
-            results.extend(artifacts)
-        except Exception as e:
-            print(f"[Coordinator] Failed to contact {url}: {e}")
+    print(f"[Coordinator] Synthesizing results from all Buyers...")
+    
+    successful_responses = [r.content for r in buyer_responses if r.status == "success" and r.content]
+    
+    if not successful_responses:
+        return "I'm sorry, I wasn't able to find that item or fulfill the request in any of the stores."
+    
+    # Create a prompt for the synthesizer LLM
+    prompt_context = (
+        f"You are a helpful shopping assistant. You asked 4 independent shops (agents) to handle a user request. "
+        f"The original user request was: \"{user_query}\"\n\n"
+        f"Here are the successful JSON-formatted results from the shops:\n\n"
+        f"{successful_responses}\n\n"
+        "Your task is to analyze these (potentially different) results and provide a single, comprehensive, and helpful natural language answer to the user. "
+        "If the query was to 'find the cheapest', make sure you compare prices and explicitly state which one is cheapest and from which shop. "
+        "Summarize the findings clearly. Be friendly and concise. DO NOT make up information or offer to search other stores."
+    )
 
-    # === Decide output type based on user input ===
-    user_lower = text.lower()
+    try:
+        token_usage = 0
+        # --- New: Add token tracking ---
+        with get_openai_callback() as cb:
+            response = await synthesizer_llm.ainvoke([
+                SystemMessage(content=prompt_context)
+            ])
+            token_usage = cb.total_tokens # Get token count
+            print(f"[Coordinator] Synthesis LLM Token Usage: {token_usage}")
 
-    def is_cheapest_query(q: str) -> bool:
-        """Return True if the query asks for the cheapest or lowest price."""
-        keywords = ["cheapest", "lowest", "best offer", "lowest price"]
-        return any(k in q for k in keywords)
+        final_answer = response.content
+        
+        log_reasoning({
+            "step": "synthesis",
+            "query": user_query,
+            "buyer_results": successful_responses,
+            "synthesized_answer": final_answer,
+            "token_usage": token_usage # Add to log
+        })
+        return final_answer
+    except Exception as e:
+        print(f"[Coordinator] LLM Synthesis failed: {e}")
+        return "I found some results, but I had trouble summarizing them for you."
 
-    def is_all_offers_query(q: str) -> bool:
-        """Return True if the query asks for all offers or a full list."""
-        keywords = ["all offers", "list", "show all"]
-        return any(k in q for k in keywords)
+# --- 6. Core Logic: A2A Client ---
 
-    # === Branch selection ===
-    if is_all_offers_query(user_lower):
-        # Return all valid offers, sorted by price
-        valid_results = []
-        for item in results:
+async def delegate_to_buyers(payload: A2AMessage) -> List[BuyerResponse]:
+    """
+    Concurrently sends the A2A task (raw user query) to all Buyer Agents.
+    """
+    print(f"[Coordinator] Delegating task to {len(BUYER_URLS)} Buyers...")
+    
+    async with httpx.AsyncClient() as client:
+        tasks = []
+        for url in BUYER_URLS:
+            # We are sending the request to the /a2a/sendMessage endpoint
+            tasks.append(
+                client.post(url, json=payload.model_dump(), timeout=30.0)
+            )
+
+        # Gather results, allowing for exceptions
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        parsed_responses = []
+        for i, res in enumerate(results):
+            agent_url = BUYER_URLS[i]
+            # Extract agent ID from URL for logging
             try:
-                price = float(item.get("price", 0))
-                if price > 0:
-                    valid_results.append(item)
+                agent_id = f"buyer_agent_{agent_url.split(':')[2].split('/')[0]}"
             except Exception:
-                continue
+                agent_id = f"buyer_agent_{i+1}"
 
-        if valid_results:
-            results_sorted = sorted(valid_results, key=lambda x: float(x["price"]))
-            response_text = f"Found {len(results_sorted)} offers for '{refined_query}'."
-            return JSONResponse({"output": {"text": response_text, "artifacts": results_sorted}})
-        else:
-            return JSONResponse({"output": {"text": "No results found from Buyers.", "artifacts": []}})
+            if isinstance(res, httpx.Response):
+                try:
+                    # We expect the Buyer to return a valid BuyerResponse
+                    parsed_responses.append(BuyerResponse(**res.json()))
+                except Exception:
+                    # Buyer returned invalid JSON or format
+                    parsed_responses.append(BuyerResponse(
+                        agent_id=agent_id, 
+                        status="error", 
+                        content=f"Agent responded with invalid format: {res.text[:150]}"
+                    ))
+            else:
+                # Request failed (e.g., httpx.ConnectError, Timeout)
+                parsed_responses.append(BuyerResponse(
+                    agent_id=agent_id, 
+                    status="error", 
+                    content=f"Agent did not respond: {str(res)}"
+                ))
+        
+        print(f"[Coordinator] Received all Buyer responses: {parsed_responses}")
+        return parsed_responses
 
-    elif is_cheapest_query(user_lower):
-        # Find the cheapest offer(s)
-        valid_results = []
-        for item in results:
-            try:
-                price = float(item.get("price", 0))
-                if price > 0:
-                    valid_results.append(item)
-            except Exception:
-                continue
+# --- 7. FastAPI Endpoint ---
 
-        if not valid_results:
-            return JSONResponse({"output": {"text": "No valid offers found.", "artifacts": []}})
+@app.post("/process_query", response_model=FinalResponse)
+async def process_user_query(request: UserRequest):
+    """
+    Main user-facing endpoint.
+    Orchestrates the 1. Intent -> 2. Delegate -> 3. Synthesize process.
+    """
+    
+    if not LLM_AVAILABLE:
+        return JSONResponse(status_code=500, content={"error": "LLM is not available. Check configuration."})
 
-        min_price = min(float(item["price"]) for item in valid_results)
-        cheapest_items = [item for item in valid_results if float(item["price"]) == min_price]
+    # Step 1: Use LLM to classify intent
+    intent_data = await get_task_intent(request.query)
+    intent = intent_data.get("intent", "UNKNOWN")
+    
+    print(f"[Coordinator] Intent classified as: {intent}")
 
-        if len(cheapest_items) == 1:
-            response_text = f"Best offer: {cheapest_items[0]['name']} ({cheapest_items[0]['price']} EUR)"
-        else:
-            response_text = f"Found {len(cheapest_items)} offers sharing the lowest price ({min_price} EUR)."
+    if intent == "SEARCH":
+        # Step 2: Create the A2A task payload
+        # We send the RAW query, letting the Buyer Agents do the "agentic" work
+        task_payload = A2AMessage(user_query=request.query)
 
-        return JSONResponse({"output": {"text": response_text, "artifacts": cheapest_items}})
+        # Step 3: Concurrently delegate to all Buyers
+        buyer_responses = await delegate_to_buyers(task_payload)
+        
+        # Step 4: Use LLM to synthesize results into a final answer
+        final_answer = await synthesize_results(buyer_responses, request.query)
+        
+        return FinalResponse(
+            natural_language_response=final_answer,
+            raw_data=buyer_responses
+        )
+    
+    elif intent == "ADD_TO_CART" or intent == "CHECKOUT":
+        # TODO: Implement logic for these intents.
+        # This is more complex as it might require context (which item? which store?)
+        # or it might need to be sent to a specific Buyer Agent.
+        
+        # For a 1-day demo, focusing on SEARCH is the priority.
+        # We can implement a simple version that sends it to all agents
+        # and lets the synthesis LLM figure it out.
+        
+        print(f"[Coordinator] '{intent}' intent is not fully implemented. Forwarding to all agents as a general task.")
+        
+        task_payload = A2AMessage(user_query=request.query)
+        buyer_responses = await delegate_to_buyers(task_payload)
+        final_answer = await synthesize_results(buyer_responses, request.query)
 
+        return FinalResponse(
+            natural_language_response=final_answer,
+            raw_data=buyer_responses
+        )
+        
     else:
-        # Default: return all results
-        if results:
-            response_text = f"Found {len(results)} offers for '{refined_query}'."
-            return JSONResponse({"output": {"text": response_text, "artifacts": results}})
-        else:
-            return JSONResponse({"output": {"text": "No results found from Buyers.", "artifacts": []}})
+        # UNKNOWN intent
+        return FinalResponse(
+            natural_language_response="I'm sorry, I'm not sure how to help with that. Can you rephrase your request?",
+            raw_data=[]
+        )
+
+# --- 8. Run Server (from user's file) ---
 
 if __name__ == "__main__":
+    # This import is here to match the user's provided file
     import uvicorn
+    print(f"[Coordinator] Starting Coordinator Agent on http://0.0.0.0:11000")
     uvicorn.run(app, host="0.0.0.0", port=11000)
