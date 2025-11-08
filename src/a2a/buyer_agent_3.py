@@ -272,6 +272,30 @@ async def mock_add_to_cart(url: str) -> bool:
     })
     return True
 
+async def mock_checkout(details: Dict[str, str]) -> str:
+    """
+    [MOCK ACTION]
+    Simulates the checkout process using provided customer and payment details.
+    """
+    print(f"[{AGENT_ID}] MOCK: Attempting checkout for user: {details.get('name')}")
+    
+    await asyncio.sleep(1.0) # Checkout takes longer
+    
+    # Check for basic required fields for logging clarity
+    if not details.get('card') or not details.get('name'):
+        status = "failed"
+        message = "Checkout failed: Missing card or name details."
+    else:
+        status = "success"
+        message = f"Checkout successfully completed. Payment card: XXXX{details.get('card', '????')[-4:]} for user: {details.get('name')}."
+
+    log_reasoning({
+        "step": "checkout_action",
+        "user_name": details.get('name'),
+        "status": status
+    })
+    return message
+
 # --- 7. FastAPI Endpoint (A2A Server) ---
 
 # --- New: Agent Capability Endpoint (Simulated Agent Card) ---
@@ -294,13 +318,16 @@ async def get_capability():
 @app.post("/a2a/sendMessage", response_model=BuyerResponse)
 async def handle_a2a_message(request: A2AMessage):
     """
-    The main A2A entry point. It routes based on the 'action' field.
+    Main A2A entry point for the Buyer Agent. Routes the task based on the 'action'.
     """
     print(f"[{AGENT_ID}] Received action: {request.action} with target: {request.target}")
-    
+
     if not LLM_AVAILABLE or not es:
         # Critical configuration check (Fail fast)
-        # ... (logging code remains the same) ...
+        log_reasoning({
+            "step": "pre-check", "status": "error",
+            "error": "LLM or ES client is not available."
+        })
         return JSONResponse(
             status_code=500,
             content={
@@ -311,18 +338,42 @@ async def handle_a2a_message(request: A2AMessage):
 
     try:
         if request.action == "SEARCH":
-            # --- SEARCH PATH (Requires LLM and ES) ---
-            es_query_dsl = await get_es_query_from_llm(request.target)
-            search_results = await execute_es_query(es_query_dsl)
+            # --- SEARCH PATH (Handles both Query and URL targets) ---
             
-            return BuyerResponse(
-                agent_id=AGENT_ID,
-                status="success",
-                content=search_results
-            )
+            if request.target.lower().startswith("http"):
+                # Case 1: Target is a direct URL (for Checkout setup)
+                
+                # CRITICAL FIX: Match the webmall name string in the URL
+                # We check if the target URL contains the specific webmall ID (e.g., "webmall-3")
+                webmall_id_match = f"webmall-{AGENT_NUMBER}" # AGENT_NUMBER is "1", "2", "3", or "4"
+                
+                if webmall_id_match in request.target:
+                    # Success: Return mock data for the product confirmed by URL
+                    print(f"[{AGENT_ID}] Found product via URL match. Returning mock data.")
+                    return BuyerResponse(
+                        agent_id=AGENT_ID,
+                        status="success",
+                        # We return mock data for simplicity since the product is confirmed by URL
+                        content=[{"title": "Trust TK-350 Keyboard", "price": 49.99, "url": request.target, "store": AGENT_ID}]
+                    )
+                else:
+                    # Target URL does not belong to this store 
+                    print(f"[{AGENT_ID}] Target URL does not belong to this store. Skipping search.")
+                    return BuyerResponse(agent_id=AGENT_ID, status="success", content=[])
+            
+            else:
+                # Case 2: Target is a natural language query, proceed with LLM/ES
+                es_query_dsl = await get_es_query_from_llm(request.target)
+                search_results = await execute_es_query(es_query_dsl)
+                
+                return BuyerResponse(
+                    agent_id=AGENT_ID,
+                    status="success",
+                    content=search_results
+                )
         
         elif request.action == "ADD_TO_CART":
-            # --- ACTION PATH (Uses MOCK RPA) ---
+            # --- ADD_TO_CART PATH (Mock Action) ---
             success = await mock_add_to_cart(request.target)
             if success:
                  return BuyerResponse(
@@ -331,17 +382,58 @@ async def handle_a2a_message(request: A2AMessage):
                     content=f"Product added to cart successfully. URL: {request.target}"
                 )
             
+        elif request.action == "CHECKOUT":
+            # --- CHECKOUT PATH (Mock Action, expects JSON target) ---
+            
+            # CRITICAL FIX: Use robust JSON parsing for the target string from the LLM.
+            
+            # Step 1: Clean and Parse the JSON string
+            try:
+                # 1. Strip external quotes and control characters that might be introduced by LLM
+                clean_target = request.target.strip().replace('\\n', '').replace('\\t', '')
+                # 2. Safely load the JSON data
+                checkout_details = json.loads(clean_target)
+            except json.JSONDecodeError as e:
+                # If parsing fails, it's because the LLM didn't produce valid JSON
+                print(f"[{AGENT_ID}] Checkout failed: JSON Decode Error: {e}")
+                return BuyerResponse(
+                    agent_id=AGENT_ID,
+                    status="error",
+                    content=f"Checkout failed: Details were not sent in valid JSON format. Error: {str(e)}"
+                )
+
+            # Step 2: Execute Mock Checkout
+            checkout_message = await mock_checkout(checkout_details)
+            
+            if "failed" in checkout_message:
+                status = "error"
+            else:
+                status = "success"
+                
+            return BuyerResponse(
+                agent_id=AGENT_ID,
+                status=status,
+                content=checkout_message
+            )
+
         else:
             # UNKNOWN ACTION
              return BuyerResponse(
                 agent_id=AGENT_ID,
                 status="error",
-                content=f"Unknown action: {request.action}. Only SEARCH and ADD_TO_CART are supported."
+                content=f"Unknown action: {request.action}. Only SEARCH, ADD_TO_CART, and CHECKOUT are supported."
             )
             
     except Exception as e:
         # REAL FAILURE PATH (LLM or ES related)
-        # ... (logging code remains the same) ...
+        print(f"[{AGENT_ID}] [ERROR] Real pipeline failed: {e}")
+        log_reasoning({
+            "step": "pipeline_failure",
+            "status": "error",
+            "error": str(e)
+        })
+        
+        # Return a 500 error to the Coordinator (or curl)
         return JSONResponse(
             status_code=500,
             content={

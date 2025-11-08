@@ -91,7 +91,7 @@ class FinalResponse(BaseModel):
 # ---  Models for LLM Plan Generation ---
 class PlanStep(BaseModel):
     step_id: int
-    action: str = Field(description="The high-level action (e.g., SEARCH, ADD_TO_CART, CHECKOUT).")
+    action: str = Field(description="The high-level action to perform (e.g., SEARCH, ADD_TO_CART, CHECKOUT).")
     query: str = Field(description="The specific natural language query or target URL for this step.")
     
 class ActionPlan(BaseModel):
@@ -132,10 +132,31 @@ async def get_task_intent(user_query: str) -> Dict[str, Any]:
         "You are an expert planning system for a multi-agent web mall. Your task is to analyze the user's request "
         "and generate a structured sequence of actions (a 'plan') to fulfill it. "
         "The primary action types are: 'SEARCH', 'ADD_TO_CART', and 'CHECKOUT'.\n"
+        
+        # --- CRITICAL CONSOLIDATION RULE ADDED ---
+        "CRITICAL CONSOLIDATION: If the request includes both 'Add to Cart' AND 'Checkout', you MUST generate a plan "
+        "with ONLY TWO steps: 1) SEARCH, and 2) CHECKOUT. DO NOT include an intermediate ADD_TO_CART step in the final plan.\n"
+        # --- END CRITICAL CONSOLIDATION RULE ---
+
+        "If the final step is CHECKOUT, you MUST include ALL user and payment details (address, card number, CVV, expiry) "
+        "in the final CHECKOUT step's 'query' field, formatted as a single JSON string. "
+        "This requires precise data extraction from the user's input.\n"
+        
         "Your final output MUST be a single JSON object conforming to the following schema:\n"
         f"{parser.get_format_instructions()}\n\n"
-        "If the request is simple (e.g., only SEARCH), the plan should have one step. "
-        "If the request is complex (e.g., Find X AND Add X to Cart), the plan must have multiple steps."
+        "Example of a multi-step plan for CHECKOUT (Find X -> Checkout):"
+        
+        '{"intent": "PLAN", "plan": ['
+        '{"step_id": 1, "action": "SEARCH", "query": "Find the cheapest offer for the Asrock B550 PHANTOM GAMING 4."},'
+        '{"step_id": 2, "action": "CHECKOUT", "query": "{\\"name\\": \\"Jessica Morgan\\", \\"email\\": \\"jessica.morgan@yahoo.com\\", \\"street\\": \\"Maple Avenue\\", \\"house_number\\": \\"742\\", \\"zip\\": \\"60614\\", \\"city\\": \\"Chicago\\", \\"state\\": \\"IL\\", \\"country\\": \\"USA\\", \\"card\\": \\"4242424242424242\\", \\"cvv\\": \\"123\\", \\"expiry_date\\": \\"12/28\\"}"}'
+        ']}'
+
+        "Example of a multi-step plan for CHECKOUT (Find URL -> Checkout):"
+    
+        '{"intent": "PLAN", "plan": ['
+        '{"step_id": 1, "action": "SEARCH", "query": "https://webmall-3.informatik.uni-mannheim.de/product/trust-tk-350-wireless-membrane-keyboard-spill-proof-silent-keys-media-keys-black"},'
+        '{"step_id": 2, "action": "CHECKOUT", "query": "{\"name\":\"Jessica Morgan\"...}"}' 
+        ']}'
     )
     
     prompt = [
@@ -147,7 +168,6 @@ async def get_task_intent(user_query: str) -> Dict[str, Any]:
         token_usage = 0
         with get_openai_callback() as cb:
             chain = llm | parser
-            # We now expect ActionPlan model output
             result_json_obj = await chain.ainvoke(prompt)
             token_usage = cb.total_tokens
             print(f"[Coordinator] Intent LLM Token Usage: {token_usage}")
@@ -352,13 +372,22 @@ app = FastAPI(
 
 @app.post("/process_query", response_model=FinalResponse)
 async def process_user_query(request: UserRequest):
-    # ... (Step 1: Plan Generation remains the same) ...
+    """
+    Main user-facing endpoint. Orchestrates the Multi-step Plan execution.
+    """
+    
+    if not LLM_AVAILABLE:
+        return JSONResponse(status_code=500, content={"error": "LLM is not available. Check configuration."})
+
+    # Step 1: Use LLM to generate the action plan (Plan JSON)
     plan_data = await get_task_intent(request.query)
     intent = plan_data.get("intent", "UNKNOWN")
     
+    print(f"[Coordinator] Intent classified as: {intent}")
+
     if intent == "PLAN" and "plan" in plan_data:
+        # State tracking: urls_to_action stores {URL: agent_id} mapping for subsequent actions
         all_buyer_responses: List[BuyerResponse] = []
-        # urls_to_action: {url: agent_id} mapping for subsequent actions
         urls_to_action: Dict[str, str] = {} 
         final_synthesis_query = request.query
         
@@ -378,10 +407,9 @@ async def process_user_query(request: UserRequest):
                 # Process SEARCH results to find URLs for next steps (ADD_TO_CART/CHECKOUT)
                 for res in search_responses:
                     if res.status == "success" and res.content:
-                        # Collect *all* URLs and their corresponding Agent ID (Store)
-                        # This handles the "add each of them" requirement.
+                        # Collect all URLs and their corresponding Agent ID (Store)
                         for item in res.content:
-                            urls_to_action[item['url']] = res.agent_id # {URL: AGENT_ID}
+                            urls_to_action[item['url']] = res.agent_id
                             
                 final_synthesis_query = step_query
 
@@ -395,33 +423,66 @@ async def process_user_query(request: UserRequest):
 
                 print(f"[Coordinator] Delegating ADD_TO_CART for {len(urls_to_action)} unique offers.")
                 
-                # --- ACTION EXECUTION: We simulate concurrent action for all offers ---
                 add_to_cart_tasks = []
                 for url, agent_id in urls_to_action.items():
-                    # NOTE: We need to find the correct Buyer URL based on the Agent ID
-                    # This relies on the BUYER_CAPABILITIES we discovered on startup!
-                    
-                    # Look up the target Buyer's /a2a/sendMessage URL
-                    # This is complex, so we will simplify to a MOCK success log for demo purposes.
-                    
-                    # MOCK ACTION EXECUTION:
                     add_to_cart_tasks.append(
                          mock_add_to_cart_execution(agent_id, url)
                     )
                 
-                # Add mock results to the overall response
                 mock_results = await asyncio.gather(*add_to_cart_tasks)
                 all_buyer_responses.extend(mock_results)
 
             elif step_action == "CHECKOUT":
-                 # Step 4: Execute CHECKOUT
-                 # We will implement this after the ADD_TO_CART logic is verified.
-                 # ... (MOCK response for CHECKOUT goes here) ...
-                 pass
+                # Step 4: Execute CHECKOUT (The final action)
+                if not urls_to_action:
+                    all_buyer_responses.append(BuyerResponse(agent_id="Coordinator", status="info", content="CHECKOUT skipped: No items selected for purchase."))
+                    continue
+                
+                try:
+                    # The LLM must provide the structured details in the step_query
+                    checkout_details = json.loads(step_query)
+                except json.JSONDecodeError:
+                    all_buyer_responses.append(BuyerResponse(agent_id="Coordinator", status="error", content="CHECKOUT failed: LLM did not provide valid JSON details for payment."))
+                    continue
+                
+                # --- ACTION EXECUTION: Targeted Checkout Delegation ---
+                
+                # Find the target Buyer ID (We assume the first item found is the target for checkout)
+                first_url, target_agent_id = next(iter(urls_to_action.items())) 
+                
+                # --- CRITICAL BUG FIX (Replaces flawed index logic) ---
+                # Find the target Buyer's /a2a/sendMessage URL from the BUYER_URLS list
+                
+                agent_port_str = target_agent_id.split('_')[-1] # e.g., "10003"
+                target_base_url = None
+                for url in BUYER_URLS:
+                    if agent_port_str in url:
+                        target_base_url = url
+                        break
+                # --- END OF BUG FIX ---
+
+                if target_base_url:
+                    print(f"[Coordinator] Delegating CHECKOUT to {target_agent_id} at {target_base_url}")
+                    
+                    # The payload contains the ACTION and the JSON details (target)
+                    checkout_payload = A2AMessage(action="CHECKOUT", target=step_query) 
+                    
+                    try:
+                        async with httpx.AsyncClient(timeout=30.0) as client:
+                            checkout_response = await client.post(target_base_url, json=checkout_payload.model_dump())
+                            checkout_result = BuyerResponse.model_validate(checkout_response.json())
+                            all_buyer_responses.append(checkout_result)
+                    except Exception as e:
+                        all_buyer_responses.append(BuyerResponse(agent_id="Coordinator", status="error", content=f"CHECKOUT routing/execution failed: {str(e)}"))
+                else:
+                    all_buyer_responses.append(BuyerResponse(agent_id="Coordinator", status="error", content=f"CHECKOUT failed: Could not find target Buyer URL for agent {target_agent_id}"))
+
+                # Clear action list after checkout
+                urls_to_action = {}
 
 
         # Step 5: Final Synthesis
-        # We synthesize results from ALL steps (mostly the SEARCH step's raw data)
+        # We synthesize results from ALL steps 
         final_answer = await synthesize_results(all_buyer_responses, final_synthesis_query)
         
         return FinalResponse(
@@ -431,7 +492,6 @@ async def process_user_query(request: UserRequest):
     
     else:
         # UNKNOWN or failed plan generation
-        # ... (error response) ...
         return FinalResponse(
             natural_language_response=f"I'm sorry, I couldn't generate a plan to fulfill your complex request: {request.query}",
             raw_data=[]
