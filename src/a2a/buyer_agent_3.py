@@ -7,8 +7,8 @@ from fastapi.responses import JSONResponse
 from datetime import datetime
 from pathlib import Path
 from dotenv import load_dotenv
-from pydantic import BaseModel
-from typing import List, Dict, Any
+from pydantic import BaseModel, Field
+from typing import List, Dict, Any, Optional
 
 load_dotenv()
 
@@ -65,6 +65,15 @@ if LLM_AVAILABLE:
     llm = ChatOpenAI(model="gpt-5-mini", temperature=0, model_kwargs={"response_format": {"type": "json_object"}}) 
 else:
     llm = None
+
+# --- Final Agent Card Model (A2A Protocol Compliance) ---
+class AgentCard(BaseModel):
+    id: str = Field(description="The unique identifier of the agent.")
+    name: str = Field(description="Human-readable name of the agent.")
+    description: str = Field(description="A short description of the agent's function.")
+    webmall_id: str = Field(description="The identifier of the webmall database this agent operates on.")
+    skills: List[str] = Field(description="List of core skills, e.g., SEARCH, ADD_TO_CART, CHECKOUT.")
+    data_schema_hint: str = Field(description="The functional hint about the unique data structure this agent handles.")
 
 # --- 3. Pydantic Models (Consistent with Coordinator) ---
 
@@ -238,6 +247,22 @@ async def execute_es_query(query_dsl: Dict[str, Any]) -> List[Dict[str, Any]]:
     return results
 
 # --- 7. FastAPI Endpoint (A2A Server) ---
+
+# --- New: Agent Capability Endpoint (Simulated Agent Card) ---
+@app.get("/capability", response_model=AgentCard)
+async def get_capability():
+    # WEBMALL_ID and INDEX_NAME are determined at the top of the file
+    
+    # Simple check for agent number, assuming AGENT_NUMBER is defined as a string
+    return AgentCard(
+        id=AGENT_ID,
+        name=f"WebMall Buyer Agent {AGENT_NUMBER}",
+        description=f"A specialized agent for querying and interacting with WebMall {AGENT_NUMBER}. Handles specific data rules.",
+        webmall_id=INDEX_NAME, # Dynamic index name (e.g., webmall_1)
+        skills=["SEARCH", "ADD_TO_CART", "CHECKOUT"],
+        data_schema_hint=ES_TRANSLATION_PROMPT[:200] # Use the first 200 chars of the custom prompt
+    )
+
 # --- THIS IS THE "FAIL-FAST" VERSION FOR EASIER DEBUGGING ---
 
 @app.post("/a2a/sendMessage", response_model=BuyerResponse)

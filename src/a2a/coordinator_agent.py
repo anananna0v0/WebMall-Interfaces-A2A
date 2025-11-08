@@ -3,12 +3,13 @@ import os
 import json
 import httpx  # For async HTTP requests
 import asyncio  # For concurrent delegation
+import contextlib
 from datetime import datetime
 from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
-from typing import List, Dict, Any
+from pydantic import BaseModel, Field
+from typing import List, Dict, Any, Optional
 
 # --- Imports from user's file ---
 from dotenv import load_dotenv
@@ -28,8 +29,6 @@ except ImportError as e:
 # --- 2. Configuration (from user's file) ---
 load_dotenv()
 
-app = FastAPI()
-
 # --- Paths ---
 BASE_DIR = Path(__file__).resolve().parents[2]
 RESULTS_DIR = BASE_DIR / "results"
@@ -44,15 +43,27 @@ BUYER_URLS = [
     "http://localhost:10004/a2a/sendMessage",
 ]
 
+# Global variable: stores discovered Agent Cards
+BUYER_CAPABILITIES: Dict[str, 'AgentCard'] = {} # Forward reference 'AgentCard' needed here
+
 # --- LLM Initialization ---
 if LLM_AVAILABLE:
-    llm = ChatOpenAI(model="gpt-5-mini", temperature=0, model_kwargs={"response_format": {"type": "json_object"}}) # <-- 已修正
+    llm = ChatOpenAI(model="gpt-5-mini", temperature=0, model_kwargs={"response_format": {"type": "json_object"}})
     synthesizer_llm = ChatOpenAI(model="gpt-5-mini", temperature=0.2)
 else:
     llm = None
     synthesizer_llm = None
 
 # --- 3. Pydantic Models (for A2A Protocol and API) ---
+
+# --- Agent Card Model (A2A Protocol Compliance) ---
+class AgentCard(BaseModel):
+    id: str = Field(description="The unique identifier of the agent.")
+    name: str = Field(description="Human-readable name of the agent.")
+    description: str = Field(description="A short description of the agent's function.")
+    webmall_id: str = Field(description="The identifier of the webmall database this agent operates on.")
+    skills: List[str] = Field(description="List of core skills, e.g., SEARCH, ADD_TO_CART, CHECKOUT.")
+    data_schema_hint: str = Field(description="The functional hint about the unique data structure this agent handles.")
 
 class A2AMessage(BaseModel):
     """
@@ -186,6 +197,45 @@ async def synthesize_results(buyer_responses: List[BuyerResponse], user_query: s
     except Exception as e:
         print(f"[Coordinator] LLM Synthesis failed: {e}")
         return "I found some results, but I had trouble summarizing them for you."
+    
+async def discover_buyer_capabilities():
+    """
+    [A2A DISCOVERY STEP]
+    Contacts all known Buyer Agents' /capability endpoint to fetch their Agent Cards.
+    This simulates the Discovery layer of the A2A protocol.
+    """
+    global BUYER_CAPABILITIES
+    print("[Coordinator] Starting A2A Discovery: Fetching Agent Cards...")
+    
+    # We set a timeout for the discovery process
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        tasks = []
+        # NOTE: We need to use the base URL for capability discovery, not the /sendMessage endpoint
+        base_urls = [url.split('/a2a/sendMessage')[0] for url in BUYER_URLS] 
+        
+        for url in base_urls:
+            # Calls the /capability endpoint
+            capability_url = f"{url}/capability"
+            tasks.append(client.get(capability_url))
+        
+        # Gather responses concurrently
+        responses = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        for url_index, response in enumerate(responses):
+            buyer_url = base_urls[url_index] # Use the base URL for logging context
+            if isinstance(response, httpx.Response) and response.status_code == 200:
+                try:
+                    # Parse and validate the Agent Card Pydantic model
+                    card = AgentCard.model_validate(response.json())
+                    BUYER_CAPABILITIES[card.id] = card
+                    print(f"[Coordinator] Discovery SUCCESS: {card.name} (Webmall: {card.webmall_id})")
+                except Exception as e:
+                    print(f"[Coordinator] Discovery ERROR: Could not parse Agent Card from {buyer_url}/capability. Error: {e}")
+            else:
+                print(f"[Coordinator] Discovery ERROR: Agent at {buyer_url}/capability is unreachable or failed to respond. Response: {response}")
+    
+    print(f"[Coordinator] A2A Discovery Complete. Found {len(BUYER_CAPABILITIES)} active Agents.")
+
 
 # --- 6. Core Logic: A2A Client ---
 
@@ -210,10 +260,9 @@ async def delegate_to_buyers(payload: A2AMessage) -> List[BuyerResponse]:
         for i, res in enumerate(results):
             agent_url = BUYER_URLS[i]
             # Extract agent ID from URL for logging
-            try:
-                agent_id = f"buyer_agent_{agent_url.split(':')[2].split('/')[0]}"
-            except Exception:
-                agent_id = f"buyer_agent_{i+1}"
+            # NOTE: The agent ID is now better determined via the Agent Card, 
+            # but we use a robust method here since we expect 4 responses.
+            agent_id = f"buyer_agent_{i+1}" 
 
             if isinstance(res, httpx.Response):
                 try:
@@ -238,6 +287,32 @@ async def delegate_to_buyers(payload: A2AMessage) -> List[BuyerResponse]:
         return parsed_responses
 
 # --- 7. FastAPI Endpoint ---
+
+# --- New: Lifespan Context Manager (Replaces on_event("startup")) ---
+@contextlib.asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Handles startup events (like A2A Discovery) and shutdown events.
+    """
+    print("Coordinator starting...")
+    
+    # --- A2A Discovery Step ---
+    await discover_buyer_capabilities() # <-- Execute Discovery on startup
+    
+    print("Coordinator Agent started successfully.")
+    
+    yield # <-- Application runs here
+
+    # --- Shutdown (optional) ---
+    print("Coordinator shutting down...")
+
+
+# --- Apply Lifespan processor to FastAPI app ---
+app = FastAPI(
+    title="Coordinator Agent (A2A)",
+    description="Receives user queries, delegates tasks to Buyer Agents, and synthesizes results.",
+    lifespan=lifespan
+)
 
 @app.post("/process_query", response_model=FinalResponse)
 async def process_user_query(request: UserRequest):
@@ -273,12 +348,6 @@ async def process_user_query(request: UserRequest):
     
     elif intent == "ADD_TO_CART" or intent == "CHECKOUT":
         # TODO: Implement logic for these intents.
-        # This is more complex as it might require context (which item? which store?)
-        # or it might need to be sent to a specific Buyer Agent.
-        
-        # For a 1-day demo, focusing on SEARCH is the priority.
-        # We can implement a simple version that sends it to all agents
-        # and lets the synthesis LLM figure it out.
         
         print(f"[Coordinator] '{intent}' intent is not fully implemented. Forwarding to all agents as a general task.")
         
@@ -304,4 +373,6 @@ if __name__ == "__main__":
     # This import is here to match the user's provided file
     import uvicorn
     print(f"[Coordinator] Starting Coordinator Agent on http://0.0.0.0:11000")
+    # NOTE: The 'app = FastAPI(...)' call is now above the endpoints,
+    # and the lifespan handler is correctly applied.
     uvicorn.run(app, host="0.0.0.0", port=11000)
