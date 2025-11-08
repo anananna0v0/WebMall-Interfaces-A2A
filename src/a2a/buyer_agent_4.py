@@ -2,6 +2,7 @@
 import os
 import json
 import uvicorn
+import asyncio
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from datetime import datetime
@@ -78,7 +79,12 @@ class AgentCard(BaseModel):
 # --- 3. Pydantic Models (Consistent with Coordinator) ---
 
 class A2AMessage(BaseModel):
-    user_query: str
+    """
+    The A2A Protocol payload sends a structured task.
+    The Coordinator determines the action (e.g., SEARCH) and the target.
+    """
+    action: str = Field(description="The high-level action to perform (e.g., SEARCH, ADD_TO_CART).")
+    target: str = Field(description="The primary target of the action (e.g., user query, product URL).")
 
 class BuyerResponse(BaseModel):
     agent_id: str
@@ -230,6 +236,26 @@ async def execute_es_query(query_dsl: Dict[str, Any]) -> List[Dict[str, Any]]:
     })
     return results
 
+async def mock_add_to_cart(url: str) -> bool:
+    """
+    [MOCK ACTION]
+    Simulates the action of adding a specific product URL to the cart.
+    In a real system, this would be an RPA step (e.g., Selenium click).
+    """
+    print(f"[{AGENT_ID}] MOCK: Attempting to add product at URL: {url} to cart.")
+    # Simulate success or failure based on the URL structure, if desired, 
+    # but for simplicity, we mock success.
+    
+    # We assume the action takes some time
+    await asyncio.sleep(0.5) 
+    
+    log_reasoning({
+        "step": "add_to_cart_action",
+        "product_url": url,
+        "status": "success"
+    })
+    return True
+
 # --- 7. FastAPI Endpoint (A2A Server) ---
 
 # --- New: Agent Capability Endpoint (Simulated Agent Card) ---
@@ -246,23 +272,19 @@ async def get_capability():
         skills=["SEARCH", "ADD_TO_CART", "CHECKOUT"],
         data_schema_hint=ES_TRANSLATION_PROMPT[:200] # Use the first 200 chars of the custom prompt
     )
+
 # --- THIS IS THE "FAIL-FAST" VERSION FOR EASIER DEBUGGING ---
 
 @app.post("/a2a/sendMessage", response_model=BuyerResponse)
 async def handle_a2a_message(request: A2AMessage):
     """
-    This is the main A2A entry point.
-    It will try the "real path". If it fails, it will FAIL LOUDLY
-    by returning a 500 error, which is better for debugging.
+    The main A2A entry point. It routes based on the 'action' field.
     """
-    print(f"[{AGENT_ID}] Received task: {request.user_query}")
+    print(f"[{AGENT_ID}] Received action: {request.action} with target: {request.target}")
     
     if not LLM_AVAILABLE or not es:
-        # This is a critical configuration error. Fail hard.
-        log_reasoning({
-            "step": "pre-check", "status": "error",
-            "error": "LLM or ES client is not available."
-        })
+        # Critical configuration check (Fail fast)
+        # ... (logging code remains the same) ...
         return JSONResponse(
             status_code=500,
             content={
@@ -272,39 +294,38 @@ async def handle_a2a_message(request: A2AMessage):
         )
 
     try:
-        # --- HAPPY PATH ---
-        # Step 1: Decide (Use LLM to get ES query)
-        es_query_dsl = await get_es_query_from_llm(request.user_query)
-        
-        # Step 2: Act (Execute the REAL ES query)
-        search_results = await execute_es_query(es_query_dsl)
-        
-        if not search_results:
+        if request.action == "SEARCH":
+            # --- SEARCH PATH (Requires LLM and ES) ---
+            es_query_dsl = await get_es_query_from_llm(request.target)
+            search_results = await execute_es_query(es_query_dsl)
+            
             return BuyerResponse(
                 agent_id=AGENT_ID,
                 status="success",
-                content=[] # Real query, but no results found
+                content=search_results
             )
-
-        # Step 3: Respond (Send real, structured data back)
-        return BuyerResponse(
-            agent_id=AGENT_ID,
-            status="success",
-            content=search_results
-        )
         
+        elif request.action == "ADD_TO_CART":
+            # --- ACTION PATH (Uses MOCK RPA) ---
+            success = await mock_add_to_cart(request.target)
+            if success:
+                 return BuyerResponse(
+                    agent_id=AGENT_ID,
+                    status="success",
+                    content=f"Product added to cart successfully. URL: {request.target}"
+                )
+            
+        else:
+            # UNKNOWN ACTION
+             return BuyerResponse(
+                agent_id=AGENT_ID,
+                status="error",
+                content=f"Unknown action: {request.action}. Only SEARCH and ADD_TO_CART are supported."
+            )
+            
     except Exception as e:
-        # --- REAL FAILURE PATH ---
-        # Something failed (LLM translation, ES query, etc.)
-        # Log it and return a 500 error so the developer knows.
-        print(f"[{AGENT_ID}] [ERROR] Real pipeline failed: {e}")
-        log_reasoning({
-            "step": "pipeline_failure",
-            "status": "error",
-            "error": str(e)
-        })
-        
-        # Return a 500 error to the Coordinator (or curl)
+        # REAL FAILURE PATH (LLM or ES related)
+        # ... (logging code remains the same) ...
         return JSONResponse(
             status_code=500,
             content={

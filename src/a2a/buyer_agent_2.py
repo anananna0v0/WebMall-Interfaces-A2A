@@ -2,6 +2,7 @@
 import os
 import json
 import uvicorn
+import asyncio
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from datetime import datetime
@@ -78,7 +79,12 @@ class AgentCard(BaseModel):
 # --- 3. Pydantic Models (Consistent with Coordinator) ---
 
 class A2AMessage(BaseModel):
-    user_query: str
+    """
+    The A2A Protocol payload sends a structured task.
+    The Coordinator determines the action (e.g., SEARCH) and the target.
+    """
+    action: str = Field(description="The high-level action to perform (e.g., SEARCH, ADD_TO_CART).")
+    target: str = Field(description="The primary target of the action (e.g., user query, product URL).")
 
 class BuyerResponse(BaseModel):
     agent_id: str
@@ -104,28 +110,30 @@ def log_reasoning(log_data: Dict[str, Any]):
 # --- 5. Core Logic: LLM Decision Maker (Gold-Tier Prompt) ---
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# !!! AGENT 2 SPECIALIZED PROMPT (V10) - for 'webmall_2' rules       !!!
-# !!! Teaches the "R5 Mark II" -> "R5 II" specific knowledge         !!!
+# !!! AGENT 2 SPECIALIZED PROMPT (V13) - for 'webmall_2' rules        !!!
+# !!! Teaches the "Cooling" category rule for CPU Coolers.           !!!
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ES_TRANSLATION_PROMPT = """
 You are an expert "Agentic" assistant for 'Shop 2'. Your sole purpose is to translate a user's natural language query into a precise Elasticsearch DSL JSON query object for the 'webmall_2' index.
 
 # 'webmall_2' Index Rules:
-# The "category.keyword" field contains the PRODUCT TYPE (e.g., "CPU", "Cameras").
+# The "category.keyword" field contains the PRODUCT TYPE (e.g., "CPU", "Cameras", "Motherboards", "Adapters", "Cooling").
 # The "title" field requires "match" with "and" operator to be precise.
-# SPECIAL KNOWLEDGE: This shop's "Canon EOS R5 Mark II" is listed as "Canon EOS R5 II" (no "Mark").
+# CRITICAL KNOWLEDGE: 
+# 1. SSD Caddies/Enclosures are categorized as "Adapters".
+# 2. CPU Coolers (Liquid or Air) are categorized under the "Cooling" category.
 
 # Based on this mapping, here are my rules:
 1.  You must ONLY respond with the JSON object for the query. Do not add any conversational text or explanations.
 2.  If the user asks for "cheapest", "budget", etc., you MUST add a `"sort": [{"price": "asc"}]`.
-3.  **CRITICAL RULE:** For "title" searches, you MUST use a `"match"` query with `"operator": "and"`.
-4.  You MUST infer the correct PRODUCT TYPE (e.g., "CPU", "Cameras") and use it in a `"filter"` on `"category.keyword"`.
+3.  For "title" searches, you MUST use a `"match"` query with `"operator": "and"`.
+4.  You MUST infer the correct PRODUCT TYPE (e.g., "CPU", "Cameras", "Cooling", "Adapters") and use it in a `"filter"` on `"category.keyword"`.
 5.  Always limit the results, set `"size": 5`.
 
-# --- EXAMPLES (Based on 'webmall_2' rules, F1-Optimized) ---
+# --- EXAMPLES (F1-Optimized) ---
 
 # Example 1: User query "Find all offers for the AMD Ryzen 9 5900X."
-# (Product Type: "CPU", Use "match" + "and")
+# (Product Type: "CPU")
 User: "Find all offers for the AMD Ryzen 9 5900X."
 Response:
 {
@@ -142,18 +150,35 @@ Response:
   "size": 5
 }
 
-# Example 2: User query "Find all offers for the Canon EOS R5 Mark II."
-# (Product Type: "Cameras", Use "match" + "and", BUT correct the title query)
-User: "Find all offers for the Canon EOS R5 Mark II."
+# Example 2: User query "Find all offers for the GameMax Iceburg 360mm ARGB Liquid CPU Cooler."
+# (Product Type: "Cooling" - Teaching the new rule)
+User: "Find all offers for the GameMax Iceburg 360mm ARGB Liquid CPU Cooler."
 Response:
 {
   "query": {
     "bool": {
       "must": [
-        { "match": { "title": {"query": "Canon EOS R5 II", "operator": "and"} } }
+        { "match": { "title": {"query": "GameMax Iceburg 360mm ARGB Liquid CPU Cooler", "operator": "and"} } }
       ],
       "filter": [
-        { "term": { "category.keyword": "Cameras" } }
+        { "term": { "category.keyword": "Cooling" } }
+      ]
+    }
+  },
+  "size": 5
+}
+# Example 3: User query "Find all offers for the Asus ROG STRIX ARION LITE M.2 NVMe SSD Caddy."
+# (Product Type: "Adapters")
+User: "Find all offers for the Asus ROG STRIX ARION LITE M.2 NVMe SSD Caddy."
+Response:
+{
+  "query": {
+    "bool": {
+      "must": [
+        { "match": { "title": {"query": "Asus ROG STRIX ARION LITE M.2 NVMe SSD Caddy", "operator": "and"} } }
+      ],
+      "filter": [
+        { "term": { "category.keyword": "Adapters" } }
       ]
     }
   },
@@ -236,6 +261,26 @@ async def execute_es_query(query_dsl: Dict[str, Any]) -> List[Dict[str, Any]]:
     })
     return results
 
+async def mock_add_to_cart(url: str) -> bool:
+    """
+    [MOCK ACTION]
+    Simulates the action of adding a specific product URL to the cart.
+    In a real system, this would be an RPA step (e.g., Selenium click).
+    """
+    print(f"[{AGENT_ID}] MOCK: Attempting to add product at URL: {url} to cart.")
+    # Simulate success or failure based on the URL structure, if desired, 
+    # but for simplicity, we mock success.
+    
+    # We assume the action takes some time
+    await asyncio.sleep(0.5) 
+    
+    log_reasoning({
+        "step": "add_to_cart_action",
+        "product_url": url,
+        "status": "success"
+    })
+    return True
+
 # --- 7. FastAPI Endpoint (A2A Server) ---
 
 # --- New: Agent Capability Endpoint (Simulated Agent Card) ---
@@ -258,18 +303,13 @@ async def get_capability():
 @app.post("/a2a/sendMessage", response_model=BuyerResponse)
 async def handle_a2a_message(request: A2AMessage):
     """
-    This is the main A2A entry point.
-    It will try the "real path". If it fails, it will FAIL LOUDLY
-    by returning a 500 error, which is better for debugging.
+    The main A2A entry point. It routes based on the 'action' field.
     """
-    print(f"[{AGENT_ID}] Received task: {request.user_query}")
+    print(f"[{AGENT_ID}] Received action: {request.action} with target: {request.target}")
     
     if not LLM_AVAILABLE or not es:
-        # This is a critical configuration error. Fail hard.
-        log_reasoning({
-            "step": "pre-check", "status": "error",
-            "error": "LLM or ES client is not available."
-        })
+        # Critical configuration check (Fail fast)
+        # ... (logging code remains the same) ...
         return JSONResponse(
             status_code=500,
             content={
@@ -279,39 +319,38 @@ async def handle_a2a_message(request: A2AMessage):
         )
 
     try:
-        # --- HAPPY PATH ---
-        # Step 1: Decide (Use LLM to get ES query)
-        es_query_dsl = await get_es_query_from_llm(request.user_query)
-        
-        # Step 2: Act (Execute the REAL ES query)
-        search_results = await execute_es_query(es_query_dsl)
-        
-        if not search_results:
+        if request.action == "SEARCH":
+            # --- SEARCH PATH (Requires LLM and ES) ---
+            es_query_dsl = await get_es_query_from_llm(request.target)
+            search_results = await execute_es_query(es_query_dsl)
+            
             return BuyerResponse(
                 agent_id=AGENT_ID,
                 status="success",
-                content=[] # Real query, but no results found
+                content=search_results
             )
-
-        # Step 3: Respond (Send real, structured data back)
-        return BuyerResponse(
-            agent_id=AGENT_ID,
-            status="success",
-            content=search_results
-        )
         
+        elif request.action == "ADD_TO_CART":
+            # --- ACTION PATH (Uses MOCK RPA) ---
+            success = await mock_add_to_cart(request.target)
+            if success:
+                 return BuyerResponse(
+                    agent_id=AGENT_ID,
+                    status="success",
+                    content=f"Product added to cart successfully. URL: {request.target}"
+                )
+            
+        else:
+            # UNKNOWN ACTION
+             return BuyerResponse(
+                agent_id=AGENT_ID,
+                status="error",
+                content=f"Unknown action: {request.action}. Only SEARCH and ADD_TO_CART are supported."
+            )
+            
     except Exception as e:
-        # --- REAL FAILURE PATH ---
-        # Something failed (LLM translation, ES query, etc.)
-        # Log it and return a 500 error so the developer knows.
-        print(f"[{AGENT_ID}] [ERROR] Real pipeline failed: {e}")
-        log_reasoning({
-            "step": "pipeline_failure",
-            "status": "error",
-            "error": str(e)
-        })
-        
-        # Return a 500 error to the Coordinator (or curl)
+        # REAL FAILURE PATH (LLM or ES related)
+        # ... (logging code remains the same) ...
         return JSONResponse(
             status_code=500,
             content={

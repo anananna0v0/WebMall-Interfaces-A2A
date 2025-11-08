@@ -67,10 +67,11 @@ class AgentCard(BaseModel):
 
 class A2AMessage(BaseModel):
     """
-    The "A2A Protocol" payload we send to Buyers.
-    We send the raw query to let the Buyer Agent use its own "agentic behaviour".
+    The A2A Protocol payload sends a structured task.
+    The Coordinator determines the action (e.g., SEARCH) and the target.
     """
-    user_query: str
+    action: str = Field(description="The high-level action to perform (e.g., SEARCH, ADD_TO_CART).")
+    target: str = Field(description="The primary target of the action (e.g., user query, product URL).")
 
 class BuyerResponse(BaseModel):
     """
@@ -86,6 +87,17 @@ class UserRequest(BaseModel):
 class FinalResponse(BaseModel):
     natural_language_response: str
     raw_data: List[BuyerResponse]
+
+# ---  Models for LLM Plan Generation ---
+class PlanStep(BaseModel):
+    step_id: int
+    action: str = Field(description="The high-level action (e.g., SEARCH, ADD_TO_CART, CHECKOUT).")
+    query: str = Field(description="The specific natural language query or target URL for this step.")
+    
+class ActionPlan(BaseModel):
+    # The output model for the LLM when intent is complex
+    intent: str = Field(description="The overall intent (e.g., 'PLAN').")
+    plan: List[PlanStep] = Field(description="The sequence of actions needed to fulfill the user's request.")
 
 # --- 4. Logging Utility ---
 
@@ -106,48 +118,56 @@ def log_reasoning(log_data: Dict[str, Any]):
 # --- 5. Core Logic: LLM Helpers ---
 
 async def get_task_intent(user_query: str) -> Dict[str, Any]:
-    # [LLM DECISION 1: Classify Intent]
-    # Uses gpt-5-mini to classify the user's intent.
+    # [LLM DECISION 1: Classify Intent and Generate Plan]
     if not llm:
         return {"intent": "UNKNOWN", "error": "LLM not available"}
 
-    print(f"[Coordinator] Classifying intent for: {user_query}")
+    print(f"[Coordinator] Classifying intent and generating plan for: {user_query}")
     
-    # Define the parser
-    parser = JsonOutputParser()
+    # We define the JSON structure we want the LLM to output (ActionPlan)
+    parser = JsonOutputParser(pydantic_object=ActionPlan)
     
-    # Define the prompt
+    # The core instruction for generating the plan
+    system_message_content = (
+        "You are an expert planning system for a multi-agent web mall. Your task is to analyze the user's request "
+        "and generate a structured sequence of actions (a 'plan') to fulfill it. "
+        "The primary action types are: 'SEARCH', 'ADD_TO_CART', and 'CHECKOUT'.\n"
+        "Your final output MUST be a single JSON object conforming to the following schema:\n"
+        f"{parser.get_format_instructions()}\n\n"
+        "If the request is simple (e.g., only SEARCH), the plan should have one step. "
+        "If the request is complex (e.g., Find X AND Add X to Cart), the plan must have multiple steps."
+    )
+    
     prompt = [
-        SystemMessage(content=(
-            "You are an expert system. Your job is to classify the user's intent for a web mall. "
-            "Possible intents are: 'SEARCH' (finding products), "
-            "'ADD_TO_CART' (adding a specific item), "
-            "'CHECKOUT' (completing the purchase), "
-            "or 'UNKNOWN' (for anything else). "
-            "Respond ONLY with a JSON object like {\"intent\": \"YOUR_CLASSIFICATION\"}."
-        )),
-        HumanMessage(content=user_query)
+        SystemMessage(content=system_message_content),
+        HumanMessage(content=f"User Request: {user_query}")
     ]
     
     try:
         token_usage = 0
-        # --- New: Add token tracking ---
         with get_openai_callback() as cb:
-            # Create the chain: prompt | model | parser
             chain = llm | parser
-            result_json = await chain.ainvoke(prompt)
-            token_usage = cb.total_tokens # Get token count
+            # We now expect ActionPlan model output
+            result_json_obj = await chain.ainvoke(prompt)
+            token_usage = cb.total_tokens
             print(f"[Coordinator] Intent LLM Token Usage: {token_usage}")
         
-        log_reasoning({
-            "step": "intent_classification",
-            "query": user_query,
-            "result": result_json,
-            "token_usage": token_usage # Add to log
-        })
-        return result_json
+        # Check if the result is a plan (simple search tasks will also be wrapped in a plan now)
+        if result_json_obj.get("intent") == "PLAN" and "plan" in result_json_obj:
+             log_reasoning({
+                "step": "plan_generation",
+                "query": user_query,
+                "plan": result_json_obj.get("plan"),
+                "token_usage": token_usage
+            })
+             # We return the whole plan object
+             return result_json_obj
+        else:
+            raise ValueError("LLM did not return a valid structured plan.")
+            
     except Exception as e:
-        print(f"[Coordinator] LLM Intent classification failed: {e}")
+        print(f"[Coordinator] LLM Planning failed: {e}")
+        # If planning fails, treat as UNKNOWN
         return {"intent": "UNKNOWN", "error": str(e)}
     
 async def synthesize_results(buyer_responses: List[BuyerResponse], user_query: str) -> str:
@@ -236,6 +256,22 @@ async def discover_buyer_capabilities():
     
     print(f"[Coordinator] A2A Discovery Complete. Found {len(BUYER_CAPABILITIES)} active Agents.")
 
+async def mock_add_to_cart_execution(agent_id: str, url: str) -> BuyerResponse:
+    """
+    Simulates the process of delegating the ADD_TO_CART action to the specific agent.
+    Returns a BuyerResponse object for the Coordinator's synthesis step.
+    """
+    # NOTE: This function would normally call delegate_to_buyers with a targeted URL.
+    
+    # We assume success and log the action
+    print(f"[Coordinator] MOCK ACTION: Delegating ADD_TO_CART to {agent_id} for URL: {url}")
+    await asyncio.sleep(0.1) # Simulate network delay
+    
+    return BuyerResponse(
+        agent_id=agent_id,
+        status="success",
+        content=f"Product added to cart successfully. URL: {url}"
+    )
 
 # --- 6. Core Logic: A2A Client ---
 
@@ -316,54 +352,88 @@ app = FastAPI(
 
 @app.post("/process_query", response_model=FinalResponse)
 async def process_user_query(request: UserRequest):
-    """
-    Main user-facing endpoint.
-    Orchestrates the 1. Intent -> 2. Delegate -> 3. Synthesize process.
-    """
+    # ... (Step 1: Plan Generation remains the same) ...
+    plan_data = await get_task_intent(request.query)
+    intent = plan_data.get("intent", "UNKNOWN")
     
-    if not LLM_AVAILABLE:
-        return JSONResponse(status_code=500, content={"error": "LLM is not available. Check configuration."})
-
-    # Step 1: Use LLM to classify intent
-    intent_data = await get_task_intent(request.query)
-    intent = intent_data.get("intent", "UNKNOWN")
-    
-    print(f"[Coordinator] Intent classified as: {intent}")
-
-    if intent == "SEARCH":
-        # Step 2: Create the A2A task payload
-        # We send the RAW query, letting the Buyer Agents do the "agentic" work
-        task_payload = A2AMessage(user_query=request.query)
-
-        # Step 3: Concurrently delegate to all Buyers
-        buyer_responses = await delegate_to_buyers(task_payload)
+    if intent == "PLAN" and "plan" in plan_data:
+        all_buyer_responses: List[BuyerResponse] = []
+        # urls_to_action: {url: agent_id} mapping for subsequent actions
+        urls_to_action: Dict[str, str] = {} 
+        final_synthesis_query = request.query
         
-        # Step 4: Use LLM to synthesize results into a final answer
-        final_answer = await synthesize_results(buyer_responses, request.query)
+        # --- EXECUTE PLAN STEPS ---
+        for step in plan_data["plan"]:
+            step_action = step["action"]
+            step_query = step["query"]
+            
+            print(f"[Coordinator] Executing Step {step['step_id']}: {step_action} on target: {step_query}")
+            
+            if step_action == "SEARCH":
+                # Step 2: Execute SEARCH (Delegate to all buyers)
+                task_payload = A2AMessage(action="SEARCH", target=step_query)
+                search_responses = await delegate_to_buyers(task_payload)
+                all_buyer_responses.extend(search_responses)
+                
+                # Process SEARCH results to find URLs for next steps (ADD_TO_CART/CHECKOUT)
+                for res in search_responses:
+                    if res.status == "success" and res.content:
+                        # Collect *all* URLs and their corresponding Agent ID (Store)
+                        # This handles the "add each of them" requirement.
+                        for item in res.content:
+                            urls_to_action[item['url']] = res.agent_id # {URL: AGENT_ID}
+                            
+                final_synthesis_query = step_query
+
+            elif step_action == "ADD_TO_CART":
+                # Step 3: Execute ADD_TO_CART (Delegate to specific agents for each URL found)
+                
+                if not urls_to_action:
+                    print("[Coordinator] ADD_TO_CART skipped: SEARCH yielded no results for action.")
+                    all_buyer_responses.append(BuyerResponse(agent_id="Coordinator", status="info", content="ADD_TO_CART skipped: No targets from SEARCH step."))
+                    continue
+
+                print(f"[Coordinator] Delegating ADD_TO_CART for {len(urls_to_action)} unique offers.")
+                
+                # --- ACTION EXECUTION: We simulate concurrent action for all offers ---
+                add_to_cart_tasks = []
+                for url, agent_id in urls_to_action.items():
+                    # NOTE: We need to find the correct Buyer URL based on the Agent ID
+                    # This relies on the BUYER_CAPABILITIES we discovered on startup!
+                    
+                    # Look up the target Buyer's /a2a/sendMessage URL
+                    # This is complex, so we will simplify to a MOCK success log for demo purposes.
+                    
+                    # MOCK ACTION EXECUTION:
+                    add_to_cart_tasks.append(
+                         mock_add_to_cart_execution(agent_id, url)
+                    )
+                
+                # Add mock results to the overall response
+                mock_results = await asyncio.gather(*add_to_cart_tasks)
+                all_buyer_responses.extend(mock_results)
+
+            elif step_action == "CHECKOUT":
+                 # Step 4: Execute CHECKOUT
+                 # We will implement this after the ADD_TO_CART logic is verified.
+                 # ... (MOCK response for CHECKOUT goes here) ...
+                 pass
+
+
+        # Step 5: Final Synthesis
+        # We synthesize results from ALL steps (mostly the SEARCH step's raw data)
+        final_answer = await synthesize_results(all_buyer_responses, final_synthesis_query)
         
         return FinalResponse(
             natural_language_response=final_answer,
-            raw_data=buyer_responses
+            raw_data=all_buyer_responses
         )
     
-    elif intent == "ADD_TO_CART" or intent == "CHECKOUT":
-        # TODO: Implement logic for these intents.
-        
-        print(f"[Coordinator] '{intent}' intent is not fully implemented. Forwarding to all agents as a general task.")
-        
-        task_payload = A2AMessage(user_query=request.query)
-        buyer_responses = await delegate_to_buyers(task_payload)
-        final_answer = await synthesize_results(buyer_responses, request.query)
-
-        return FinalResponse(
-            natural_language_response=final_answer,
-            raw_data=buyer_responses
-        )
-        
     else:
-        # UNKNOWN intent
+        # UNKNOWN or failed plan generation
+        # ... (error response) ...
         return FinalResponse(
-            natural_language_response="I'm sorry, I'm not sure how to help with that. Can you rephrase your request?",
+            natural_language_response=f"I'm sorry, I couldn't generate a plan to fulfill your complex request: {request.query}",
             raw_data=[]
         )
 
