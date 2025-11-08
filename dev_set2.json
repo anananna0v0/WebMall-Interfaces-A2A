@@ -69,19 +69,17 @@
           ]
         }
       },
-      {
+    {
         "id": "Webmall_Find_Cheapest_Offer_Task2",
         "category": "Cheapest_Product",
         "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
-        "task": "<task>\\nFind the cheapest offer for each storage size of the Samsung 870 Evo. If multiple offers share the lowest price, return all of them.\\n</task>",
+        "task": "<task>\\nFind the cheapest offer for an ASUS ProArt RTX4070 SUPER OC. If multiple offers share the lowest price, return all of them.\\n</task>",
         "motivation": "Evaluate how well the agent can identify price differences and avoid misleadingly similar but incorrect products.",
         "correct_answer": {
           "type": "string",
           "answers": [
-            "{{URL_1}}/product/samsung-870-evo-2-5-250-gb-sata-iii-v-nand",
-            "{{URL_1}}/product/samsung-1tb-870-evo-ssd-2-5-sata3-v-nand-r-w-560-530-mb-s-98k-88k-iops-7mm",
-            "{{URL_2}}/product/samsung-870-evo-2tb-2-5-sata-iii-6gb-s-ssd-560r-530w-mb-s-mz-77e2t0bw",
-            "{{URL_3}}/product/samsung-4tb-870-evo-ssd-2-5-sata3-v-nand-r-w-560-530-mb-s-98k-88k-iops-7mm"
+            "{{URL_3}}/product/asus-proart-rtx4070-super-oc-pcie4-12gb-ddr6x-hdmi-3-dp-2565mhz-clock-overclocked-compact-2-5-slot-design",
+            "{{URL_1}}/product/asus-proart-rtx4070-super-oc-12gb-ddr6x-hdmi-3-dp-2565mhz-clock-overclocked-compact-2-5-slot-design"
           ]
         }
       }
