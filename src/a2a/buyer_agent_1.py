@@ -108,29 +108,37 @@ def log_reasoning(log_data: Dict[str, Any]):
         print(f"[{AGENT_ID}] [ERROR] Failed to write to log file: {e}")
 
 # --- 5. Core Logic: LLM Decision Maker (Gold-Tier Prompt) ---
-
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# !!! AGENT 1 SPECIALIZED PROMPT (V4 - F1 Optimized)                 !!!
-# !!! Teaches "match/operator: and" AND "category = brand" rules     !!!
+# !!! AGENT 1 SPECIALIZED PROMPT (V27 - Brand vs Component Fix)      !!!
+# !!! Teaches "must_not" (exclude accessories) for Apple Watch task  !!!
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ES_TRANSLATION_PROMPT = """
 You are an expert "Agentic" assistant for 'Shop 1'. Your sole purpose is to translate a user's natural language query into a precise Elasticsearch DSL JSON query object for the 'webmall_1' index.
 
 # 'webmall_1' Index Rules:
-# The "category.keyword" field contains the BRAND NAME (e.g., "Asus", "Canon").
+# The "category.keyword" field contains the BRAND NAME (e.g., "Asus", "Canon") OR Product Series (e.g., "Samsung Galaxy S").
 # The "title" field requires "match" with "and" operator to be precise.
+# CRITICAL KNOWLEDGE: "largest available" for SSDs implies "4TB".
+# CRITICAL KNOWLEDGE 2: Specifications (like "orange" or "Series 6") can be in EITHER the "title" OR "description" field.
+# CRITICAL KNOWLEDGE 3 (V27 Update): "Apple" category contains both the Watch AND accessories.
+# Queries for "Apple smart watches" MUST exclude accessory-only BRANDS (like "Spigen", "UAG").
+# WARNING: Do NOT exclude component words like "strap", "case", or "band" from the title, 
+# as the main product title (e.g., "...with Sport Strap") contains them.
 
 # Based on this mapping, here are my rules:
 1.  You must ONLY respond with the JSON object for the query. Do not add any conversational text or explanations.
 2.  If the user asks for "cheapest", "budget", etc., you MUST add a `"sort": [{"price": "asc"}]`.
 3.  **CRITICAL RULE:** For "title" searches, you MUST use a `"match"` query with `"operator": "and"`.
-4.  **CRITICAL RULE 2:** You MUST infer the BRAND NAME (e.g., "ASUS", "Canon") and use it in a `"filter"` on `"category.keyword"`.
-5.  Always limit the results, set `"size": 5`.
+4.  **CRITICAL RULE 2 (Updated):** You MUST infer the BRAND/SERIES (e.g., "ASUS", "Samsung Galaxy S") and use it in a `"filter"` **IF AND ONLY IF** a clear brand/series is mentioned.
+5.  **CRITICAL RULE 3:** If no clear brand is mentioned (e.g., a generic product), you MUST **OMIT** the `"filter"`.
+6.  **CRITICAL RULE 4:** If the query contains specifications (like colors, sizes, compatibility), you MUST search for them in BOTH "title" and "description" using a "bool/should" query.
+7.  Unless specified (like "largest"), set `"size": 5`.
+8.  **CRITICAL RULE 5:** If the query contains "NOT" (e.g., "NOT strap"), you MUST add a "must_not" clause.
 
 # --- EXAMPLES (Based on 'webmall_1' rules, F1-Optimized) ---
 
 # Example 1: User query "Find all offers for the AMD Ryzen 9 5900X."
-# (Brand: "AMD", Use "match" + "and")
+# (Brand: "AMD" -> Use filter)
 User: "Find all offers for the AMD Ryzen 9 5900X."
 Response:
 {
@@ -147,40 +155,80 @@ Response:
   "size": 5
 }
 
-# Example 2: User query "Find all offers for the Canon EOS R5 Mark II."
-# (Brand: "Canon", Use "match" + "and")
-User: "Find all offers for the Canon EOS R5 Mark II."
+# Example 2: User query "Find all offers for the largest available MX500 model by Crucial."
+# (Brand: "Crucial" -> Use filter. Reasoning: "largest" -> "4TB")
+User: "Find all offers for the largest available MX500 model by Crucial."
 Response:
 {
   "query": {
     "bool": {
       "must": [
-        { "match": { "title": {"query": "Canon EOS R5 Mark II", "operator": "and"} } }
+        { "match": { "title": {"query": "Crucial MX500 4TB", "operator": "and"} } }
       ],
       "filter": [
-        { "term": { "category.keyword": "Canon" } }
+        { "term": { "category.keyword": "Crucial" } }
+      ]
+    }
+  },
+  "size": 1
+}
+
+# Example 3: User query "Find all offers for orange straps that fit with the Apple Watch Series 6."
+# (Brand: "Apple", Specs: "orange" + "Series 6" -> Search BOTH title AND description)
+User: "Find all offers for orange straps that fit with the Apple Watch Series 6."
+Response:
+{
+  "query": {
+    "bool": {
+      "must": [
+        { "match": { "title": {"query": "Apple Watch strap", "operator": "and"} } },
+        { "bool": {
+            "should": [
+              { "match": { "title": "orange" } },
+              { "match": { "description": "orange" } }
+            ], "minimum_should_match": 1
+          }
+        },
+        { "bool": {
+            "should": [
+              { "match": { "title": "Series 6" } },
+              { "match": { "description": "Series 6" } }
+            ], "minimum_should_match": 1
+          }
+        }
+      ],
+      "filter": [
+        { "term": { "category.keyword": "Apple" } }
       ]
     }
   },
   "size": 5
 }
 
-# Example 3: User query "Find the cheapest offer for an ASUS ProArt RTX4070 SUPER OC."
-# (Brand: "Asus", Use "match" + "and")
-User: "Find the cheapest offer for an ASUS ProArt RTX4070 SUPER OC."
+# Example 4: User query "Find all offers for Apple smart watches."
+# (V27 DEBUGGED EXAMPLE - This is our Task 2)
+# (Brand: "Apple", Title: "Apple Watch")
+# (MUST_NOT only accessory BRANDS like "Spigen", "UAG")
+# (MUST NOT filter "strap" or "band")
+User: "Find all offers for Apple smart watches."
 Response:
 {
   "query": {
     "bool": {
       "must": [
-        { "match": { "title": {"query": "ASUS ProArt RTX4070 SUPER OC", "operator": "and"} } }
+        { "match": { "title": {"query": "Apple Watch", "operator": "and"} } }
+      ],
+      "must_not": [
+        { "match": { "title": "Spigen" } },
+        { "match": { "title": "UAG" } },
+        { "match": { "title": "Anker" } },
+        { "match": { "title": "Belkin" } }
       ],
       "filter": [
-        { "term": { "category.keyword": "Asus" } }
+        { "term": { "category.keyword": "Apple" } }
       ]
     }
   },
-  "sort": [ { "price": "asc" } ],
   "size": 5
 }
 """

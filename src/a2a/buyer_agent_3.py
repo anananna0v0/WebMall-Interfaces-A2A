@@ -110,8 +110,10 @@ def log_reasoning(log_data: Dict[str, Any]):
 # --- 5. Core Logic: LLM Decision Maker (Gold-Tier Prompt) ---
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# !!! AGENT 3 SPECIALIZED PROMPT (V8) - F1 SCORE OPTIMIZED           !!!
-# !!! Teaches "match/operator: and" to kill noise / false positives  !!!
+# !!! AGENT 3 SPECIALIZED PROMPT (V30) - F1 SCORE OPTIMIZED           !!!
+# !!! Teaches "Smartwatches" category (Task 2)                       !!!
+# !!! Teaches "description" search (Task 1)                          !!!
+# !!! Teaches "must_not" (UAG) (Task 2)                              !!!
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ES_TRANSLATION_PROMPT = """
 You are an expert "Agentic" assistant for 'Shop 3'. Your sole purpose is to translate a user's natural language query into a precise Elasticsearch DSL JSON query object for the 'webmall_3' index.
@@ -121,6 +123,10 @@ You are an expert "Agentic" assistant for 'Shop 3'. Your sole purpose is to tran
 # - AMD CPUs are "Processors".
 # - Canon Cameras can be "Visual Art" OR "Digital Cameras".
 # The "title" field requires a "match" query with the "and" operator to be precise.
+# CRITICAL KNOWLEDGE 3 (V30 Import): Specifications (like "orange" or "Series 6") can be in EITHER the "title" OR "description" field.
+# CRITICAL KNOWLEDGE 4 (V30 New): The "Smartwatches" category contains BOTH the main Watch AND accessories (like "UAG").
+# - When searching for "Apple smart watches", you MUST translate the title query to "Apple Watch".
+# - You MUST ALSO exclude accessory-only BRANDS (like "UAG") using "must_not".
 
 # Based on this mapping, here are my rules:
 1.  You must ONLY respond with the JSON object for the query. Do not add any conversational text or explanations.
@@ -129,6 +135,7 @@ You are an expert "Agentic" assistant for 'Shop 3'. Your sole purpose is to tran
 4.  You MUST infer the correct PRODUCT TYPE(S) and use them in a `"filter"`.
 5.  If a product can have MULTIPLE categories, you must use a "bool/should" query in the filter.
 6.  Always limit the results, set `"size": 5`.
+7.  **CRITICAL RULE 2 (V30 Import):** If the query contains specifications (like colors, sizes), you MUST search for them in BOTH "title" and "description" using a "bool/should" query.
 
 # --- EXAMPLES (Based on 'webmall_3' rules, F1-Optimized) ---
 
@@ -170,6 +177,64 @@ Response:
             "minimum_should_match": 1
           }
         }
+      ]
+    }
+  },
+  "size": 5
+}
+
+# Example 3: User query "Find all offers for Apple smart watches."
+# (V30 DEBUGGED EXAMPLE - This is our Task 2)
+# (Product Type: "Smartwatches")
+# (CRITICAL: "Apple smart watches" -> "Apple Watch" for title search)
+# (CRITICAL: "must_not" accessory brands like "UAG")
+User: "Find all offers for Apple smart watches."
+Response:
+{
+  "query": {
+    "bool": {
+      "must": [
+        { "match": { "title": {"query": "Apple Watch", "operator": "and"} } }
+      ],
+      "must_not": [
+        { "match": { "title": "UAG" } },
+        { "match": { "title": "strap" } }
+      ],
+      "filter": [
+        { "term": { "category.keyword": "Smartwatches" } }
+      ]
+    }
+  },
+  "size": 5
+}
+
+# Example 4: User query "Find all offers for orange straps that fit with the Apple Watch Series 6."
+# (V30 DEBUGGED EXAMPLE - This is our Task 1)
+# (Product Type: "Smartwatches", Specs: "orange" + "Series 6" -> Search BOTH title AND description)
+User: "Find all offers for orange straps that fit with the Apple Watch Series 6."
+Response:
+{
+  "query": {
+    "bool": {
+      "must": [
+        { "match": { "title": {"query": "Apple Watch strap", "operator": "and"} } },
+        { "bool": {
+            "should": [
+              { "match": { "title": "orange" } },
+              { "match": { "description": "orange" } }
+            ], "minimum_should_match": 1
+          }
+        },
+        { "bool": {
+            "should": [
+              { "match": { "title": "Series 6" } },
+              { "match": { "description": "Series 6" } }
+            ], "minimum_should_match": 1
+          }
+        }
+      ],
+      "filter": [
+        { "term": { "category.keyword": "Smartwatches" } }
       ]
     }
   },

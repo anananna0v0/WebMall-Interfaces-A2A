@@ -151,6 +151,12 @@ async def get_task_intent(user_query: str) -> Dict[str, Any]:
         '{"step_id": 2, "action": "CHECKOUT", "query": "{\\"name\\": \\"Jessica Morgan\\", \\"email\\": \\"jessica.morgan@yahoo.com\\", \\"street\\": \\"Maple Avenue\\", \\"house_number\\": \\"742\\", \\"zip\\": \\"60614\\", \\"city\\": \\"Chicago\\", \\"state\\": \\"IL\\", \\"country\\": \\"USA\\", \\"card\\": \\"4242424242424242\\", \\"cvv\\": \\"123\\", \\"expiry_date\\": \\"12/28\\"}"}'
         ']}'
 
+        "Example of a simple SEARCH-only plan:"
+
+        '{"intent": "PLAN", "plan": ['
+        '{"step_id": 1, "action": "SEARCH", "query": "Find all offers for orange straps that fit with the Apple Watch Series 6."}'
+        ']}'
+
         "Example of a multi-step plan for CHECKOUT (Find URL -> Checkout):"
     
         '{"intent": "PLAN", "plan": ['

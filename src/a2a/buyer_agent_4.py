@@ -108,10 +108,12 @@ def log_reasoning(log_data: Dict[str, Any]):
         print(f"[{AGENT_ID}] [ERROR] Failed to write to log file: {e}")
 
 # --- 5. Core Logic: LLM Decision Maker (Gold-Tier Prompt) ---
-
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# !!! AGENT 4 SPECIALIZED PROMPT (V9) - for 'webmall_4' rules        !!!
+# !!! AGENT 4 SPECIALIZED PROMPT (V31) - for 'webmall_4' rules        !!!
 # !!! Teaches agent to IGNORE the "category" field as it is noise    !!!
+# !!! Teaches Title Translation (Task 2)                             !!!
+# !!! Teaches "description" search (Task 1)                          !!!
+# !!! Teaches "must_not" (Strap) (Task 2)                            !!!
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ES_TRANSLATION_PROMPT = """
 You are an expert "Agentic" assistant for 'Shop 4'. Your sole purpose is to translate a user's natural language query into a precise Elasticsearch DSL JSON query object for the 'webmall_4' index.
@@ -120,6 +122,10 @@ You are an expert "Agentic" assistant for 'Shop 4'. Your sole purpose is to tran
 # The "category.keyword" field is EXTREMELY INCONSISTENT and UNRELIABLE.
 # We must IGNORE the category field entirely.
 # We will rely ONLY on the "title" field, using a "match" query with the "and" operator.
+# CRITICAL KNOWLEDGE 3 (V31 Import): Specifications (like "orange" or "Series 6") can be in EITHER the "title" OR "description" field.
+# CRITICAL KNOWLEDGE 4 (V31 New):
+# - When searching for "Apple smart watches", you MUST translate the title query to "Apple Watch" to find all models.
+# - You MUST ALSO exclude accessory-only keywords (like "Strap", "PRESTIGE") using "must_not" on the title.
 
 # Based on this mapping, here are my rules:
 1.  You must ONLY respond with the JSON object for the query. Do not add any conversational text or explanations.
@@ -127,6 +133,7 @@ You are an expert "Agentic" assistant for 'Shop 4'. Your sole purpose is to tran
 3.  **CRITICAL RULE:** For "title" searches, you MUST use a `"match"` query with `"operator": "and"`.
 4.  **CRITICAL RULE 2:** DO NOT add a "filter" on "category.keyword". It is bad data.
 5.  Always limit the results, set `"size": 5`.
+6.  **CRITICAL RULE 3 (V31 Import):** If the query contains specifications (like colors, sizes), you MUST search for them in BOTH "title" and "description" using a "bool/should" query.
 
 # --- EXAMPLES (Based on 'webmall_4' rules) ---
 
@@ -154,6 +161,59 @@ Response:
     "bool": {
       "must": [
         { "match": { "title": {"query": "Canon EOS R5 Mark II", "operator": "and"} } }
+      ]
+    }
+  },
+  "size": 5
+}
+
+# Example 3: User query "Find all offers for Apple smart watches."
+# (V31 DEBUGGED EXAMPLE - This is our Task 2)
+# (CRITICAL: "Apple smart watches" -> "Apple Watch" for title search)
+# (CRITICAL: "must_not" accessory keywords like "Strap")
+# (CRITICAL: NO category filter)
+User: "Find all offers for Apple smart watches."
+Response:
+{
+  "query": {
+    "bool": {
+      "must": [
+        { "match": { "title": {"query": "Apple Watch", "operator": "and"} } }
+      ],
+      "must_not": [
+        { "match": { "title": "Strap" } },
+        { "match": { "title": "PRESTIGE" } }
+      ]
+    }
+  },
+  "size": 5
+}
+
+# Example 4: User query "Find all offers for orange straps that fit with the Apple Watch Series 6."
+# (V31 DEBUGGED EXAMPLE - This is our Task 1)
+# (Specs: "orange" + "Series 6" -> Search BOTH title AND description)
+# (CRITICAL: NO category filter)
+User: "Find all offers for orange straps that fit with the Apple Watch Series 6."
+Response:
+{
+  "query": {
+    "bool": {
+      "must": [
+        { "match": { "title": {"query": "Apple Watch strap", "operator": "and"} } },
+        { "bool": {
+            "should": [
+              { "match": { "title": "orange" } },
+              { "match": { "description": "orange" } }
+            ], "minimum_should_match": 1
+          }
+        },
+        { "bool": {
+            "should": [
+              { "match": { "title": "Series 6" } },
+              { "match": { "description": "Series 6" } }
+            ], "minimum_should_match": 1
+          }
+        }
       ]
     }
   },

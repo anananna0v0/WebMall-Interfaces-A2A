@@ -110,8 +110,8 @@ def log_reasoning(log_data: Dict[str, Any]):
 # --- 5. Core Logic: LLM Decision Maker (Gold-Tier Prompt) ---
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# !!! AGENT 2 SPECIALIZED PROMPT (V13) - for 'webmall_2' rules        !!!
-# !!! Teaches the "Cooling" category rule for CPU Coolers.           !!!
+# !!! AGENT 2 SPECIALIZED PROMPT (V29) - for 'webmall_2' rules        !!!
+# !!! Teaches "Apple smart watches" -> "Apple Watch" title translation !!
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ES_TRANSLATION_PROMPT = """
 You are an expert "Agentic" assistant for 'Shop 2'. Your sole purpose is to translate a user's natural language query into a precise Elasticsearch DSL JSON query object for the 'webmall_2' index.
@@ -122,13 +122,16 @@ You are an expert "Agentic" assistant for 'Shop 2'. Your sole purpose is to tran
 # CRITICAL KNOWLEDGE: 
 # 1. SSD Caddies/Enclosures are categorized as "Adapters".
 # 2. CPU Coolers (Liquid or Air) are categorized under the "Cooling" category.
+# CRITICAL KNOWLEDGE 3 (V28 Import): Specifications (like "orange" or "Series 6") can be in EITHER the "title" OR "description" field.
+# CRITICAL KNOWLEDGE 4 (V28 New): "Apple smart watches" are in the "Apple Watches" category. Accessories are in "Smartwatch Equipment" or "Watch Straps".
 
 # Based on this mapping, here are my rules:
 1.  You must ONLY respond with the JSON object for the query. Do not add any conversational text or explanations.
 2.  If the user asks for "cheapest", "budget", etc., you MUST add a `"sort": [{"price": "asc"}]`.
 3.  For "title" searches, you MUST use a `"match"` query with `"operator": "and"`.
-4.  You MUST infer the correct PRODUCT TYPE (e.g., "CPU", "Cameras", "Cooling", "Adapters") and use it in a `"filter"` on `"category.keyword"`.
+4.  You MUST infer the correct PRODUCT TYPE (e.g., "CPU", "Cameras", "Cooling", "Adapters", "Apple Watches") and use it in a `"filter"` on `"category.keyword"`.
 5.  Always limit the results, set `"size": 5`.
+6.  **CRITICAL RULE (V28 Import):** If the query contains specifications (like colors, sizes), you MUST search for them in BOTH "title" and "description" using a "bool/should" query.
 
 # --- EXAMPLES (F1-Optimized) ---
 
@@ -151,7 +154,7 @@ Response:
 }
 
 # Example 2: User query "Find all offers for the GameMax Iceburg 360mm ARGB Liquid CPU Cooler."
-# (Product Type: "Cooling" - Teaching the new rule)
+# (Product Type: "Cooling")
 User: "Find all offers for the GameMax Iceburg 360mm ARGB Liquid CPU Cooler."
 Response:
 {
@@ -167,6 +170,7 @@ Response:
   },
   "size": 5
 }
+
 # Example 3: User query "Find all offers for the Asus ROG STRIX ARION LITE M.2 NVMe SSD Caddy."
 # (Product Type: "Adapters")
 User: "Find all offers for the Asus ROG STRIX ARION LITE M.2 NVMe SSD Caddy."
@@ -179,6 +183,59 @@ Response:
       ],
       "filter": [
         { "term": { "category.keyword": "Adapters" } }
+      ]
+    }
+  },
+  "size": 5
+}
+
+# Example 4: User query "Find all offers for Apple smart watches."
+# (V29 DEBUGGED EXAMPLE - This is our Task 2)
+# (Product Type: "Apple Watches")
+# (CRITICAL: "Apple smart watches" -> "Apple Watch" for title search)
+User: "Find all offers for Apple smart watches."
+Response:
+{
+  "query": {
+    "bool": {
+      "must": [
+        { "match": { "title": {"query": "Apple Watch", "operator": "and"} } }
+      ],
+      "filter": [
+        { "term": { "category.keyword": "Apple Watches" } }
+      ]
+    }
+  },
+  "size": 5
+}
+
+# Example 5: User query "Find all offers for orange straps that fit with the Apple Watch Series 6."
+# (V28 DEBUGGED EXAMPLE - This is our Task 1)
+# (Product Type: "Smartwatch Equipment", Specs: "orange" + "Series 6" -> Search BOTH title AND description)
+User: "Find all offers for orange straps that fit with the Apple Watch Series 6."
+Response:
+{
+  "query": {
+    "bool": {
+      "must": [
+        { "match": { "title": {"query": "Apple Watch strap", "operator": "and"} } },
+        { "bool": {
+            "should": [
+              { "match": { "title": "orange" } },
+              { "match": { "description": "orange" } }
+            ], "minimum_should_match": 1
+          }
+        },
+        { "bool": {
+            "should": [
+              { "match": { "title": "Series 6" } },
+              { "match": { "description": "Series 6" } }
+            ], "minimum_should_match": 1
+          }
+        }
+      ],
+      "filter": [
+        { "term": { "category.keyword": "Smartwatch Equipment" } }
       ]
     }
   },
