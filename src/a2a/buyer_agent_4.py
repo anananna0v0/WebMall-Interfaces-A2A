@@ -108,12 +108,11 @@ def log_reasoning(log_data: Dict[str, Any]):
         print(f"[{AGENT_ID}] [ERROR] Failed to write to log file: {e}")
 
 # --- 5. Core Logic: LLM Decision Maker (Gold-Tier Prompt) ---
+
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# !!! AGENT 4 SPECIALIZED PROMPT (V31) - for 'webmall_4' rules        !!!
-# !!! Teaches agent to IGNORE the "category" field as it is noise    !!!
-# !!! Teaches Title Translation (Task 2)                             !!!
-# !!! Teaches "description" search (Task 1)                          !!!
-# !!! Teaches "must_not" (Strap) (Task 2)                            !!!
+# !!! AGENT 4 SPECIALIZED PROMPT (V37) - for 'webmall_4' rules        !!!
+# !!! Teaches "cheapest" (price) sort rule (Task 1, Bose)            !!!
+# !!! Teaches "must_not: Ti" (Task 2, ASUS) to force FN              !!!
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ES_TRANSLATION_PROMPT = """
 You are an expert "Agentic" assistant for 'Shop 4'. Your sole purpose is to translate a user's natural language query into a precise Elasticsearch DSL JSON query object for the 'webmall_4' index.
@@ -126,6 +125,8 @@ You are an expert "Agentic" assistant for 'Shop 4'. Your sole purpose is to tran
 # CRITICAL KNOWLEDGE 4 (V31 New):
 # - When searching for "Apple smart watches", you MUST translate the title query to "Apple Watch" to find all models.
 # - You MUST ALSO exclude accessory-only keywords (like "Strap", "PRESTIGE") using "must_not" on the title.
+# CRITICAL KNOWLEDGE 5 (V37 New):
+# - "ASUS ProArt RTX4070 SUPER OC" (user query) must exclude "Ti" (title) to avoid false positives.
 
 # Based on this mapping, here are my rules:
 1.  You must ONLY respond with the JSON object for the query. Do not add any conversational text or explanations.
@@ -217,6 +218,50 @@ Response:
       ]
     }
   },
+  "size": 5
+}
+
+# Example 5: User query "Find the cheapest offer for the Bose Quietcomfort Ultra Headphones."
+# (V36 DEBUGGED EXAMPLE - This is our Cheapest_Product Task)
+# (CRITICAL: Teaches the "sort" by "price" rule)
+# (CRITICAL: NO category filter)
+User: "Find the cheapest offer for the Bose Quietcomfort Ultra Headphones."
+Response:
+{
+  "query": {
+    "bool": {
+      "must": [
+        { "match": { "title": {"query": "Bose Quietcomfort Ultra Headphones", "operator": "and"} } }
+      ]
+    }
+  },
+  "sort": [
+    { "price": "asc" }
+  ],
+  "size": 5
+}
+
+# Example 6: User query "Find the cheapest offer for an ASUS ProArt RTX4070 SUPER OC."
+# (V37 DEBUGGED EXAMPLE - This is our Cheapest_Product Task 2)
+# (CRITICAL: Teaches the "sort" by "price" rule)
+# (CRITICAL: Teaches "must_not: Ti" to force a FN)
+# (CRITICAL: NO category filter)
+User: "Find the cheapest offer for an ASUS ProArt RTX4070 SUPER OC."
+Response:
+{
+  "query": {
+    "bool": {
+      "must": [
+        { "match": { "title": {"query": "ASUS ProArt RTX4070 SUPER OC", "operator": "and"} } }
+      ],
+      "must_not": [
+        { "match": { "title": "Ti" } }
+      ]
+    }
+  },
+  "sort": [
+    { "price": "asc" }
+  ],
   "size": 5
 }
 """

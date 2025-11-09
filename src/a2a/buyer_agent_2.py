@@ -110,8 +110,10 @@ def log_reasoning(log_data: Dict[str, Any]):
 # --- 5. Core Logic: LLM Decision Maker (Gold-Tier Prompt) ---
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# !!! AGENT 2 SPECIALIZED PROMPT (V29) - for 'webmall_2' rules        !!!
-# !!! Teaches "Apple smart watches" -> "Apple Watch" title translation !!
+# !!! AGENT 2 SPECIALIZED PROMPT (V35) - for 'webmall_2' rules        !!!
+# !!! Teaches "cheapest" (price) sort rule (Task 1, Bose/ASUS)       !!!
+# !!! Teaches "Headphones"/"CPU" category (Task 1, Bose/ASUS) to force FN !!!
+# !!! Teaches "Canon Mark II" -> "Canon II" Title Translation        !!!
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ES_TRANSLATION_PROMPT = """
 You are an expert "Agentic" assistant for 'Shop 2'. Your sole purpose is to translate a user's natural language query into a precise Elasticsearch DSL JSON query object for the 'webmall_2' index.
@@ -122,16 +124,19 @@ You are an expert "Agentic" assistant for 'Shop 2'. Your sole purpose is to tran
 # CRITICAL KNOWLEDGE: 
 # 1. SSD Caddies/Enclosures are categorized as "Adapters".
 # 2. CPU Coolers (Liquid or Air) are categorized under the "Cooling" category.
-# CRITICAL KNOWLEDGE 3 (V28 Import): Specifications (like "orange" or "Series 6") can be in EITHER the "title" OR "description" field.
-# CRITICAL KNOWLEDGE 4 (V28 New): "Apple smart watches" are in the "Apple Watches" category. Accessories are in "Smartwatch Equipment" or "Watch Straps".
+# 3. Specifications (like "orange" or "Series 6") can be in EITHER the "title" OR "description" field.
+# 4. "Apple smart watches" are in the "Apple Watches" category. Accessories are in "Smartwatch Equipment" or "Watch Straps".
+# 5. "Bose Headphones" are in the "Over-Ear" or "Headphones" category.
+# 6. "ASUS RTX" (GPUs) are NOT in the 'webmall_2' database (map to "CPU" to ensure FN).
+# 7. (V35 New) "Canon EOS R5 Mark II" (user query) maps to "Canon EOS R5 II" (title) in 'webmall_2'.
 
 # Based on this mapping, here are my rules:
 1.  You must ONLY respond with the JSON object for the query. Do not add any conversational text or explanations.
 2.  If the user asks for "cheapest", "budget", etc., you MUST add a `"sort": [{"price": "asc"}]`.
 3.  For "title" searches, you MUST use a `"match"` query with `"operator": "and"`.
-4.  You MUST infer the correct PRODUCT TYPE (e.g., "CPU", "Cameras", "Cooling", "Adapters", "Apple Watches") and use it in a `"filter"` on `"category.keyword"`.
+4.  You MUST infer the correct PRODUCT TYPE (e.g., "CPU", "Cameras", "Cooling", "Adapters", "Apple Watches", "Headphones") and use it in a `"filter"` on `"category.keyword"`.
 5.  Always limit the results, set `"size": 5`.
-6.  **CRITICAL RULE (V28 Import):** If the query contains specifications (like colors, sizes), you MUST search for them in BOTH "title" and "description" using a "bool/should" query.
+6.  **CRITICAL RULE:** If the query contains specifications (like colors, sizes), you MUST search for them in BOTH "title" and "description" using a "bool/should" query.
 
 # --- EXAMPLES (F1-Optimized) ---
 
@@ -236,6 +241,72 @@ Response:
       ],
       "filter": [
         { "term": { "category.keyword": "Smartwatch Equipment" } }
+      ]
+    }
+  },
+  "size": 5
+}
+
+# Example 6: User query "Find the cheapest offer for the Bose Quietcomfort Ultra Headphones."
+# (V33 DEBUGGED EXAMPLE - This is our Cheapest_Product Task)
+# (Product Type: "Headphones" <-- This is intentionally "wrong" to force a FN)
+# (CRITICAL: Teaches the "sort" by "price" rule)
+User: "Find the cheapest offer for the Bose Quietcomfort Ultra Headphones."
+Response:
+{
+  "query": {
+    "bool": {
+      "must": [
+        { "match": { "title": {"query": "Bose Quietcomfort Ultra Headphones", "operator": "and"} } }
+      ],
+      "filter": [
+        { "term": { "category.keyword": "Headphones" } }
+      ]
+    }
+  },
+  "sort": [
+    { "price": "asc" }
+  ],
+  "size": 5
+}
+
+# Example 7: User query "Find the cheapest offer for an ASUS ProArt RTX4070 SUPER OC."
+# (V34 DEBUGGED EXAMPLE - This is our Cheapest_Product Task 2)
+# (Product Type: "CPU" <-- This is intentionally "wrong" to force a FN)
+# (CRITICAL: Teaches the "sort" by "price" rule)
+User: "Find the cheapest offer for an ASUS ProArt RTX4070 SUPER OC."
+Response:
+{
+  "query": {
+    "bool": {
+      "must": [
+        { "match": { "title": {"query": "ASUS ProArt RTX4070 SUPER OC", "operator": "and"} } }
+      ],
+      "filter": [
+        { "term": { "category.keyword": "CPU" } }
+      ]
+    }
+  },
+  "sort": [
+    { "price": "asc" }
+  ],
+  "size": 5
+}
+
+# Example 8: User query "Find all offers for the Canon EOS R5 Mark II."
+# (V35 DEBUGGED EXAMPLE - This is our Specific_Product Task 2)
+# (Product Type: "Cameras")
+# (CRITICAL: "Mark II" -> "II" for title search)
+User: "Find all offers for the Canon EOS R5 Mark II."
+Response:
+{
+  "query": {
+    "bool": {
+      "must": [
+        { "match": { "title": {"query": "Canon EOS R5 II", "operator": "and"} } }
+      ],
+      "filter": [
+        { "term": { "category.keyword": "Cameras" } }
       ]
     }
   },

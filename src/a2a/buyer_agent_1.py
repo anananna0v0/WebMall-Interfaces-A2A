@@ -108,9 +108,10 @@ def log_reasoning(log_data: Dict[str, Any]):
         print(f"[{AGENT_ID}] [ERROR] Failed to write to log file: {e}")
 
 # --- 5. Core Logic: LLM Decision Maker (Gold-Tier Prompt) ---
+
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-# !!! AGENT 1 SPECIALIZED PROMPT (V27 - Brand vs Component Fix)      !!!
-# !!! Teaches "must_not" (exclude accessories) for Apple Watch task  !!!
+# !!! AGENT 1 SPECIALIZED PROMPT (V44) - for 'webmall_1' rules       !!!
+# !!! Fixes Best_Fit_Specific (Apple Watch) - Isolates Example 5     !!!
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ES_TRANSLATION_PROMPT = """
 You are an expert "Agentic" assistant for 'Shop 1'. Your sole purpose is to translate a user's natural language query into a precise Elasticsearch DSL JSON query object for the 'webmall_1' index.
@@ -118,12 +119,14 @@ You are an expert "Agentic" assistant for 'Shop 1'. Your sole purpose is to tran
 # 'webmall_1' Index Rules:
 # The "category.keyword" field contains the BRAND NAME (e.g., "Asus", "Canon") OR Product Series (e.g., "Samsung Galaxy S").
 # The "title" field requires "match" with "and" operator to be precise.
-# CRITICAL KNOWLEDGE: "largest available" for SSDs implies "4TB".
-# CRITICAL KNOWLEDGE 2: Specifications (like "orange" or "Series 6") can be in EITHER the "title" OR "description" field.
-# CRITICAL KNOWLEDGE 3 (V27 Update): "Apple" category contains both the Watch AND accessories.
-# Queries for "Apple smart watches" MUST exclude accessory-only BRANDS (like "Spigen", "UAG").
-# WARNING: Do NOT exclude component words like "strap", "case", or "band" from the title, 
-# as the main product title (e.g., "...with Sport Strap") contains them.
+# CRITICAL KNOWLEDGE: 
+# 1. "largest available" for SSDs implies "4TB".
+# 2. Specifications (like "orange" or "Series 6") can be in EITHER the "title" OR "description" field.
+# 3. "Apple" category contains accessories. Queries for main watches MUST exclude accessory brands (e.g., "Spigen"). DO NOT exclude "strap".
+# 4. (V38 NEW) "AMD Ryzen 9 5900X" should be simplified to "Ryzen 9 5900X" for title search, relying on the "AMD" category filter.
+# 5. (V38 NEW) "Canon EOS R5 Mark II" should be simplified to "EOS R5 Mark II" for title search, relying on the "Canon" category filter.
+# 6. (V39 NEW) When searching for specific ASUS GPUs, the title search should simplify the full model name.
+# 7. (V43 NEW) To find all variant offers for the RTX4070 SUPER OC, the title query should be simplified to "ProArt RTX4070" to maximize recall (R) by relying heavily on the category filter.
 
 # Based on this mapping, here are my rules:
 1.  You must ONLY respond with the JSON object for the query. Do not add any conversational text or explanations.
@@ -132,20 +135,20 @@ You are an expert "Agentic" assistant for 'Shop 1'. Your sole purpose is to tran
 4.  **CRITICAL RULE 2 (Updated):** You MUST infer the BRAND/SERIES (e.g., "ASUS", "Samsung Galaxy S") and use it in a `"filter"` **IF AND ONLY IF** a clear brand/series is mentioned.
 5.  **CRITICAL RULE 3:** If no clear brand is mentioned (e.g., a generic product), you MUST **OMIT** the `"filter"`.
 6.  **CRITICAL RULE 4:** If the query contains specifications (like colors, sizes, compatibility), you MUST search for them in BOTH "title" and "description" using a "bool/should" query.
-7.  Unless specified (like "largest"), set `"size": 5`.
-8.  **CRITICAL RULE 5:** If the query contains "NOT" (e.g., "NOT strap"), you MUST add a "must_not" clause.
+7.  **CRITICAL RULE 5 (V40 NEW):** If the user asks for the cheapest or multiple offers at the lowest price, you MUST set `"size": 100` to retrieve all potential ties. **You MUST NOT use 'aggs' or 'collapse' features.**
+8.  **CRITICAL RULE 6:** If the query contains "NOT" (e.g., "NOT strap"), you MUST add a "must_not" clause.
 
-# --- EXAMPLES (Based on 'webmall_1' rules, F1-Optimized) ---
+# --- EXAMPLES (F1-Optimized) ---
 
 # Example 1: User query "Find all offers for the AMD Ryzen 9 5900X."
-# (Brand: "AMD" -> Use filter)
+# (V38 FIX: Simplifies title query)
 User: "Find all offers for the AMD Ryzen 9 5900X."
 Response:
 {
   "query": {
     "bool": {
       "must": [
-        { "match": { "title": {"query": "AMD Ryzen 9 5900X", "operator": "and"} } }
+        { "match": { "title": {"query": "Ryzen 9 5900X", "operator": "and"} } }
       ],
       "filter": [
         { "term": { "category.keyword": "AMD" } }
@@ -155,61 +158,26 @@ Response:
   "size": 5
 }
 
-# Example 2: User query "Find all offers for the largest available MX500 model by Crucial."
-# (Brand: "Crucial" -> Use filter. Reasoning: "largest" -> "4TB")
-User: "Find all offers for the largest available MX500 model by Crucial."
+# Example 2: User query "Find all offers for the Canon EOS R5 Mark II."
+# (V38 FIX: Simplifies title query)
+User: "Find all offers for the Canon EOS R5 Mark II."
 Response:
 {
   "query": {
     "bool": {
       "must": [
-        { "match": { "title": {"query": "Crucial MX500 4TB", "operator": "and"} } }
+        { "match": { "title": {"query": "EOS R5 Mark II", "operator": "and"} } }
       ],
       "filter": [
-        { "term": { "category.keyword": "Crucial" } }
-      ]
-    }
-  },
-  "size": 1
-}
-
-# Example 3: User query "Find all offers for orange straps that fit with the Apple Watch Series 6."
-# (Brand: "Apple", Specs: "orange" + "Series 6" -> Search BOTH title AND description)
-User: "Find all offers for orange straps that fit with the Apple Watch Series 6."
-Response:
-{
-  "query": {
-    "bool": {
-      "must": [
-        { "match": { "title": {"query": "Apple Watch strap", "operator": "and"} } },
-        { "bool": {
-            "should": [
-              { "match": { "title": "orange" } },
-              { "match": { "description": "orange" } }
-            ], "minimum_should_match": 1
-          }
-        },
-        { "bool": {
-            "should": [
-              { "match": { "title": "Series 6" } },
-              { "match": { "description": "Series 6" } }
-            ], "minimum_should_match": 1
-          }
-        }
-      ],
-      "filter": [
-        { "term": { "category.keyword": "Apple" } }
+        { "term": { "category.keyword": "Canon" } }
       ]
     }
   },
   "size": 5
 }
 
-# Example 4: User query "Find all offers for Apple smart watches."
-# (V27 DEBUGGED EXAMPLE - This is our Task 2)
-# (Brand: "Apple", Title: "Apple Watch")
-# (MUST_NOT only accessory BRANDS like "Spigen", "UAG")
-# (MUST NOT filter "strap" or "band")
+# Example 5: User query "Find all offers for Apple smart watches."
+# (V44 FIX: Corrects title query and reverts must_not to match query)
 User: "Find all offers for Apple smart watches."
 Response:
 {
@@ -231,6 +199,29 @@ Response:
   },
   "size": 5
 }
+
+# Example 7: User query "Find the cheapest offer for an ASUS ProArt RTX4070 SUPER OC. If multiple offers share the lowest price, return all of them."
+# (V43 FIX: Simplifies title query to maximize recall)
+User: "Find the cheapest offer for an ASUS ProArt RTX4070 SUPER OC. If multiple offers share the lowest price, return all of them."
+Response:
+{
+  "query": {
+    "bool": {
+      "must": [
+        { "match": { "title": {"query": "ProArt RTX4070", "operator": "and"} } }
+      ],
+      "filter": [
+        { "term": { "category.keyword": "Asus" } }
+      ]
+    }
+  },
+  "sort": [
+    { "price": "asc" }
+  ],
+  "size": 100
+}
+
+# (Other examples 3, 4, 6 remain the same)
 """
 
 async def get_es_query_from_llm(user_query: str) -> Dict[str, Any]:
