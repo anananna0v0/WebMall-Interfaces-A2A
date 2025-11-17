@@ -65,6 +65,87 @@ class GlobalCartStore:
 _global_cart_store = GlobalCartStore()
 
 
+def _extract_identifier_value(schema_org: Dict[str, Any]) -> str:
+    """Extract identifier value from schema.org metadata."""
+    identifier = schema_org.get("identifier") if isinstance(schema_org, dict) else None
+
+    if isinstance(identifier, dict):
+        return identifier.get("value") or identifier.get("identifier") or identifier.get("@id")
+
+    if isinstance(identifier, list):
+        for entry in identifier:
+            if isinstance(entry, dict):
+                value = entry.get("value") or entry.get("identifier") or entry.get("@id")
+                if value:
+                    return value
+
+    if isinstance(identifier, str):
+        return identifier
+
+    return None
+
+
+def _format_hardware_cafe_product(product: Dict[str, Any], include_descriptions: bool = True) -> Dict[str, Any]:
+    """Convert NLWeb payloads to the Hardware Cafe marketplace representation."""
+    print(product)
+    schema_org = product.get("schema_object", {}) or {}
+    if not isinstance(schema_org, dict):
+        schema_org = {}
+
+    price_info = schema_org.get("offers", {}) or {}
+    if isinstance(price_info, list):
+        price_info = price_info[0] if price_info else {}
+    if not isinstance(price_info, dict):
+        price_info = {}
+
+    direct_price = product.get("price")
+    purchase_cost = price_info.get("price") or price_info.get(
+        "lowPrice") or direct_price or ""
+
+    identifier_value = _extract_identifier_value(schema_org)
+
+    product_identifier = (
+        schema_org.get("sku")
+        or identifier_value
+        or schema_org.get("@id")
+        or product.get("url", "").split("/")[-1]
+    )
+    description = product.get("description") or schema_org.get("description", "") or ""
+    category = schema_org.get("category") or product.get("category") or ""
+
+    brief_summary = ""
+    extended_details = ""
+    if include_descriptions and description:
+        trimmed = description.strip()
+        brief_summary = trimmed[:200]
+        extended_details = trimmed[:500] + "..." if len(trimmed) > 500 else trimmed
+
+    return {
+        "catalog_sku_code": product_identifier,
+        "item_designation": product.get("name") or schema_org.get("name", ""),
+        "economic_data": {
+            "purchase_cost": str(purchase_cost) if purchase_cost else "",
+            "baseline_price": price_info.get("highPrice", ""),
+            "markdown_price": str(purchase_cost) if purchase_cost else "",
+            "promotion_flag": bool(purchase_cost),
+        },
+        "descriptive_content": {
+            "brief_summary": brief_summary if include_descriptions else "",
+            "extended_details": extended_details if include_descriptions else "",
+        } if include_descriptions else {
+            "brief_summary": "",
+            "extended_details": "",
+        },
+        "organizational_tags": [category] if category else [],
+        "storefront_reference": product.get("url", ""),
+        "inventory_status": {
+            "product_identifier": str(product_identifier) if product_identifier else "",
+            "availability": "InStock",
+            "units_available": schema_org.get("inventoryLevel", 0),
+        },
+    }
+
+
 @dataclass
 class HybridSearchContext:
     """Context for the Hybrid Search MCP server."""
@@ -248,6 +329,91 @@ async def find_cheap_items(ctx: Context, keyword: str = "", max_budget: float = 
 
     except Exception as e:
         return f"Error finding cheap items: {str(e)}"
+
+
+@mcp_ecommerce_data.tool()
+async def lookup_item_by_url_hardware_cafe(ctx: Context, product_url: str, include_descriptions: bool = True) -> str:
+    """Resolve a product URL into the Hardware Cafe marketplace representation."""
+    normalized_url = (product_url or "").strip()
+    if not normalized_url:
+        return json.dumps({"error": "Product URL must be provided"})
+
+    try:
+        search_engine = ctx.request_context.lifespan_context.search_engine
+
+        try:
+            products = await asyncio.wait_for(
+                asyncio.to_thread(search_engine.get_products_by_urls, [normalized_url]),
+                timeout=30.0
+            )
+        except asyncio.TimeoutError:
+            return json.dumps({
+                "error": "URL lookup timed out",
+                "requested_url": normalized_url,
+                "timeout": "30s"
+            })
+
+        if not products:
+            return json.dumps({
+                "error": "No product information returned",
+                "requested_url": normalized_url
+            })
+
+        product_entry = products[0]
+        if "error" in product_entry:
+            return json.dumps({
+                "search_expedition": {
+                    "search_keyword": normalized_url,
+                    "current_page": 1,
+                    "limit_per_page": 1,
+                    "budget_search_detected": False,
+                    "price_constraints": {
+                        "minimum_threshold": None,
+                        "maximum_threshold": None,
+                    },
+                },
+                "discovery_metrics": {
+                    "total_matched_items": 0,
+                    "average_price": 0,
+                    "price_range_applied": False,
+                },
+                "marketplace_inventory": [],
+                "error": product_entry.get("error", "Product not found"),
+                "requested_url": normalized_url
+            }, indent=2)
+
+        formatted_item = _format_hardware_cafe_product(product_entry, include_descriptions)
+
+        cost_value = formatted_item.get("economic_data", {}).get("purchase_cost")
+        try:
+            avg_price = float(cost_value) if cost_value not in (None, "") else 0
+        except ValueError:
+            avg_price = 0
+
+        return json.dumps({
+            "search_expedition": {
+                "search_keyword": normalized_url,
+                "current_page": 1,
+                "limit_per_page": 1,
+                "budget_search_detected": False,
+                "price_constraints": {
+                    "minimum_threshold": None,
+                    "maximum_threshold": None,
+                },
+            },
+            "discovery_metrics": {
+                "total_matched_items": 1,
+                "average_price": avg_price,
+                "price_range_applied": False,
+            },
+            "marketplace_inventory": [formatted_item]
+        }, indent=2)
+
+    except Exception as e:
+        return json.dumps({
+            "error": f"Failed to lookup item by URL: {str(e)}",
+            "requested_url": normalized_url
+        })
 
 
 @mcp_ecommerce_data.tool()
@@ -519,95 +685,6 @@ async def get_all_categories(ctx: Context, limit_per_page: int = 50, page_num: i
         return f"Error retrieving categories: {str(e)}"
 
 
-@mcp_ecommerce_data.tool()
-async def finalize_purchase(
-    ctx: Context,
-    sku_list: list[int],
-    quantity_list: list[int],
-    purchaser_name: str,
-    purchaser_email: str,
-    delivery_address: str,
-    delivery_locality: str,
-    delivery_region: str,
-    delivery_postal_code: str,
-    delivery_country_code: str,
-    purchaser_phone: str,
-    charge_card_number: str,
-    charge_card_expiry: str,
-    charge_card_cvc: str
-) -> str:
-    """Finalizes a purchase and processes a payment for the Hardware Cafe.
-
-    This tool takes a shopping cart, customer data, and payment details to create a fully paid order
-    using semantic search. Since this is a hybrid server, no actual order is created.
-
-    Args:
-        ctx: The MCP server context
-        sku_list: A list of product SKUs (product identifiers) to be purchased
-        quantity_list: A list of quantities corresponding to each SKU
-        purchaser_name: The full name of the person making the purchase
-        purchaser_email: The contact email of the purchaser
-        delivery_address: The street address for delivery
-        delivery_locality: The city for delivery
-        delivery_region: The state/region for delivery
-        delivery_postal_code: The postal code for delivery
-        delivery_country_code: The ISO country code for delivery
-        purchaser_phone: The contact phone number of the purchaser
-        charge_card_number: The credit card number to charge
-        charge_card_expiry: The expiration date of the credit card (MM/YY)
-        charge_card_cvc: The CVC/CVV security code of the credit card
-
-    Returns:
-        A JSON string containing the transaction receipt or an error message
-    """
-    if len(sku_list) != len(quantity_list):
-        return json.dumps({"purchase_outcome": "failed", "failure_reason": {"message": "SKU list and quantity list must be the same length."}})
-
-    try:
-        if not all([charge_card_number, charge_card_expiry, charge_card_cvc]):
-            return json.dumps({"purchase_outcome": "failed", "failure_reason": {"message": "Invalid credit card details provided."}})
-
-        name_parts = purchaser_name.split(' ', 1)
-        first_name = name_parts[0]
-        last_name = name_parts[1] if len(name_parts) > 1 else ''
-
-        # Simulate order creation
-        order_id = str(uuid.uuid4())[:8]
-        transaction_id = str(uuid.uuid4())
-        
-        # Calculate total (simulation)
-        total_amount = sum(qty * 25.00 for qty in quantity_list)  
-
-        return json.dumps({
-            "purchase_outcome": "completed",
-            "celebration_details": {
-                "success_message": "Transaction completed successfully! Your order is confirmed. (SIMULATION)",
-                "completion_timestamp": "",
-            },
-            "transaction_documentation": {
-                "order_id": order_id,
-                "transaction_ref": transaction_id,
-                "charged_amount": f"{total_amount:.2f}",
-                "order_status_code": "processing",
-            },
-            "purchase_manifest": {
-                "sku_codes_ordered": sku_list,
-                "item_quantities": quantity_list,
-                "total_line_items": len(sku_list),
-                "order_complexity": "simple" if len(sku_list) <= 3 else "complex",
-            },
-            "customer_details": {
-                "purchaser_identity": purchaser_name,
-                "contact_email": purchaser_email,
-                "shipping_address": f"{delivery_address}, {delivery_locality}, {delivery_region} {delivery_postal_code}",
-                "delivery_country": delivery_country_code,
-            },
-            "note": "This is a simulated order using hybrid semantic search. No actual purchase was made."
-        }, indent=2)
-
-    except Exception as e:
-        return json.dumps({"purchase_outcome": "failed", "failure_reason": {"message": str(e), "error_type": "system_exception"}})
-
 
 @mcp_ecommerce_data.tool()
 async def add_item_to_marketplace_cart(ctx: Context, product_id: str, quantity: int = 1) -> str:
@@ -836,7 +913,6 @@ async def checkout_marketplace_cart(
     customer_first_name: str,
     customer_last_name: str,
     customer_email: str,
-    customer_phone: str,
     delivery_street_address: str,
     delivery_city: str,
     delivery_state: str,
@@ -855,7 +931,6 @@ async def checkout_marketplace_cart(
         customer_first_name: Customer's first name
         customer_last_name: Customer's last name
         customer_email: Customer's email address
-        customer_phone: Customer's phone number
         delivery_street_address: Customer's street address
         delivery_city: Customer's city
         delivery_state: Customer's state
@@ -930,7 +1005,6 @@ async def checkout_marketplace_cart(
                 "customer_details": {
                     "full_name": f"{customer_first_name} {customer_last_name}",
                     "email_address": customer_email,
-                    "phone_number": customer_phone,
                     "delivery_address": f"{delivery_street_address}, {delivery_city}, {delivery_state} {delivery_zip_code}, {delivery_country}"
                 }
             },

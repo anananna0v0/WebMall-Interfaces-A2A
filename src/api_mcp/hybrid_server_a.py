@@ -39,7 +39,6 @@ class GlobalCartStore:
     def _get_session_id(self, shop_id: str, client_info: str = "default") -> str:
         """Generate a session ID for cart tracking."""
         # For now, use shop_id as session ID since we want one cart per shop
-        # In a real implementation, you'd use client connection info
         return f"{shop_id}_{client_info}"
     
     def get_cart(self, shop_id: str, client_info: str = "default") -> Dict[str, Any]:
@@ -80,6 +79,96 @@ class GlobalCartStore:
 
 # Global cart store instance
 _global_cart_store = GlobalCartStore()
+
+
+def _extract_identifier_value(schema_org: Dict[str, Any]) -> str:
+    """Extract an identifier value from schema.org metadata if available."""
+    identifier = schema_org.get("identifier") if isinstance(schema_org, dict) else None
+
+    if isinstance(identifier, dict):
+        return identifier.get("value") or identifier.get("identifier") or identifier.get("@id")
+
+    if isinstance(identifier, list):
+        for entry in identifier:
+            if isinstance(entry, dict):
+                value = entry.get("value") or entry.get("identifier") or entry.get("@id")
+                if value:
+                    return value
+
+    if isinstance(identifier, str):
+        return identifier
+
+    return None
+
+
+def _format_estore_product(product: Dict[str, Any], include_descriptions: bool = True) -> Dict[str, Any]:
+    """Map NLWeb-style product data into the E-Store Athletes representation."""
+    
+    print(product)
+    schema_org = product.get("schema_object", {}) or {}
+    if not isinstance(schema_org, dict):
+        schema_org = {}
+
+    price_info = schema_org.get("offers", {}) or {}
+    if isinstance(price_info, list):
+        price_info = price_info[0] if price_info else {}
+    if not isinstance(price_info, dict):
+        price_info = {}
+
+    direct_price = product.get("price")
+    current_price = price_info.get("price") or price_info.get(
+        "lowPrice") or direct_price or ""
+
+    identifier_value = _extract_identifier_value(schema_org)
+
+    item_code = (
+        schema_org.get("sku")
+        or identifier_value
+        or schema_org.get("@id")
+        or product.get("url", "").split("/")[-1]
+    )
+    description = product.get("description") or schema_org.get("description", "") or ""
+    category = schema_org.get("category") or product.get("category") or ""
+
+    long_description = ""
+    quick_pitch = ""
+    if include_descriptions and description:
+        trimmed = description.strip()
+        long_description = trimmed[:1024] + "..." if len(trimmed) > 1024 else trimmed
+        quick_pitch = trimmed[:200]
+
+    return {
+        "ID": item_code,
+        "label": product.get("name") or schema_org.get("name", ""),
+        "shortCode": product.get("url", "").split("/")[-1] if product.get("url") else "",
+        "priceInfo": {
+            "current": str(current_price) if current_price else "",
+            "usual": price_info.get("highPrice", ""),
+            "dealPrice": str(current_price) if current_price else "",
+            "isOnDeal": bool(current_price),
+        },
+        "desc": {
+            "longVersion": long_description if include_descriptions else "",
+            "quickPitch": quick_pitch if include_descriptions else "",
+        } if include_descriptions else {
+            "longVersion": "",
+            "quickPitch": "",
+        },
+        "stock": {
+            "itemCode": str(item_code) if item_code else "",
+            "status": "In stock",
+            "leftOverCount": schema_org.get("inventoryLevel", 0),
+        },
+        "labels": {
+            "categories": [category] if category else [],
+            "tags": schema_org.get("keywords", "").split(",") if schema_org.get("keywords") else [],
+        },
+        "snapshots": [schema_org.get("image", "")][:2] if schema_org.get("image") else [],
+        "addresses": {
+            "selfLink": product.get("url", ""),
+            "shareLink": product.get("url", ""),
+        },
+    }
 
 
 @dataclass
@@ -172,34 +261,12 @@ async def search_products(ctx: Context, query: str, per_page: int = 10, page: in
     try:
         search_engine = ctx.request_context.lifespan_context.search_engine
 
-        # Use the enhanced search engine with server_a formatting
+        # Use search engine with server_a formatting
         return search_engine.search_server_a_format(query, per_page, page, include_descriptions)
 
     except Exception as e:
         return f"Error searching products: {str(e)}"
 
-
-@mcp.tool()
-async def get_product(ctx: Context, product_name: str, include_descriptions: bool = True) -> str:
-    """Get detailed information about a specific product by name using semantic search.
-
-    This tool searches for products by name and returns comprehensive information about the first matching product.
-
-    Args:
-        ctx: The MCP server provided context which includes the search engine
-        product_name: The exact name of the product to search for and retrieve
-
-    Returns:
-        JSON formatted detailed product information
-    """
-    try:
-        search_engine = ctx.request_context.lifespan_context.search_engine
-
-        # Use the enhanced search engine with server_a formatting
-        return search_engine.search_server_a_format(product_name, 1, 1, include_descriptions)
-
-    except Exception as e:
-        return f"Error searching products: {str(e)}"
 
 
 @mcp.tool()
@@ -303,6 +370,69 @@ async def get_detailed_products(ctx: Context, product_ids: list[str]) -> str:
         
     except Exception as e:
         return f"Error retrieving detailed product information: {str(e)}"
+
+
+@mcp.tool()
+async def lookup_product_by_url_estore(ctx: Context, product_url: str, include_descriptions: bool = True) -> str:
+    """Fetch a single product by URL and return it in the E-Store Athletes representation."""
+    normalized_url = (product_url or "").strip()
+    if not normalized_url:
+        return json.dumps({"error": "Product URL must be provided"})
+
+    try:
+        search_engine = ctx.request_context.lifespan_context.search_engine
+
+        try:
+            products = await asyncio.wait_for(
+                asyncio.to_thread(search_engine.get_products_by_urls, [normalized_url]),
+                timeout=30.0
+            )
+        except asyncio.TimeoutError:
+            return json.dumps({
+                "error": "URL lookup timed out",
+                "requested_url": normalized_url,
+                "timeout": "30s"
+            })
+
+        if not products:
+            return json.dumps({
+                "error": "No product information returned",
+                "requested_url": normalized_url
+            })
+
+        product_entry = products[0]
+        if "error" in product_entry:
+            return json.dumps({
+                "searchLog": {
+                    "askedFor": normalized_url,
+                    "atPage": 1,
+                    "pageSize": 1,
+                    "foundCount": 0,
+                    "shopId": ctx.request_context.lifespan_context.shop_id,
+                },
+                "results": [],
+                "error": product_entry.get("error", "Product not found"),
+                "requested_url": normalized_url
+            }, indent=2)
+
+        formatted_product = _format_estore_product(product_entry, include_descriptions)
+
+        return json.dumps({
+            "searchLog": {
+                "askedFor": normalized_url,
+                "atPage": 1,
+                "pageSize": 1,
+                "foundCount": 1,
+                "shopId": ctx.request_context.lifespan_context.shop_id,
+            },
+            "results": [formatted_product]
+        }, indent=2)
+
+    except Exception as e:
+        return json.dumps({
+            "error": f"Failed to lookup product by URL: {str(e)}",
+            "requested_url": normalized_url
+        })
 
 
 @mcp.tool()
@@ -507,7 +637,7 @@ async def view_cart(ctx: Context) -> str:
         
         logger.debug(f"view_cart_{shop_id}: Cart has {len(cart)} items")
         
-        # Format cart in "weird" server A format
+        
         cart_items = []
         for item in cart.values():
             cart_items.append({
@@ -588,7 +718,6 @@ async def checkout(
     first_name: str,
     last_name: str,
     email: str,
-    phone: str,
     address_1: str,
     city: str,
     state: str,
@@ -607,7 +736,6 @@ async def checkout(
         first_name: Customer's first name
         last_name: Customer's last name
         email: Customer's email address
-        phone: Customer's phone number
         address_1: Customer's street address
         city: Customer's city
         state: Customer's state/province
@@ -679,8 +807,7 @@ async def checkout(
                 "orderStatus": "processing",
                 "customerInfo": {
                     "fullName": f"{first_name} {last_name}",
-                    "contactEmail": email,
-                    "phoneNumber": phone
+                    "contactEmail": email
                 },
                 "shippingAddress": {
                     "streetAddress": address_1,
@@ -711,88 +838,6 @@ async def checkout(
         logger.error(f"Checkout failed: {e}")
         return json.dumps({
             "error": f"Checkout failed: {str(e)}",
-            "orderStatus": "failed"
-        })
-
-
-@mcp.tool()
-async def checkout_products(
-    ctx: Context,
-    product_ids: list[int],
-    quantities: list[int],
-    first_name: str,
-    last_name: str,
-    address_1: str,
-    city: str,
-    state: str,
-    postcode: str,
-    country: str,
-    email: str,
-    phone: str,
-    credit_card_number: str,
-    credit_card_expiry: str,
-    credit_card_cvc: str
-) -> str:
-    """Creates and pays for a new order with specified products (legacy direct checkout).
-
-    This tool creates an order with the given products, customer details, 
-    and credit card without using the cart.
-
-    Args:
-        ctx: The MCP server provided context
-        product_ids: A list of product IDs to be included in the order
-        quantities: A list of quantities corresponding to the product_ids
-        first_name: Customer's first name
-        last_name: Customer's last name  
-        address_1: Customer's street address
-        city: Customer's city
-        state: Customer's state/province
-        postcode: Customer's postal/zip code
-        country: Customer's country code (e.g., 'US')
-        email: Customer's email address
-        phone: Customer's phone number
-        credit_card_number: The credit card number for payment
-        credit_card_expiry: The credit card expiry date (e.g., "MM/YY")
-        credit_card_cvc: The credit card CVC code
-
-    Returns:
-        A JSON formatted string with the order confirmation details
-    """
-    if len(product_ids) != len(quantities):
-        return json.dumps({
-            "error": "The number of product IDs must match the number of quantities.",
-            "orderStatus": "failed"
-        })
-
-    try:
-        # Basic validation for credit card details (for simulation purposes)
-        if not (credit_card_number and credit_card_expiry and credit_card_cvc):
-            return json.dumps({
-                "error": "Credit card details are incomplete.",
-                "orderStatus": "failed"
-            })
-
-        # Simulate order creation
-        order_id = str(uuid.uuid4())[:8]
-        transaction_id = str(uuid.uuid4())
-
-        # Calculate total (simulation)
-        total_amount = sum(qty * 10.00 for qty in quantities)
-
-        return json.dumps({
-            "message": "Order created and paid successfully.",
-            "orderDetails": {
-                "orderReference": order_id,
-                "orderStatus": "processing",
-                "orderValue": f"{total_amount:.2f}",
-                "transactionReference": transaction_id,
-                "note": "This is a simulated direct order using hybrid semantic search."
-            }
-        }, indent=2)
-
-    except Exception as e:
-        return json.dumps({
-            "error": f"Error creating order: {str(e)}",
             "orderStatus": "failed"
         })
 

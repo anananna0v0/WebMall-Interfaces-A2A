@@ -65,6 +65,88 @@ class GlobalCartStore:
 _global_cart_store = GlobalCartStore()
 
 
+def _extract_identifier_value(schema_org: Dict[str, Any]) -> str:
+    """Extract WooCommerce identifier value from schema metadata if present."""
+    identifier = schema_org.get("identifier") if isinstance(schema_org, dict) else None
+
+    if isinstance(identifier, dict):
+        return identifier.get("value") or identifier.get("identifier") or identifier.get("@id")
+
+    if isinstance(identifier, list):
+        for entry in identifier:
+            if isinstance(entry, dict):
+                value = entry.get("value") or entry.get("identifier") or entry.get("@id")
+                if value:
+                    return value
+
+    if isinstance(identifier, str):
+        return identifier
+
+    return None
+
+
+def _format_techtalk_product(product: Dict[str, Any], include_descriptions: bool = True) -> Dict[str, Any]:
+    """Map NLWeb product payloads into the TechTalk catalog representation."""
+    print(product)
+    schema_org = product.get("schema_object", {}) or {}
+    if not isinstance(schema_org, dict):
+        schema_org = {}
+
+    price_info = schema_org.get("offers", {}) or {}
+    if isinstance(price_info, list):
+        price_info = price_info[0] if price_info else {}
+    if not isinstance(price_info, dict):
+        price_info = {}
+
+    direct_price = product.get("price")
+    cost_amount = price_info.get("price") or price_info.get(
+        "lowPrice") or direct_price or ""
+
+    identifier_value = _extract_identifier_value(schema_org)
+
+    product_identifier = (
+        schema_org.get("sku")
+        or identifier_value
+        or schema_org.get("@id")
+        or product.get("url", "").split("/")[-1]
+    )
+    description = product.get("description") or schema_org.get("description", "") or ""
+    category = schema_org.get("category") or product.get("category") or ""
+
+    detailed_info = ""
+    quick_summary = ""
+    if include_descriptions and description:
+        trimmed = description.strip()
+        detailed_info = trimmed[:1024] + "..." if len(trimmed) > 1024 else trimmed
+        quick_summary = trimmed[:200]
+
+    return {
+        "catalog_entry_id": product_identifier,
+        "merchandise_title": product.get("name") or schema_org.get("name", ""),
+        "financial_details": {
+            "cost_amount": str(cost_amount) if cost_amount else "",
+            "standard_rate": price_info.get("highPrice", ""),
+            "discount_rate": str(cost_amount) if cost_amount else "",
+            "bargain_active": bool(cost_amount),
+        },
+        "content_sections": {
+            "detailed_info": detailed_info if include_descriptions else "",
+            "quick_summary": quick_summary if include_descriptions else "",
+        } if include_descriptions else {
+            "detailed_info": "",
+            "quick_summary": "",
+        },
+        "inventory_tracking": {
+            "product_identifier": str(product_identifier) if product_identifier else "",
+            "availability_state": "On the shelf",
+            "units_remaining": schema_org.get("inventoryLevel", 0),
+        },
+        "classification_tags": [category] if category else [],
+        "visual_assets": [schema_org.get("image", "")][:2] if schema_org.get("image") else [],
+        "direct_link": product.get("url", ""),
+    }
+
+
 @dataclass
 class HybridSearchContext:
     """Context for the Hybrid Search MCP server."""
@@ -252,6 +334,69 @@ async def get_detailed_items_techtalk(ctx: Context, product_ids: list[str]) -> s
         
     except Exception as e:
         return f"Error retrieving detailed item information: {str(e)}"
+
+
+@mcp_product_catalog.tool()
+async def lookup_item_by_url_techtalk(ctx: Context, product_url: str, include_descriptions: bool = True) -> str:
+    """Resolve a product URL into the TechTalk catalog representation."""
+    normalized_url = (product_url or "").strip()
+    if not normalized_url:
+        return json.dumps({"error": "Product URL must be provided"})
+
+    try:
+        search_engine = ctx.request_context.lifespan_context.search_engine
+
+        try:
+            products = await asyncio.wait_for(
+                asyncio.to_thread(search_engine.get_products_by_urls, [normalized_url]),
+                timeout=30.0
+            )
+        except asyncio.TimeoutError:
+            return json.dumps({
+                "error": "URL lookup timed out",
+                "requested_url": normalized_url,
+                "timeout": "30s"
+            })
+
+        if not products:
+            return json.dumps({
+                "error": "No product information returned",
+                "requested_url": normalized_url
+            })
+
+        product_entry = products[0]
+        if "error" in product_entry:
+            return json.dumps({
+                "query_summary": {
+                    "search_terms": normalized_url,
+                    "page_position": 1,
+                    "results_cap": 1,
+                    "price_ordering": "url_lookup",
+                    "matches_discovered": 0,
+                },
+                "catalog_entries": [],
+                "error": product_entry.get("error", "Product not found"),
+                "requested_url": normalized_url
+            }, indent=2)
+
+        formatted_item = _format_techtalk_product(product_entry, include_descriptions)
+
+        return json.dumps({
+            "query_summary": {
+                "search_terms": normalized_url,
+                "page_position": 1,
+                "results_cap": 1,
+                "price_ordering": "url_lookup",
+                "matches_discovered": 1,
+            },
+            "catalog_entries": [formatted_item]
+        }, indent=2)
+
+    except Exception as e:
+        return json.dumps({
+            "error": f"Failed to lookup item by URL: {str(e)}",
+            "requested_url": normalized_url
+        })
 
 
 @mcp_product_catalog.tool()
@@ -635,7 +780,6 @@ async def checkout_cart_techtalk(
     customer_first_name: str,
     customer_last_name: str,
     customer_email: str,
-    customer_phone: str,
     shipping_street: str,
     shipping_city: str,
     shipping_state: str,
@@ -654,7 +798,6 @@ async def checkout_cart_techtalk(
         customer_first_name: Customer's first name
         customer_last_name: Customer's last name
         customer_email: Customer's email address
-        customer_phone: Customer's phone number
         shipping_street: Customer's street address
         shipping_city: Customer's city
         shipping_state: Customer's state/province
@@ -670,7 +813,7 @@ async def checkout_cart_techtalk(
     try:
         shop_id = ctx.request_context.lifespan_context.shop_id
         shop_config = WEBMALL_SHOPS.get(shop_id, {})
-        shop_url = shop_config.get("url", "")
+        
         
         # Use global cart store
         cart = _global_cart_store.get_cart(shop_id)
@@ -729,7 +872,6 @@ async def checkout_cart_techtalk(
                 "customer_record": {
                     "billing_name": f"{customer_first_name} {customer_last_name}",
                     "contact_email": customer_email,
-                    "phone_contact": customer_phone,
                     "delivery_destination": f"{shipping_street}, {shipping_city}, {shipping_state} {shipping_zip}, {shipping_country_code}"
                 }
             },
@@ -755,90 +897,6 @@ async def checkout_cart_techtalk(
                 "error_description": f"Checkout failed: {str(e)}"
             }
         })
-
-
-@mcp_product_catalog.tool()
-async def process_customer_order(
-    ctx: Context,
-    item_codes: list[int],
-    item_counts: list[int],
-    customer_first_name: str,
-    customer_last_name: str,
-    shipping_street: str,
-    shipping_city: str,
-    shipping_state: str,
-    shipping_zip: str,
-    shipping_country_code: str,
-    customer_email: str,
-    customer_phone: str,
-    payment_card_number: str,
-    card_expiration_date: str,
-    card_security_code: str
-) -> str:
-    """Processes a customer's order and makes payment in the TechTalk store.
-
-    This tool handles the creation and payment for an order.
-
-    Args:
-        ctx: The MCP server context containing the search engine
-        item_codes: A list of product identifiers (SKU codes) for the order
-        item_counts: A list of quantities for each corresponding product
-        customer_first_name: The customer's first name
-        customer_last_name: The customer's last name
-        shipping_street: The street address for shipping
-        shipping_city: The city for shipping
-        shipping_state: The state/province for shipping
-        shipping_zip: The postal/zip code for shipping
-        shipping_country_code: The two-letter country code for shipping (e.g., 'US')
-        customer_email: The customer's email address
-        customer_phone: The customer's phone number
-        payment_card_number: The credit card number for payment
-        card_expiration_date: The card's expiration date (e.g., "MM/YY")
-        card_security_code: The card's CVC/CVV security code
-
-    Returns:
-        A JSON formatted string with order confirmation details or an error message
-    """
-    if len(item_codes) != len(item_counts):
-        return "Error: The number of item codes must correspond to the number of item counts."
-
-    try:
-        if not (payment_card_number and card_expiration_date and card_security_code):
-            return "Error: Payment card details are missing or incomplete."
-
-        # Simulate order creation
-        order_id = str(uuid.uuid4())[:8]
-        transaction_id = str(uuid.uuid4())
-        
-        # Calculate total (simulation)
-        total_amount = sum(qty * 15.00 for qty in item_counts)
-
-        return json.dumps({
-            "transaction_outcome": {
-                "completion_status": "successful",
-                "celebration_message": "Your order has been successfully placed and paid (SIMULATION).",
-            },
-            "order_documentation": {
-                "reference_number": order_id,
-                "fulfillment_stage": "processing",
-                "financial_charge": f"{total_amount:.2f}",
-                "payment_tracking_id": transaction_id,
-            },
-            "purchase_summary": {
-                "sku_codes_processed": item_codes,
-                "quantity_breakdown": item_counts,
-                "total_line_items": len(item_codes),
-            },
-            "customer_record": {
-                "billing_name": f"{customer_first_name} {customer_last_name}",
-                "contact_email": customer_email,
-                "delivery_destination": f"{shipping_street}, {shipping_city}, {shipping_state} {shipping_zip}",
-            },
-            "note": "This is a simulated order using hybrid semantic search. No actual purchase was made."
-        }, indent=2)
-
-    except Exception as e:
-        return f"An unexpected error occurred during order processing: {str(e)}"
 
 
 async def main():

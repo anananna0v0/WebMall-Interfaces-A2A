@@ -1,0 +1,8 @@
+task_category,task_id,task_completion_rate,precision,recall,f1_score,prompt_tokens,completion_tokens,execution_time_seconds
+Webmall_Add_To_Cart,Webmall_Add_To_Cart_Task1,1,1.0,1.0,1.0,53238,2311,55.72189903259277
+Webmall_Add_To_Cart,Webmall_Add_To_Cart_Task2,1,1.0,1.0,1.0,197564,3520,74.57656502723694
+Webmall_Add_To_Cart,Webmall_Add_To_Cart_Task3,0,0.5,1.0,0.6666666666666666,197146,3519,76.27351999282837
+Webmall_Add_To_Cart,Webmall_Add_To_Cart_Task4,1,1.0,1.0,1.0,358641,3411,89.646644115448
+Webmall_Add_To_Cart,Webmall_Add_To_Cart_Task5,0,0.25,1.0,0.4,299325,3375,77.19516801834106
+Webmall_Add_To_Cart,Webmall_Add_To_Cart_Task6,0,0.5,1.0,0.6666666666666666,388512,5679,120.92078900337219
+Webmall_Add_To_Cart,Webmall_Add_To_Cart_Task7,0,0.3333333333333333,1.0,0.5,312409,11524,215.55768823623657

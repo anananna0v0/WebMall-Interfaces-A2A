@@ -1,0 +1,9 @@
+task_category,task_id,task_completion_rate,precision,recall,f1_score,prompt_tokens,completion_tokens,execution_time_seconds
+Webmall_Checkout,Webmall_Checkout_Task1,1,1.0,1.0,1.0,25503,1482,40.62277293205261
+Webmall_Checkout,Webmall_Checkout_Task2,1,1.0,1.0,1.0,31067,1049,27.83733296394348
+Webmall_Checkout,Webmall_Checkout_Task3,1,1.0,1.0,1.0,34159,1675,35.22975206375122
+Webmall_Checkout,Webmall_Checkout_Task4,1,1.0,1.0,1.0,34721,1761,38.99422597885132
+Webmall_Checkout,Webmall_Checkout_Task5,1,1.0,1.0,1.0,26047,1360,28.66419506072998
+Webmall_Checkout,Webmall_Checkout_Task6,1,1.0,1.0,1.0,23936,1029,22.643444299697876
+Webmall_Checkout,Webmall_Checkout_Task7,1,1.0,1.0,1.0,26776,1730,35.26421809196472
+Webmall_Checkout,Webmall_Checkout_Task8,1,1.0,1.0,1.0,26926,1935,36.907992124557495

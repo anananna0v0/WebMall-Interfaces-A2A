@@ -1,5 +1,10 @@
 from api_mcp.hybrid_server_manager import HybridServerManager
-from utils import calculation_results
+from utils import (
+    calculation_results,
+    interface_results_dir,
+    extract_reasoning_effort,
+    resolve_model_name,
+)
 import asyncio
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.prebuilt import create_react_agent
@@ -18,6 +23,7 @@ import traceback
 import sys
 import csv
 import logging
+from pathlib import Path
 
 # Disable HTTP request logging
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -29,6 +35,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 load_dotenv()
+
+DEFAULT_CHAT_MODEL_NAME = os.getenv("HYBRID_MCP_MODEL", "openai:gpt-4o-mini")
 
 URLS = {
     "URL_1": "https://webmall-1.informatik.uni-mannheim.de",
@@ -78,29 +86,6 @@ def fill_urls(text: str, urls: Dict[str, str]) -> str:
 def normalize_url(url: str) -> str:
     """Normalize URL for comparison by removing trailing slashes and converting to lowercase."""
     return url.rstrip('/').lower()
-
-
-def get_model(model_name: str = "gpt-4", temperature: float = 0.0) -> Any:
-    """
-    Factory function to create the appropriate model based on the provider.
-
-    Args:
-        model_name: Model identifier (e.g., "gpt-4", "claude-3-opus")
-        temperature: Temperature for the model
-
-    Returns:
-        Initialized LangChain chat model
-    """
-    if model_name.startswith("gpt") or model_name.startswith("o1") or model_name.startswith("openai:"):
-        # OpenAI models - handle both "gpt-4" and "openai:gpt-4" formats
-        clean_model_name = model_name.replace("openai:", "")
-        return ChatOpenAI(model=clean_model_name, temperature=temperature)
-    elif model_name.startswith("claude"):
-        # Anthropic models
-        return ChatAnthropic(model=model_name, temperature=temperature)
-    else:
-        # Default to OpenAI
-        return ChatOpenAI(model=model_name, temperature=temperature)
 
 
 def extract_urls_from_response(response_text: str) -> set[str]:
@@ -161,10 +146,6 @@ def extract_urls_from_hybrid_response(tool_output: str, format_type: str) -> set
     try:
         response_data = json.loads(tool_output)
         urls = set()
-        
-        # Debug logging for format parsing
-        print(f"📋 FORMAT DEBUG - Format: {format_type}")
-        print(f"  Response keys: {list(response_data.keys()) if isinstance(response_data, dict) else 'Not a dict'}")
 
         # Handle different heterogeneous formats
         if format_type == "server_a_weird":
@@ -328,8 +309,6 @@ def extract_urls_from_hybrid_response(tool_output: str, format_type: str) -> set
                         urls.update(inventory["storefront_references"])
 
         print(f"  📊 Final URLs extracted: {len(urls)} URLs")
-        for url in urls:
-            print(f"    🔗 {url}")
         return urls
     except (json.JSONDecodeError, TypeError, KeyError) as e:
         print(f"  ❌ Format parsing error: {e}")
@@ -361,11 +340,11 @@ async def reset_all_hybrid_carts(tools):
             print(f"Warning: Failed to reset cart using {tool.name}: {e}")
 
 
-async def ask_agent_with_retry(user_input, max_retries=3, delay=5, client=None):
+async def ask_agent_with_retry(user_input, max_retries=3, delay=5, client=None, chat_model=None):
     """Create and query the Hybrid MCP-powered agent with retry logic."""
     for attempt in range(max_retries):
         try:
-            return await ask_agent(user_input, client=client)
+            return await ask_agent(user_input, client=client, chat_model=chat_model)
         except Exception as e:
             print(f"Attempt {attempt + 1} failed: {e}")
             if attempt < max_retries - 1:
@@ -380,7 +359,7 @@ async def ask_agent_with_retry(user_input, max_retries=3, delay=5, client=None):
                 }, [], 0, 0
 
 
-async def ask_agent(user_input, client=None):
+async def ask_agent(user_input, client=None, chat_model=None):
     """Create and query the Hybrid MCP-powered agent using HTTP transport."""
     # Create MultiServerMCPClient with Hybrid servers if not provided
     if client is None:
@@ -389,15 +368,9 @@ async def ask_agent(user_input, client=None):
     # Get tools from all MCP servers
     tools = await client.get_tools()
 
-    # Define the model being used
-    model_name = os.getenv('BENCHMARK_MODEL', 'claude-sonnet-4-20250514')
-
-    # Create proper LangChain model object
-    model = get_model(model_name, temperature=0.0)
-
     # Create the React agent with MCP tools
     agent = create_react_agent(
-        model=model,
+        model=chat_model,
         tools=tools
     )
 
@@ -415,28 +388,18 @@ TASK-SPECIFIC INSTRUCTIONS:
 
 FOR SEARCH TASKS:
 - Search ALL FOUR stores using the available search tools
-- If you need specific product details, fetch more details using the deticated endpoints
 - Return JSON object with EXACT URLs of all relevant products found
 - Be sure to check that the answers align with the user's query
 - Required JSON format: {"urls": ["url1", "url2", ...]}
 
 FOR ADD TO CART TASKS:
-- First search for products across all stores
-- Extract product_id from search results (NOT URLs)
-- Use the appropriate add-to-cart tools with the product_id for each store
-- Return URLs of products successfully added to carts
 - Required JSON format: {"urls": ["url1", "url2", ...]}
 
 FOR CHECKOUT TASKS:
-- Add products to cart first using product_id from search results
-- Use checkout tools with provided customer and payment details
-- Cart persists across tool calls - items added will remain until checkout
-- Return URLs of products from completed orders
-- Required JSON format: {"urls": ["url1", "url2", ...]}
+- If you are presented with an URL by the user for checkout get the product ID for checkout based on the URL. Don't search again for the product in this case.
 
 WORKFLOW AND RESPONSE FORMAT REQUIREMENTS:
 - Complete ALL necessary tool operations first (search, add-to-cart, checkout as needed)
-- During tool calling phases, you may provide brief explanations of your actions
 - Your FINAL response (after all tools are used) MUST be valid JSON only
 - Do NOT include explanatory text in your final JSON response
 - Do NOT wrap the final JSON in code blocks or add any formatting
@@ -491,16 +454,53 @@ def get_hybrid_mcp_tools_dict(tools):
 
         # Map tools to their specific server based on tool name patterns
         # E-Store Athletes tools
-        if any(keyword in tool_name.lower() for keyword in ['search_products', 'get_product', 'get_categories', 'add_to_cart', 'view_cart', 'reset_cart', 'checkout']):
+        if any(keyword in tool_name.lower() for keyword in [
+            'search_products',
+            'get_product',
+            'get_categories',
+            'add_to_cart',
+            'view_cart',
+            'reset_cart',
+            'checkout',
+            'lookup_product_by_url_estore'
+        ]):
             tools_dict[tool_name] = "E-Store Athletes (Hybrid - Weird Format)"
         # TechTalk tools
-        elif any(keyword in tool_name.lower() for keyword in ['find_items_techtalk', 'retrieve_item_details_techtalk', 'list_item_categories_techtalk', 'add_to_shopping_cart_techtalk', 'view_shopping_cart_techtalk', 'clear_shopping_cart_techtalk', 'checkout_cart_techtalk']):
+        elif any(keyword in tool_name.lower() for keyword in [
+            'find_items_techtalk',
+            'retrieve_item_details_techtalk',
+            'list_item_categories_techtalk',
+            'add_to_shopping_cart_techtalk',
+            'view_shopping_cart_techtalk',
+            'clear_shopping_cart_techtalk',
+            'checkout_cart_techtalk',
+            'lookup_item_by_url_techtalk'
+        ]):
             tools_dict[tool_name] = "TechTalk (Hybrid - Bizarre Format)"
         # CamelCases tools
-        elif any(keyword in tool_name.lower() for keyword in ['query_stock', 'get_product_info_by_id', 'fetch_product_types', 'add_item_to_warehouse_cart', 'view_warehouse_cart', 'empty_warehouse_cart', 'process_warehouse_cart_checkout']):
+        elif any(keyword in tool_name.lower() for keyword in [
+            'query_stock',
+            'get_product_info_by_id',
+            'fetch_product_types',
+            'add_item_to_warehouse_cart',
+            'view_warehouse_cart',
+            'empty_warehouse_cart',
+            'process_warehouse_cart_checkout',
+            'lookup_product_by_url_camelcases'
+        ]):
             tools_dict[tool_name] = "CamelCases (Hybrid - Eccentric Format)"
         # Hardware Cafe tools
-        elif any(keyword in tool_name.lower() for keyword in ['get_items_by_keyword', 'find_cheap_items', 'get_item_details_by_id', 'get_all_categories', 'add_item_to_marketplace_cart', 'view_marketplace_cart', 'clear_marketplace_cart', 'checkout_marketplace_cart']):
+        elif any(keyword in tool_name.lower() for keyword in [
+            'get_items_by_keyword',
+            'find_cheap_items',
+            'get_item_details_by_id',
+            'get_all_categories',
+            'add_item_to_marketplace_cart',
+            'view_marketplace_cart',
+            'clear_marketplace_cart',
+            'checkout_marketplace_cart',
+            'lookup_item_by_url_hardware_cafe'
+        ]):
             tools_dict[tool_name] = "Hardware Cafe (Hybrid - Unconventional Format)"
         else:
             # Fallback for any unrecognized hybrid tools
@@ -578,7 +578,19 @@ def create_enhanced_hybrid_tool_call_log(messages: List[Any], tools_dict: Dict[s
                         # Determine tool type for hybrid servers
                         tool_type = "unknown"
                         # Search tools
-                        if any(keyword in tool_name.lower() for keyword in ['search_products', 'get_product', 'find_items', 'query_stock', 'get_items_by_keyword', 'get_product_info_by_id', 'retrieve_item_details', 'find_cheap_items', 'get_item_details_by_id']):
+                        if any(keyword in tool_name.lower() for keyword in [
+                            'search_products',
+                            'get_product',
+                            'find_items',
+                            'query_stock',
+                            'get_items_by_keyword',
+                            'get_product_info_by_id',
+                            'retrieve_item_details',
+                            'find_cheap_items',
+                            'get_item_details_by_id',
+                            'lookup_product_by_url',
+                            'lookup_item_by_url'
+                        ]):
                             tool_type = "search"
                         # Cart tools - be specific about each server's cart tool names
                         elif any(keyword in tool_name.lower() for keyword in ['add_to_cart', 'add_to_shopping_cart', 'add_item_to_warehouse_cart', 'add_item_to_marketplace_cart', 'view_cart', 'view_shopping_cart', 'view_warehouse_cart', 'view_marketplace_cart', 'reset_cart', 'clear_shopping_cart', 'empty_warehouse_cart', 'clear_marketplace_cart']):
@@ -627,14 +639,6 @@ def create_enhanced_hybrid_tool_call_log(messages: List[Any], tools_dict: Dict[s
                             has_cart_empty_error = "cart is empty" in tool_output_lower
                             has_order_success = "order" in tool_output_lower and (
                                 "created" in tool_output_lower or "successful" in tool_output_lower)
-                            
-                            # Debug logging for checkout detection
-                            print(f"CHECKOUT DEBUG - Tool: {tool_name}")
-                            print(f"  Raw output: {tool_output[:200]}...")
-                            print(f"  Has error: {has_error_field}")
-                            print(f"  Cart empty: {has_cart_empty_error}")
-                            print(f"  Order success: {has_order_success}")
-                            print(f"  URLs extracted: {list(extracted_urls)}")
 
                             # Use same logic as nlweb_mcp: check response_type and all error conditions
                             if format_type != "error" and not has_error_field and not has_cart_empty_error and has_order_success:
@@ -667,9 +671,15 @@ def create_enhanced_hybrid_tool_call_log(messages: List[Any], tools_dict: Dict[s
     return tool_calls_log, all_hybrid_urls, cart_checkout_urls, cart_only_urls, checkout_only_urls, checkout_successful
 
 
-def run_benchmark(benchmark_path):
+def run_benchmark(benchmark_path, chat_model=None):
     """Run the benchmark using Hybrid MCP servers with server lifecycle management."""
     execution_history = []
+
+    model_identifier = resolve_model_name(chat_model, DEFAULT_CHAT_MODEL_NAME)
+    reasoning_effort = extract_reasoning_effort(chat_model)
+    results_output_dir = interface_results_dir(
+        __file__, "api_mcp", model_identifier, reasoning_effort
+    )
 
     # Initialize performance tracking
     total_execution_time = 0.0
@@ -736,11 +746,12 @@ def run_benchmark(benchmark_path):
             time.sleep(2)  # Give servers time to fully stop
 
             if not server_manager.start_all_servers(debug=False):
-                print("Warning: Failed to restart servers, continuing anyway...")
+                print("Warning: Failed to restart servers")
+                quit
             time.sleep(10)  # Give servers time to initialize
 
             for task in task_set["tasks"]:
-                print(f"\n=== HYBRID TASK {task['id']} ===")
+                print(f"\n=== {task['id']} ===")
                 print("--------------------------------")
 
                 # Create MCP client for this task to maintain cart state
@@ -815,42 +826,6 @@ def run_benchmark(benchmark_path):
                 # Handle different task categories
                 task_category = task.get("category", "")
 
-                if task_category == "Checkout" or task_category == "FindAndOrder":
-                    # Replace product URL placeholder
-                    product_urls = [fill_urls(x, URLS)
-                                    for x in task["correct_answer"]["answers"]]
-                    user_task = user_task.replace(
-                        "{{product_url}}", str(product_urls))
-
-                    # Replace user details placeholders  
-                    user_details = task["user_details"]
-                    user_task = user_task.replace(
-                        "{{name}}", user_details["name"])
-                    user_task = user_task.replace(
-                        "{{email}}", user_details["email"])
-                    user_task = user_task.replace(
-                        "{{street}}", user_details["street"])
-                    user_task = user_task.replace(
-                        "{{house_number}}", user_details["house_number"])
-                    user_task = user_task.replace(
-                        "{{zip}}", user_details["zip"])
-                    user_task = user_task.replace(
-                        "{{state}}", user_details["state"])
-                    user_task = user_task.replace(
-                        "{{country}}", user_details["country"])
-
-                    # Replace payment info placeholders
-                    payment_info = task["payment_info"]
-                    user_task = user_task.replace(
-                        "{{card}}", payment_info["card"])
-                    user_task = user_task.replace(
-                        "{{cvv}}", payment_info["cvv"])
-                    user_task = user_task.replace(
-                        "{{expiry_date}}", payment_info["expiry_date"])
-
-                elif task_category == "Add_To_Cart":
-                    # For cart tasks, we just need to fill URLs in the task description
-                    pass
 
                 # Extract URLs from the answers dictionary and print them as a list
                 correct_answer = task.get(
@@ -868,7 +843,7 @@ def run_benchmark(benchmark_path):
                 task_start_time = time.time()
                 try:
                     response, tools, input_tokens, output_tokens = asyncio.run(
-                        ask_agent_with_retry(user_task, client=task_client))
+                        ask_agent_with_retry(user_task, client=task_client, chat_model=chat_model))
 
                     messages = response.get("messages", [])
 
@@ -963,12 +938,6 @@ def run_benchmark(benchmark_path):
                 # Apply differentiated evaluation based on task category
                 evaluation_urls = []
                 evaluation_strategy = "search_only"  # Default strategy
-
-                print(f"\n🎯 EVALUATION DEBUG - Task Category: {task_category}")
-                print(f"  Checkout successful: {checkout_successful}")
-                print(f"  Cart only URLs: {list(cart_only_urls)}")
-                print(f"  Checkout only URLs: {list(checkout_only_urls)}")
-                print(f"  Final answer URLs: {list(got)}")
 
                 if task_category == "Add_To_Cart":
                     # For cart tasks, only evaluate cart operations
@@ -1074,13 +1043,15 @@ def run_benchmark(benchmark_path):
                 execution_history.append(history_entry)
 
                 # Save the history entry to a file
-                with open("history_entry.json", "w") as f:
+                history_file = results_output_dir / "history_entry.json"
+                with history_file.open("w", encoding="utf-8") as f:
                     json.dump(history_entry, f, indent=4)
 
                 print("Correct: " + str(correct_model_answers))
                 print("Model Response: " + str(evaluation_urls))
                 print("Additional: " + str(additional_urls))
                 print("Missing: " + str(missing_urls))
+                print("Total tokens", str(input_tokens + output_tokens))
                 print("--------------------------------" + "\n"*10)
 
                 # Clean up task client
@@ -1125,7 +1096,10 @@ def run_benchmark(benchmark_path):
             "total_execution_time_seconds": total_execution_time,
             "average_execution_time_seconds": avg_execution_time,
             "total_tool_calls": total_tool_calls,
-            "avg_tool_calls_per_task": total_tool_calls / len(execution_history) if execution_history else 0
+            "avg_tool_calls_per_task": total_tool_calls / len(execution_history) if execution_history else 0,
+            "model": model_identifier,
+            "reasoning_effort": reasoning_effort,
+            "results_directory": str(results_output_dir)
         },
         "tool_usage_summary": {
             "search_tools": total_search_tools,
@@ -1140,93 +1114,70 @@ def run_benchmark(benchmark_path):
         },
         "results": execution_history
     }
-
-    # Print comprehensive statistics
-    print("\n" + "=" * 60)
-    print("ENHANCED HYBRID MCP BENCHMARK RESULTS")
-    print("=" * 60)
-    print(f"🎯 Total Tasks: {len(execution_history)}")
-    print(f"✅ Successful: {successful_tasks}")
-    print(f"❌ Failed: {failed_tasks}")
-    print(
-        f"📊 Success Rate: {(successful_tasks / len(execution_history) * 100):.1f}%" if execution_history else "0%")
-    print(f"⏱️  Total Execution Time: {total_execution_time:.2f} seconds")
-    print(f"⚡ Average per Task: {avg_execution_time:.2f} seconds")
-    print(f"\n🛠️  TOOL USAGE BREAKDOWN:")
-    print(f"  - Search Tools: {total_search_tools}")
-    print(f"  - Cart Tools: {total_cart_tools}")
-    print(f"  - Checkout Tools: {total_checkout_tools}")
-    print(f"  - Total Tool Calls: {total_tool_calls}")
-    print(
-        f"  - Avg per Task: {(total_tool_calls / len(execution_history)):.1f}" if execution_history else "0")
-    print(f"\n💭 TOKEN USAGE:")
-    print(f"  - Prompt Tokens: {total_prompt_tokens:,}")
-    print(f"  - Completion Tokens: {total_completion_tokens:,}")
-    print(
-        f"  - Total Tokens: {(total_prompt_tokens + total_completion_tokens):,}")
-    print("=" * 60)
-
     return enhanced_summary
 
 
-def generate_csv_metrics(enhanced_summary):
+def generate_csv_metrics(enhanced_summary, output_dir: Path):
     """Generate CSV file with task metrics for easy analysis."""
     if not enhanced_summary.get("results"):
         print("No results to export to CSV")
         return
 
     current_timestamp = enhanced_summary["benchmark_metadata"]["timestamp"]
-    csv_filename = f"hybrid_mcp_enhanced_metrics_{current_timestamp}.csv"
+    csv_path = output_dir / f"hybrid_mcp_enhanced_metrics_{current_timestamp}.csv"
 
     # Prepare CSV data
     csv_data = []
     for result in enhanced_summary["results"]:
 
+        error_occurred = result.get("error_occurred", False)
+        completion_rate = 0 if error_occurred else result.get("task_completion_rate", 0)
+        precision = 0.0 if error_occurred else result.get("precision", 0)
+        recall = 0.0 if error_occurred else result.get("recall", 0)
+        f1_score = 0.0 if error_occurred else result.get("f1_score", 0)
+        prompt_tokens = 0 if error_occurred else result.get("prompt_tokens", 0)
+        completion_tokens = 0 if error_occurred else result.get("completion_tokens", 0)
+        execution_time = result.get("execution_time_seconds", 0)
+
         csv_row = {
             "task_category": result.get("task_id", "").split("_Task")[0],
             "task_id": result.get("task_id", ""),
-            "task_completion_rate": result.get("task_completion_rate", 0),
-            "precision": result.get("precision", 0),
-            "recall": result.get("recall", 0),
-            "f1_score": result.get("f1_score", 0),
-            "prompt_tokens": result.get("prompt_tokens", 0),
-            "completion_tokens": result.get("completion_tokens", 0),
-            "execution_time_seconds": result.get("execution_time_seconds", 0),
-            "total_tool_calls": result.get("total_tool_calls", 0),
-            "search_tool_calls": result.get("search_tool_calls", 0),
-            "cart_tool_calls": result.get("cart_tool_calls", 0),
-            "checkout_tool_calls": result.get("checkout_tool_calls", 0),
-            "evaluation_strategy": result.get("evaluation_strategy", ""),
-            "checkout_successful": result.get("checkout_successful", False),
-            "error_occurred": result.get("error_occurred", False)
+            "task_completion_rate": completion_rate,
+            "precision": precision,
+            "recall": recall,
+            "f1_score": f1_score,
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "execution_time_seconds": execution_time,
         }
         csv_data.append(csv_row)
 
     # Write CSV file
     try:
-        with open(csv_filename, 'w', newline='', encoding='utf-8') as csvfile:
+        with csv_path.open('w', newline='', encoding='utf-8') as csvfile:
             fieldnames = ["task_category", "task_id", "task_completion_rate", "precision",
                           "recall", "f1_score", "prompt_tokens", "completion_tokens",
-                          "execution_time_seconds", "total_tool_calls", "search_tool_calls",
-                          "cart_tool_calls", "checkout_tool_calls", "evaluation_strategy",
-                          "checkout_successful", "error_occurred"]
+                          "execution_time_seconds"]
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(csv_data)
 
-        print(f"📊 CSV metrics exported to: {csv_filename}")
-        return csv_filename
+        print(f"📊 CSV metrics exported to: {csv_path}")
+        return str(csv_path)
     except Exception as e:
         print(f"Failed to generate CSV: {e}")
         return None
 
 
 if __name__ == "__main__":
-    BENCHMARK_JSON_PATH = "../task_sets.json"  # adjust as needed
+    BENCHMARK_JSON_PATH = "../add_to_cart.json"  # adjust as needed
+    model_name = "gpt-5-2025-08-07"
+
+    chat_model = ChatOpenAI(model=model_name,  reasoning_effort="medium")
     enhanced_summary = {}
 
     try:
-        enhanced_summary = run_benchmark(BENCHMARK_JSON_PATH)
+        enhanced_summary = run_benchmark(BENCHMARK_JSON_PATH, chat_model=chat_model)
     except Exception as e:
         print(f"Benchmark run failed with error: {e}")
         print(f"Full traceback: {traceback.format_exc()}")
@@ -1242,19 +1193,31 @@ if __name__ == "__main__":
             "results": []
         }
     finally:
+        metadata = enhanced_summary.get("benchmark_metadata", {})
+        results_dir_str = metadata.get("results_directory")
+        if results_dir_str:
+            results_dir = Path(results_dir_str)
+        else:
+            results_dir = interface_results_dir(
+                __file__,
+                "api_mcp",
+                resolve_model_name(chat_model, model_name),
+                extract_reasoning_effort(chat_model),
+            )
+
         # Always save results, even if there were errors
-        current_timestamp = enhanced_summary.get("benchmark_metadata", {}).get(
+        current_timestamp = metadata.get(
             "timestamp", datetime.now().strftime("%Y%m%d_%H%M%S"))
-        output_file = f"hybrid_execution_history_{current_timestamp}.json"
+        output_file = results_dir / f"hybrid_execution_history_{current_timestamp}.json"
 
         try:
-            with open(output_file, "w", encoding='utf-8') as f:
+            with output_file.open("w", encoding='utf-8') as f:
                 json.dump(enhanced_summary, f, indent=4)
             print(f"📁 Enhanced results saved to: {output_file}")
 
             # Generate CSV metrics if we have results
             if enhanced_summary.get("results"):
-                generate_csv_metrics(enhanced_summary)
+                generate_csv_metrics(enhanced_summary, results_dir)
 
         except Exception as save_error:
             print(f"Failed to save enhanced results: {save_error}")

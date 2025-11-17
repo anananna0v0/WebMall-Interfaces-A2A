@@ -1,7 +1,14 @@
-
-from rag.elasticsearch_client import ElasticsearchRAGClient
 import os
 import sys
+# Add parent directory to path for imports
+sys.path.append(os.path.dirname(os.path.dirname(
+    os.path.dirname(os.path.abspath(__file__)))))
+
+# Import calculation function from utils
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from utils import calculation_results, interface_results_dir, extract_reasoning_effort
+from rag.elasticsearch_client import ElasticsearchRAGClient
 import json
 import time
 from typing import Dict, List, Any, Tuple
@@ -13,6 +20,7 @@ import csv
 
 # LangChain imports for model-agnostic approach
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_mistralai import ChatMistralAI
 from langchain_anthropic import ChatAnthropic
 from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -23,13 +31,8 @@ from langgraph.errors import GraphRecursionError
 # Import cart tools
 from rag.rag_cart_tools import get_cart_tools, reset_all_carts
 
-# Add parent directory to path for imports
-sys.path.append(os.path.dirname(os.path.dirname(
-    os.path.dirname(os.path.abspath(__file__)))))
 
-# Import calculation function from utils
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from utils import calculation_results
+
 load_dotenv()
 
 # Configuration: webmall URLs
@@ -41,7 +44,7 @@ URLS = {
     "URL_5": "https://webmall-solution.informatik.uni-mannheim.de"
 }
 
-# Initialize Elasticsearch V2 for RAG
+# Initialize Elasticsearch client for RAG
 es_client = ElasticsearchRAGClient()
 
 # Initialize embeddings model
@@ -97,14 +100,19 @@ async def search_products(query: str, match_count: int = 30, use_hybrid: bool = 
     match_count = max(1, min(100, match_count))
 
     print(
-        f"\n🔍 SEARCH TOOL: Query='{query}', Results={match_count}, Mode={'sematic' if use_hybrid else 'semantic'}")
+        f"\n🔍 SEARCH TOOL: Query='{query}', Results={match_count}, Mode={'hybrid' if use_hybrid else 'semantic'}")
 
     # Get embedding for the query
     query_embedding, embedding_tokens = await get_embedding(query)
     token_tracker["embedding_tokens"] += embedding_tokens
 
-    # Perform search - always use semantic search (identical to MCP implementation)
-    results = await es_client.semantic_search(query_embedding, match_count)
+    # Perform search
+    if use_hybrid:
+        # results = await es_client.hybrid_search(query, query_embedding, match_count)
+        # results = await es_client.hybrid_search_content_only(query, query_embedding, match_count)
+        results = await es_client.hybrid_search_title_content(query, query_embedding, match_count)
+    else:
+        results = await es_client.semantic_search(query_embedding, match_count)
 
     # Store results in cache for easy access
     search_results_cache.append(results)
@@ -129,8 +137,8 @@ async def search_products(query: str, match_count: int = 30, use_hybrid: bool = 
         "results": [
             {
                 "title": r["title"],
-                "url": r["url"]
-                # "description": r.get("content", "N/A")
+                "url": r["url"],
+                # "description": r.get("content", "N/A")[:250]
             }
             # Return lightweight results, let the agent fetch details for specific products
             for r in results
@@ -191,30 +199,6 @@ async def get_product_details(urls: List[str]) -> str:
             "error": str(e),
             "urls_requested": len(urls)
         })
-
-
-def get_model(model_name: str = "gpt-4", temperature: float = 0.0) -> Any:
-    """
-    Factory function to create the appropriate model based on the provider.
-
-    Args:
-        model_name: Model identifier (e.g., "gpt-4", "claude-3-opus")
-        temperature: Temperature for the model
-
-    Returns:
-        Initialized LangChain chat model
-    """
-    if model_name.startswith("gpt") or model_name.startswith("o1"):
-        if model_name == "gpt-5":
-            return ChatOpenAI(model="gpt-5", temperature=1)
-        # OpenAI models
-        return ChatOpenAI(model=model_name, temperature=temperature)
-    elif model_name.startswith("claude"):
-        # Anthropic models
-        return ChatAnthropic(model=model_name, temperature=temperature)
-    else:
-        # Default to OpenAI
-        return ChatOpenAI(model=model_name, temperature=temperature)
 
 
 def aggregate_search_results(all_results: List[List[Dict]], expected_urls: List[str]) -> Tuple[List[Dict], Dict[str, int]]:
@@ -293,25 +277,50 @@ def extract_urls_from_cart_tool_output(tool_output: str, tool_name: str) -> List
         return []
 
 
-def parse_model_answer(answer: str) -> List[str]:
+def message_content_to_text(content: Any) -> str:
+    """Normalize LangChain/SSE message content to plain text."""
+    if isinstance(content, str):
+        return content
+
+    if isinstance(content, list):
+        parts: List[str] = []
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict):
+                text_value = item.get("text") or item.get(
+                    "content") or item.get("value")
+                if isinstance(text_value, str):
+                    parts.append(text_value)
+            else:
+                parts.append(str(item))
+        return "\n".join(part for part in parts if part)
+
+    return str(content)
+
+
+def parse_model_answer(answer: Any) -> List[str]:
     """Parse the model answer and return the list of URLs."""
+    normalized_answer = message_content_to_text(answer)
+
     try:
         # Try to extract JSON array from the response
-        if answer.startswith('[') and answer.endswith(']'):
-            return json.loads(answer)
+        if normalized_answer.startswith('[') and normalized_answer.endswith(']'):
+            return json.loads(normalized_answer)
         else:
             # If response contains JSON within text, try to find it
             import re
-            json_match = re.search(r'\[.*\]', answer, re.DOTALL)
+            json_match = re.search(r'\[.*\]', normalized_answer, re.DOTALL)
             if json_match:
                 return json.loads(json_match.group())
             else:
                 # Fallback: treat as single item or "Done"
-                return [answer] if answer.lower() != "done" else ["Done"]
+                cleaned = normalized_answer.strip()
+                return [cleaned] if cleaned.lower() != "done" else ["Done"]
     except json.JSONDecodeError:
         print("Warning: Could not parse JSON response, treating as plain text")
         # Fallback to original ### splitting method
-        return [part.strip() for part in answer.split("###")]
+        return [part.strip() for part in normalized_answer.split("###") if part.strip()]
 
 
 def create_fallback_result(user_task: str, urls_in_db: List[str], expected_flat: List[str],
@@ -332,7 +341,7 @@ def create_fallback_result(user_task: str, urls_in_db: List[str], expected_flat:
         "best_rank": None,
         "avg_rank": None,
         "db_coverage": len(urls_in_db) / len(expected_flat) if expected_flat else 0,
-        "v2_search_type": "multi_search_improved_FAILED",
+        "search_type": "multi_search_failed",
         "prompt_tokens": 0,
         "completion_tokens": 0,
         "total_tokens": 0,
@@ -346,11 +355,14 @@ def create_fallback_result(user_task: str, urls_in_db: List[str], expected_flat:
 
 
 async def get_model_answer(user_task: str, urls_in_db: List[str], expected_flat: List[str],
-                                       total_tokens_used: Dict, chat_model) -> Dict:
-    """Get model answer using system with LangGraph tool binding."""
+                           total_tokens_used: Dict, chat_model: Any,
+                           model_name: str = "gpt-4") -> Dict:
+    """Get model answer using the LangGraph RAG system with tool binding."""
 
     # Start execution timer
     task_start_time = time.time()
+
+    print("Starting RAG workflow...")
 
     # Reset global variables for this task
     global search_history, search_results_cache
@@ -585,9 +597,6 @@ RESPONSE FORMAT:
     if url_ranks:
         best_rank = min(url_ranks.values())
         avg_rank = sum(url_ranks.values()) / len(url_ranks)
-        print(
-            f"\n✅ V2 IMPROVED Coverage: {len(exact_url_matches)}/{len(expected_flat)} ({rag_coverage:.1%})")
-        print(f"🎯 Best rank: #{best_rank}, Average rank: {avg_rank:.1f}")
 
     # Calculate execution time
     execution_time = time.time() - task_start_time
@@ -610,7 +619,7 @@ RESPONSE FORMAT:
         "best_rank": min(url_ranks.values()) if url_ranks else None,
         "avg_rank": sum(url_ranks.values()) / len(url_ranks) if url_ranks else None,
         "db_coverage": db_coverage,
-        "v2_search_type": "multi_search_improved",
+        "search_type": "multi_search",
         "prompt_tokens": total_tokens_used["prompt_tokens"],
         "completion_tokens": total_tokens_used["completion_tokens"],
         "total_tokens": total_tokens_used["total_tokens"],
@@ -621,19 +630,47 @@ RESPONSE FORMAT:
 
 
 # Load benchmark JSON file
-BENCHMARK_JSON_PATH = "/Users/aaronsteiner/Documents/GitHub/webmall-alternative-interfaces/task_sets.json"
+BENCHMARK_JSON_PATH = "task_sets.json"
 
 with open(BENCHMARK_JSON_PATH, "r", encoding="utf-8") as f:
     benchmark = json.load(f)
 
 
-async def process_benchmark(chat_model, model_name: str = "gpt-4"):
-    """Process benchmark tasks with improved V2 RAG integration"""
+async def process_benchmark(model_name: str, chat_model: Any):
+    """Process benchmark tasks using the LangGraph RAG workflow."""
     print("\n" + "=" * 60)
-    print("V2 IMPROVED BENCHMARK - MULTI-SEARCH RAG SYSTEM")
+    print("BENCHMARK - RAG SYSTEM")
     print("=" * 60)
     print(f"Model: {model_name}")
     print("=" * 60)
+
+    reasoning_effort = extract_reasoning_effort(chat_model)
+    results_output_dir = interface_results_dir(
+        __file__, "rag", model_name, reasoning_effort)
+    # Create a run-unique timestamp early so stream files are consistent
+    current_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # Prepare incremental output files (streaming)
+    incremental_csv_file = results_output_dir / \
+        f"benchmark_metrics_{current_timestamp}_stream.csv"
+    incremental_jsonl_file = results_output_dir / \
+        f"benchmark_results_{current_timestamp}.jsonl"
+
+    # Initialize the streaming CSV with header
+    with incremental_csv_file.open("w", newline="", encoding="utf-8") as csvfile:
+        fieldnames = [
+            "category",
+            "task_id",
+            "task_completion_rate",
+            "avg_precision",
+            "avg_recall",
+            "f1_score",
+            "prompt_tokens",
+            "completion_tokens",
+            "execution_duration"
+        ]
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
 
     # Reset all carts before starting benchmark
     reset_all_carts()
@@ -656,7 +693,7 @@ async def process_benchmark(chat_model, model_name: str = "gpt-4"):
     recursion_errors = 0
     other_errors = 0
 
-    # V2 specific metrics
+    # Ranking metrics
     total_rank_sum = 0
     total_ranked_results = 0
     top3_count = 0
@@ -676,75 +713,109 @@ async def process_benchmark(chat_model, model_name: str = "gpt-4"):
             # if task["id"] != "Webmall_Add_To_Cart_Task4":
             #    continue
 
-            print(f"\n=== V2 IMPROVED TASK {task['id']} ===")
+            print(f"\n=== TASK {task['id']} ===")
             # Reset carts before each task to ensure clean state
             reset_all_carts()
+            # Track the start time for the whole task (in case preprocessing fails)
+            task_preprocess_start = time.time()
 
-            # Check if correct answers exist in the V2 database
-            correct_answer = task.get("correct_answer", {}).get("answers", [])
-            expected_flat = [fill_urls(x, URLS) for x in correct_answer]
-
-            # Check V2 database for exact URL matches
+            # Defaults to ensure we can still log on failure
+            expected_flat = []
             urls_in_db = []
             urls_not_in_db = []
-
-            for expected_url in expected_flat:
-                if not expected_url.endswith("/"):
-                    expected_url += "/"
-                if await es_client.check_url_exists(expected_url):
-                    urls_in_db.append(expected_url)
-                else:
-                    urls_not_in_db.append(expected_url)
-
-            total_urls_not_in_db += len(urls_not_in_db)
-
-            if len(urls_not_in_db) > 0:
-                print(
-                    f"  ⚠️  WARNING: {len(urls_not_in_db)} correct answer(s) not found in V2 database!")
-
-            total_expected_urls += len(expected_flat)
-
-            # Get task category for evaluation logic
+            user_task = ""
             task_category = task.get("category", "Search")
-            print(f"  📝 Task Category: {task_category}")
+            preprocessing_failed = False
 
-            # Extract user task
-            user_task = task["task"] if "task" in task else None
-            if not user_task:
-                start = task["instruction"].find("<task>")
-                end = task["instruction"].find("</task>") + len("</task>")
-                user_task = task["instruction"][start:end]
+            try:
+                # Check if correct answers exist in the database
+                correct_answer = task.get(
+                    "correct_answer", {}).get("answers", [])
+                expected_flat = [fill_urls(x, URLS) for x in correct_answer]
 
-            user_task = fill_urls(user_task, URLS)
-            user_task = user_task.replace("<task>", "").replace("</task>", "")
+                # Check database for exact URL matches
+                for expected_url in expected_flat:
+                    if not expected_url.endswith("/"):
+                        expected_url += "/"
+                    if await es_client.check_url_exists(expected_url):
+                        urls_in_db.append(expected_url)
+                    else:
+                        urls_not_in_db.append(expected_url)
 
-            if "{{product_url}}" in user_task:
-                user_task = user_task.replace(
-                    "{{product_url}}", str(expected_flat))
+                total_urls_not_in_db += len(urls_not_in_db)
 
-            if "{{email}}" in user_task:
-                user_details = task["user_details"]
-                user_task = user_task.replace("{{name}}", user_details["name"])
-                user_task = user_task.replace(
-                    "{{email}}", user_details["email"])
-                user_task = user_task.replace(
-                    "{{street}}", user_details["street"])
-                user_task = user_task.replace(
-                    "{{house_number}}", user_details["house_number"])
-                user_task = user_task.replace("{{zip}}", user_details["zip"])
-                user_task = user_task.replace(
-                    "{{state}}", user_details["state"])
-                user_task = user_task.replace(
-                    "{{country}}", user_details["country"])
+                if len(urls_not_in_db) > 0:
+                    print(
+                        f"  ⚠️  WARNING: {len(urls_not_in_db)} correct answer(s) not found in database!")
 
-                # Replace payment info placeholders
-                payment_info = task["payment_info"]
-                user_task = user_task.replace("{{card}}", payment_info["card"])
-                user_task = user_task.replace("{{cvv}}", payment_info["cvv"])
-                user_task = user_task.replace(
-                    "{{expiry_date}}", payment_info["expiry_date"])
+                total_expected_urls += len(expected_flat)
 
-            print(f"User task: {user_task}")
+                # Get task category for evaluation logic
+                task_category = task.get("category", "Search")
+                print(f"  📝 Task Category: {task_category}")
+
+                # Extract user task
+                user_task = task["task"] if "task" in task else None
+                if not user_task:
+                    start = task["instruction"].find("<task>")
+                    end = task["instruction"].find("</task>") + len("</task>")
+                    user_task = task["instruction"][start:end]
+
+                user_task = fill_urls(user_task, URLS)
+                user_task = user_task.replace(
+                    "<task>", "").replace("</task>", "")
+
+                if "{{product_url}}" in user_task:
+                    user_task = user_task.replace(
+                        "{{product_url}}", str(expected_flat))
+
+                if "{{email}}" in user_task:
+                    user_details = task["user_details"]
+                    user_task = user_task.replace(
+                        "{{name}}", user_details["name"])
+                    user_task = user_task.replace(
+                        "{{email}}", user_details["email"])
+                    user_task = user_task.replace(
+                        "{{street}}", user_details["street"])
+                    user_task = user_task.replace(
+                        "{{house_number}}", user_details["house_number"])
+                    user_task = user_task.replace(
+                        "{{zip}}", user_details["zip"])
+                    user_task = user_task.replace(
+                        "{{city}}", user_details["city"])
+                    user_task = user_task.replace(
+                        "{{state}}", user_details["state"])
+                    user_task = user_task.replace(
+                        "{{country}}", user_details["country"])
+
+                    # Replace payment info placeholders
+                    payment_info = task["payment_info"]
+                    user_task = user_task.replace(
+                        "{{card}}", payment_info["card"])
+                    user_task = user_task.replace(
+                        "{{cvv}}", payment_info["cvv"])
+                    user_task = user_task.replace(
+                        "{{expiry_date}}", payment_info["expiry_date"])
+
+                print(f"User task: {user_task}")
+            except Exception as e:
+                # If preprocessing fails, ensure we still log a result for this task
+                preprocessing_failed = True
+                error_msg = f"TaskProcessingError: {str(e)}"
+                print(
+                    f"❌ PREPROCESSING ERROR in task {task['id']}: {error_msg}")
+                execution_time = time.time() - task_preprocess_start
+                # Create a fallback result so downstream logging works
+                model_result = create_fallback_result(
+                    user_task or "",
+                    urls_in_db,
+                    expected_flat,
+                    total_tokens_used,
+                    error_msg,
+                    execution_time,
+                )
+                failed_tasks += 1
+                other_errors += 1
 
             # Capture token usage before this task
             tokens_before_task = {
@@ -753,31 +824,39 @@ async def process_benchmark(chat_model, model_name: str = "gpt-4"):
                 "total_tokens": total_tokens_used["total_tokens"]
             }
 
-            # Get model answer using improved V2 system with error handling
-            try:
-                model_result = await get_model_answer(
-                    user_task, urls_in_db, expected_flat, total_tokens_used,
-                    chat_model=chat_model
-                )
+            # Get model answer using LangGraph system with error handling
+            if not preprocessing_failed:
+                try:
+                    model_result = await get_model_answer(
+                        user_task,
+                        urls_in_db,
+                        expected_flat,
+                        total_tokens_used,
+                        chat_model=chat_model,
+                        model_name=model_name
+                    )
 
-                # Check if this was a failed result
-                if model_result.get("error_occurred", False):
-                    failed_tasks += 1
-                    error_type = model_result.get("error_type", "unknown")
-                    if error_type == "GraphRecursionError":
-                        recursion_errors += 1
-                    else:
-                        other_errors += 1
+                    # Check if this was a failed result
+                    if model_result.get("error_occurred", False):
+                        failed_tasks += 1
+                        error_type = model_result.get("error_type", "unknown")
+                        if error_type == "GraphRecursionError":
+                            recursion_errors += 1
+                        else:
+                            other_errors += 1
+                        print(
+                            f"⚠️  Task {task['id']} failed with error: {model_result.get('error_message', 'Unknown error')}")
+
+                except Exception as e:
+                    # Fallback error handling if even the error handling fails
+                    execution_time = time.time() - task_preprocess_start
+                    error_msg = f"Critical benchmark error: {str(e)}"
                     print(
-                        f"⚠️  Task {task['id']} failed with error: {model_result.get('error_message', 'Unknown error')}")
-
-            except Exception as e:
-                # Fallback error handling if even the error handling fails
-                execution_time = time.time() - task_start_time if 'task_start_time' in locals() else 0
-                error_msg = f"Critical benchmark error: {str(e)}"
-                print(f"🔥 CRITICAL ERROR in task {task['id']}: {error_msg}")
-                model_result = create_fallback_result(
-                    user_task, urls_in_db, expected_flat, total_tokens_used, error_msg, execution_time)
+                        f"🔥 CRITICAL ERROR in task {task['id']}: {error_msg}")
+                    model_result = create_fallback_result(
+                        user_task, urls_in_db, expected_flat, total_tokens_used, error_msg, execution_time)
+                    failed_tasks += 1
+                    other_errors += 1
 
             # Calculate per-task token usage
             task_tokens = {
@@ -819,7 +898,7 @@ async def process_benchmark(chat_model, model_name: str = "gpt-4"):
                 print(
                     f"🔍 Using final answer URLs for evaluation: {parsed_urls}")
 
-            # V2 specific ranking metrics
+            # Ranking metrics
             if best_rank is not None:
                 total_rank_sum += best_rank
                 total_ranked_results += 1
@@ -861,7 +940,7 @@ async def process_benchmark(chat_model, model_name: str = "gpt-4"):
                 print(f"  {k}: {v:.2f}" if isinstance(
                     v, float) else f"  {k}: {v}")
 
-            # Save results with improved metrics
+            # Save results with collected metrics
             task_result = {
                 "task_id": task["id"],
                 "user_task": user_task,
@@ -876,12 +955,12 @@ async def process_benchmark(chat_model, model_name: str = "gpt-4"):
                 "rag_total_matches": model_result["rag_total_matches"],
                 "rag_coverage": model_result["rag_coverage"],
 
-                # V2 improved specific metrics
-                "v2_search_type": model_result["v2_search_type"],
-                "v2_url_ranks": url_ranks,
-                "v2_best_rank": best_rank,
-                "v2_avg_rank": avg_rank,
-                "v2_multi_search": True,
+                # Ranking details
+                "search_type": model_result["search_type"],
+                "url_rank_details": url_ranks,
+                "best_rank": best_rank,
+                "avg_rank": avg_rank,
+                "multi_search": True,
 
                 # Execution time
                 "execution_time_seconds": model_result["execution_time_seconds"],
@@ -897,13 +976,52 @@ async def process_benchmark(chat_model, model_name: str = "gpt-4"):
                 "cart_checkout_urls": cart_checkout_urls,
                 "prompt_tokens": task_tokens["prompt_tokens"],
                 "completion_tokens": task_tokens["completion_tokens"],
-                "total_tokens": task_tokens["total_tokens"]
+                "total_tokens": task_tokens["total_tokens"],
+                "error_occurred": model_result.get("error_occurred", False),
+                "error_message": model_result.get("error_message"),
+                "error_type": model_result.get("error_type")
             }
 
             results.append(task_result)
+
+            # Append per-task result to JSONL for crash-safe logging
+            try:
+                with incremental_jsonl_file.open("a", encoding="utf-8") as jf:
+                    jf.write(json.dumps(task_result) + "\n")
+            except Exception as e:
+                print(f"⚠️  Failed to append JSONL for task {task['id']}: {e}")
+
+            # Append a row to the streaming CSV
+            try:
+                row = {
+                    "category": task.get("category", "Unknown"),
+                    "task_id": task.get("id", ""),
+                    "task_completion_rate": metrics.get("task_completion_rate", 0),
+                    "avg_precision": metrics.get("avg_precision", 0.0),
+                    "avg_recall": metrics.get("avg_recall", 0.0),
+                    "f1_score": metrics.get("f1_score", 0.0),
+                    "prompt_tokens": 0 if model_result.get("error_occurred", False) else task_tokens.get("prompt_tokens", 0),
+                    "completion_tokens": 0 if model_result.get("error_occurred", False) else task_tokens.get("completion_tokens", 0),
+                    "execution_duration": model_result.get("execution_time_seconds", 0)
+                }
+                with incremental_csv_file.open("a", newline="", encoding="utf-8") as csvfile:
+                    fieldnames = [
+                        "category",
+                        "task_id",
+                        "task_completion_rate",
+                        "avg_precision",
+                        "avg_recall",
+                        "f1_score",
+                        "prompt_tokens",
+                        "completion_tokens",
+                        "execution_duration"
+                    ]
+                    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                    writer.writerow(row)
+            except Exception as e:
+                print(f"⚠️  Failed to append CSV for task {task['id']}: {e}")
             # break
     # Generate results file
-    current_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     # Calculate execution time statistics
     avg_execution_time = total_execution_time / len(results) if results else 0
@@ -912,12 +1030,14 @@ async def process_benchmark(chat_model, model_name: str = "gpt-4"):
     max_execution_time = max(r["execution_time_seconds"]
                              for r in results) if results else 0
 
-    # Enhanced benchmark summary with improved metrics
+    # Enhanced benchmark summary with detailed metrics
     benchmark_summary = {
         "benchmark_metadata": {
             "timestamp": current_timestamp,
-            "version": "v2_improved_langgraph",
+            "version": "langgraph",
             "model": model_name,
+            "reasoning_effort": reasoning_effort,
+            "results_directory": str(results_output_dir),
             "total_tasks": len(results),
             "total_searches_performed": total_searches_performed,
             "avg_searches_per_task": total_searches_performed / len(results) if results else 0,
@@ -933,7 +1053,7 @@ async def process_benchmark(chat_model, model_name: str = "gpt-4"):
                 "max_seconds": max_execution_time
             }
         },
-        "v2_performance_summary": {
+        "performance_summary": {
             "ranking_metrics": {
                 "total_tasks_with_results": total_ranked_results,
                 "avg_best_rank": total_rank_sum / total_ranked_results if total_ranked_results > 0 else None,
@@ -959,16 +1079,14 @@ async def process_benchmark(chat_model, model_name: str = "gpt-4"):
         "results": results
     }
 
-    file_name = f"results/v2/benchmark_v2_improved_results_{current_timestamp}.json"
-
-    # Create directory if it doesn't exist
-    os.makedirs(os.path.dirname(file_name), exist_ok=True)
+    results_file = results_output_dir / \
+        f"benchmark_results_{current_timestamp}.json"
 
     # Save results
-    with open(file_name, "w", encoding="utf-8") as f:
+    with results_file.open("w", encoding="utf-8") as f:
         json.dump(benchmark_summary, f, indent=2)
 
-    print(f"\nV2 IMPROVED Results saved to {file_name}")
+    print(f"\nResults saved to {results_file}")
 
     # Generate compact CSV metrics using external calculation function
     csv_data = []
@@ -976,44 +1094,61 @@ async def process_benchmark(chat_model, model_name: str = "gpt-4"):
     # Calculate metrics for each individual task
     for result in results:
         # Get benchmark solution (expected URLs) for this task
-        expected_urls = result.get("correct_answers", [])
-        benchmark_solution = [normalize_url(url) for url in expected_urls]
+        benchmark_solution = result.get("correct_answers", [])
 
         # Get model solution (evaluation URLs) for this task
-        eval_urls = result.get("evaluation_urls", [])
-        model_solution = [normalize_url(url) for url in eval_urls]
+        model_solution = result.get("evaluation_urls", [])
+        error_occurred = result.get("error_occurred", False)
 
-        # Calculate metrics using external function for this individual task
-        if benchmark_solution and model_solution:
+        if not error_occurred and benchmark_solution and model_solution:
             metrics = calculation_results(benchmark_solution, model_solution)
+        else:
+            metrics_source = result.get("metrics", {})
+            metrics = {
+                "task_completion_rate": metrics_source.get("task_completion_rate", 0),
+                "avg_precision": metrics_source.get("avg_precision", 0.0),
+                "avg_recall": metrics_source.get("avg_recall", 0.0),
+                "f1_score": metrics_source.get("f1_score", 0.0)
+            }
 
-            csv_data.append({
-                "category": result.get("task_category", "Unknown"),
-                "task_id": result.get("task_id", ""),
-                "task_completion_rate": metrics["task_completion_rate"],
-                "avg_precision": metrics["avg_precision"],
-                "avg_recall": metrics["avg_recall"],
-                "f1_score": metrics["f1_score"],
-                "prompt_tokens": result.get("prompt_tokens", 0),
-                "completion_tokens": result.get("completion_tokens", 0)
-            })
+        csv_data.append({
+            "category": result.get("task_category", "Unknown"),
+            "task_id": result.get("task_id", ""),
+            "task_completion_rate": metrics["task_completion_rate"],
+            "avg_precision": metrics["avg_precision"],
+            "avg_recall": metrics["avg_recall"],
+            "f1_score": metrics["f1_score"],
+            "prompt_tokens": 0 if error_occurred else result.get("prompt_tokens", 0),
+            "completion_tokens": 0 if error_occurred else result.get("completion_tokens", 0),
+            "execution_duration": result.get("execution_time_seconds", 0)
+        })
 
-    csv_file_name = f"results/v2/benchmark_v2_improved_metrics_{current_timestamp}.csv"
+    csv_file = results_output_dir / \
+        f"benchmark_metrics_{current_timestamp}.csv"
 
     # Write CSV file
-    with open(csv_file_name, "w", newline="", encoding="utf-8") as csvfile:
+    with csv_file.open("w", newline="", encoding="utf-8") as csvfile:
         if csv_data:
-            fieldnames = ["category", "task_id", "task_completion_rate", "avg_precision",
-                          "avg_recall", "f1_score", "prompt_tokens", "completion_tokens"]
+            fieldnames = [
+                "category",
+                "task_id",
+                "task_completion_rate",
+                "avg_precision",
+                "avg_recall",
+                "f1_score",
+                "prompt_tokens",
+                "completion_tokens",
+                "execution_duration"
+            ]
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(csv_data)
 
-    print(f"CSV metrics saved to {csv_file_name}")
+    print(f"CSV metrics saved to {csv_file}")
 
-    # Print V2 improved statistics
+    # Print statistics
     print("\n" + "=" * 60)
-    print("V2 IMPROVED PERFORMANCE STATISTICS")
+    print("PERFORMANCE STATISTICS")
     print("=" * 60)
     print(f"🔍 Total searches performed: {total_searches_performed}")
     print(
@@ -1035,17 +1170,6 @@ async def process_benchmark(chat_model, model_name: str = "gpt-4"):
         print(f"  - Recursion errors: {recursion_errors}")
         print(f"  - Other errors: {other_errors}")
 
-    if total_ranked_results > 0:
-        avg_best_rank = total_rank_sum / total_ranked_results
-        top3_rate = top3_count / len(results)
-        top10_rate = top10_count / len(results)
-
-        print(f"\n🎯 RANKING METRICS:")
-        print(f"  - Average Best Rank: {avg_best_rank:.1f}")
-        print(
-            f"  - Top 3 Success Rate: {top3_count}/{len(results)} ({top3_rate:.1%})")
-        print(
-            f"  - Top 10 Success Rate: {top10_count}/{len(results)} ({top10_rate:.1%})")
 
     # Print execution time statistics
     print(f"\n⏱️  EXECUTION TIME METRICS:")
@@ -1068,30 +1192,19 @@ async def process_benchmark(chat_model, model_name: str = "gpt-4"):
     print(f"📊 Completion Tokens: {total_tokens_used['completion_tokens']:,}")
     print(f"📊 Total Tokens Used: {total_tokens_used['total_tokens']:,}")
 
-    # Calculate costs (for OpenAI models)
-    if model_name.startswith("gpt"):
-        embedding_cost = (
-            total_tokens_used['embedding_tokens'] / 1_000_000) * 0.02
-        prompt_cost = (total_tokens_used['prompt_tokens'] / 1_000_000) * 0.15
-        completion_cost = (
-            total_tokens_used['completion_tokens'] / 1_000_000) * 0.60
-        total_cost = embedding_cost + prompt_cost + completion_cost
-
-        print(f"\n💰 ESTIMATED COSTS (USD):")
-        print(f"   Embeddings: ${embedding_cost:.4f}")
-        print(f"   Prompts: ${prompt_cost:.4f}")
-        print(f"   Completions: ${completion_cost:.4f}")
-        print(f"   Total Cost: ${total_cost:.4f}")
-
 
 # Main execution
 async def main():
     """Main function with proper cleanup"""
     try:
-        model_name = "gpt-5-mini"
-        chat_model = ChatOpenAI(model_name=model_name)
+        # You can easily switch models here
+        # Examples: "gpt-4", "gpt-3.5-turbo", "claude-3-opus-20240229", "claude-3-sonnet-20240229"
 
-        await process_benchmark(chat_model=chat_model, model_name=model_name)
+        model_name = "gpt-5-mini"
+
+        chat_model = ChatOpenAI(model=model_name,  reasoning_effort="medium")
+
+        await process_benchmark(model_name=model_name, chat_model=chat_model)
     finally:
         # Clean up Elasticsearch client
         await es_client.close()

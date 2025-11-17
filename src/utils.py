@@ -1,4 +1,8 @@
 
+from pathlib import Path
+import re
+from typing import Optional, Any
+
 
 def calculation_results(benchmark_solutions, model_solution):
     """
@@ -54,3 +58,84 @@ def calculation_results(benchmark_solutions, model_solution):
         'avg_recall': recall,
         'f1_score': f1_score
     }
+
+
+def _find_repo_root(start_file: str) -> Path:
+    """Return project root by locating the src directory."""
+    current_path = Path(start_file).resolve()
+    for parent in current_path.parents:
+        if parent.name == "src":
+            return parent.parent
+    return current_path.parents[-1]
+
+
+def _slugify_for_path(value: str) -> str:
+    """Sanitize strings for safe filesystem paths."""
+    cleaned = re.sub(r'[^A-Za-z0-9._-]+', '-', value.strip())
+    cleaned = re.sub(r'-{2,}', '-', cleaned)
+    cleaned = cleaned.strip('-')
+    return cleaned or "model"
+
+
+def interface_results_dir(
+    start_file: str,
+    interface_name: str,
+    model_name: str,
+    reasoning_effort: Optional[str] = None
+) -> Path:
+    """Build and create the results directory for interface benchmarks."""
+    repo_root = _find_repo_root(start_file)
+
+    interface_part = _slugify_for_path(interface_name) or "interface"
+    base_dir = repo_root / "results" / interface_part
+
+    model_part = _slugify_for_path(model_name)
+    if reasoning_effort:
+        reasoning_part = _slugify_for_path(str(reasoning_effort))
+        if reasoning_part:
+            model_part = f"{model_part}-{reasoning_part}"
+
+    results_dir = base_dir / model_part
+    results_dir.mkdir(parents=True, exist_ok=True)
+    return results_dir
+
+
+def extract_reasoning_effort(chat_model: Any) -> Optional[str]:
+    """Best-effort extraction of reasoning effort metadata from a chat model."""
+    if chat_model is None:
+        return None
+
+    possible_keys = ("reasoning_effort", "reasoning", "reasoning_mode")
+
+    for attr in possible_keys:
+        value = getattr(chat_model, attr, None)
+        if value:
+            return str(value)
+
+    model_kwargs = getattr(chat_model, "model_kwargs", None)
+    if isinstance(model_kwargs, dict):
+        for key in possible_keys:
+            value = model_kwargs.get(key)
+            if value:
+                return str(value)
+
+    return None
+
+
+def resolve_model_name(chat_model: Any, default: Optional[str] = None) -> str:
+    """Resolve a readable model name from a chat model or fallback to default."""
+    if isinstance(chat_model, str):
+        return chat_model
+
+    for attr in ("model_name", "model", "name"):
+        value = getattr(chat_model, attr, None)
+        if value:
+            return str(value)
+
+    if default:
+        return default
+
+    if chat_model is None:
+        return "unknown-model"
+
+    return chat_model.__class__.__name__

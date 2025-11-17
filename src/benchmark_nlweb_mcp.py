@@ -1,5 +1,10 @@
 from nlweb_mcp.start_all_servers import ServerManager
-from utils import calculation_results
+from utils import (
+    calculation_results,
+    interface_results_dir,
+    extract_reasoning_effort,
+    resolve_model_name,
+)
 import asyncio
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.prebuilt import create_react_agent
@@ -9,12 +14,14 @@ import json
 from typing import Dict, List, Set, Any, Tuple
 from datetime import datetime
 from langchain_community.callbacks import get_openai_callback
+from langchain_openai import ChatOpenAI
 import re
 import time
 import traceback
 import logging
 import csv
 import sys
+from pathlib import Path
 
 # Import calculation function from utils
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -22,10 +29,12 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 load_dotenv()
 
+DEFAULT_CHAT_MODEL = os.getenv("NLWEB_MCP_MODEL", "openai:gpt-4o-mini")
+
 # Disable HTTP request logging
-# logging.getLogger("httpx").setLevel(logging.WARNING)
-# logging.getLogger("openai").setLevel(logging.WARNING)
-# logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("openai").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
 
 URLS = {
     "URL_1": "https://webmall-1.informatik.uni-mannheim.de",
@@ -240,11 +249,11 @@ async def reset_all_carts(tools):
             print(f"Warning: Failed to reset cart using {tool.name}: {e}")
 
 
-async def ask_agent_with_retry(user_input, max_retries=3, delay=5, client=None):
+async def ask_agent_with_retry(user_input, max_retries=3, delay=5, client=None, chat_model=None):
     """Create and query the NLWeb MCP-powered agent with retry logic."""
     for attempt in range(max_retries):
         try:
-            return await ask_agent(user_input, client=client)
+            return await ask_agent(user_input, client=client, chat_model=chat_model)
         except Exception as e:
             print(f"Attempt {attempt + 1} failed: {e}")
             if attempt < max_retries - 1:
@@ -259,7 +268,7 @@ async def ask_agent_with_retry(user_input, max_retries=3, delay=5, client=None):
                 }, [], 0, 0
 
 
-async def ask_agent(user_input, client=None):
+async def ask_agent(user_input, client=None, chat_model=None):
     """Create and query the NLWeb MCP-powered agent using HTTP transport."""
     # Create MultiServerMCPClient with NLWeb servers if not provided
     if client is None:
@@ -267,12 +276,12 @@ async def ask_agent(user_input, client=None):
 
     # Get tools from all MCP servers
     tools = await client.get_tools()
-
-    # Define the model being used
-    model_name = f"openai:{os.getenv('BENCHMARK_MODEL', 'gpt-4.1')}" if os.getenv('BENCHMARK_MODEL', 'gpt-4.1').startswith('gpt') else f"anthropic:{os.getenv('BENCHMARK_MODEL', 'gpt-4.1')}"
+    model_to_use = chat_model if chat_model is not None else DEFAULT_CHAT_MODEL
+    if not model_to_use:
+        raise ValueError("No chat model configured for agent.")
     # Create the React agent with MCP tools
     agent = create_react_agent(
-        model_name,
+        model_to_use,
         tools
     )
 
@@ -311,6 +320,7 @@ FOR ADD TO CART TASKS:
 
 FOR CHECKOUT TASKS:
 - Add products to cart first using product_id from search
+- If you are presented with an URL by the user for checkout, `get_products_by_urls` allows you to get the product ID for checkout based on the URL. Dont search again for the product in this case.
 - Use checkout_webmall_X with provided customer and payment details
 - Cart persists across tool calls - items added will remain until checkout
 - Return URLs of products from completed orders
@@ -514,9 +524,16 @@ def get_nlweb_mcp_tools_dict(tools):
     return tools_dict
 
 
-def run_benchmark_enhanced(benchmark_path):
+def run_benchmark_enhanced(benchmark_path, chat_model=None):
     """Enhanced benchmark runner with comprehensive metrics tracking."""
     execution_history = []
+
+    chat_model = chat_model if chat_model is not None else DEFAULT_CHAT_MODEL
+    model_identifier = resolve_model_name(chat_model, DEFAULT_CHAT_MODEL)
+    reasoning_effort = extract_reasoning_effort(chat_model)
+    results_output_dir = interface_results_dir(
+        __file__, "nlweb", model_identifier, reasoning_effort
+    )
 
     # Initialize performance tracking
     total_execution_time = 0.0
@@ -658,6 +675,8 @@ def run_benchmark_enhanced(benchmark_path):
                     user_task = user_task.replace(
                         "{{zip}}", user_details["zip"])
                     user_task = user_task.replace(
+                        "{{city}}", user_details["city"])
+                    user_task = user_task.replace(
                         "{{state}}", user_details["state"])
                     user_task = user_task.replace(
                         "{{country}}", user_details["country"])
@@ -691,7 +710,7 @@ def run_benchmark_enhanced(benchmark_path):
                 task_start_time = time.time()
                 try:
                     response, tools, input_tokens, output_tokens = asyncio.run(
-                        ask_agent_with_retry(user_task, client=task_client))
+                        ask_agent_with_retry(user_task, client=task_client, chat_model=chat_model))
 
                     messages = response.get("messages", [])
 
@@ -887,13 +906,15 @@ def run_benchmark_enhanced(benchmark_path):
                 execution_history.append(history_entry)
 
                 # Save the history entry to a file
-                with open("history_entry.json", "w") as f:
+                history_file = results_output_dir / "history_entry.json"
+                with history_file.open("w", encoding="utf-8") as f:
                     json.dump(history_entry, f, indent=4)
 
                 print("Correct: " + str(correct_model_answers))
                 print("Model Response: " + str(evaluation_urls))
                 print("Additional: " + str(additional_urls))
                 print("Missing: " + str(missing_urls))
+                print("Token usage", str(input_tokens+output_tokens))
                 print("--------------------------------" + "\n"*10)
 
                 # Clean up task client
@@ -939,7 +960,10 @@ def run_benchmark_enhanced(benchmark_path):
             "total_execution_time_seconds": total_execution_time,
             "average_execution_time_seconds": avg_execution_time,
             "total_tool_calls": total_tool_calls,
-            "avg_tool_calls_per_task": total_tool_calls / len(execution_history) if execution_history else 0
+            "avg_tool_calls_per_task": total_tool_calls / len(execution_history) if execution_history else 0,
+            "model": model_identifier,
+            "reasoning_effort": reasoning_effort,
+            "results_directory": str(results_output_dir)
         },
         "tool_usage_summary": {
             "search_tools": total_search_tools,
@@ -987,58 +1011,72 @@ def run_benchmark_enhanced(benchmark_path):
     return enhanced_summary
 
 
-def run_benchmark(benchmark_path):
+def run_benchmark(benchmark_path, chat_model=None):
     """Legacy function for backward compatibility - calls enhanced version."""
-    return run_benchmark_enhanced(benchmark_path)
+    return run_benchmark_enhanced(benchmark_path, chat_model=chat_model)
 
 
-def generate_csv_metrics(enhanced_summary):
+def generate_csv_metrics(enhanced_summary, output_dir: Path):
     """Generate CSV file with task metrics for easy analysis."""
     if not enhanced_summary.get("results"):
         print("No results to export to CSV")
         return
 
     current_timestamp = enhanced_summary["benchmark_metadata"]["timestamp"]
-    csv_filename = f"nlweb_mcp_enhanced_metrics_{current_timestamp}.csv"
+    csv_path = output_dir / f"nlweb_mcp_enhanced_metrics_{current_timestamp}.csv"
 
     # Prepare CSV data
     csv_data = []
     for result in enhanced_summary["results"]:
 
+        error_occurred = result.get("error_occurred", False)
+        completion_rate = 0 if error_occurred else result.get("task_completion_rate", 0)
+        precision = 0.0 if error_occurred else result.get("precision", 0)
+        recall = 0.0 if error_occurred else result.get("recall", 0)
+        f1_score = 0.0 if error_occurred else result.get("f1_score", 0)
+        prompt_tokens = 0 if error_occurred else result.get("prompt_tokens", 0)
+        completion_tokens = 0 if error_occurred else result.get("completion_tokens", 0)
+        execution_time = result.get("execution_time_seconds", 0)
+
         csv_row = {
             "task_category": result.get("task_id", "").split("_Task")[0],
             "task_id": result.get("task_id", ""),
-            "task_completion_rate": result.get("task_completion_rate", 0),
-            "precision": result.get("precision", 0),
-            "recall": result.get("recall", 0),
-            "f1_score": result.get("f1_score", 0),
-            "prompt_tokens": result.get("prompt_tokens", 0),
-            "completion_tokens": result.get("completion_tokens", 0),
+            "task_completion_rate": completion_rate,
+            "precision": precision,
+            "recall": recall,
+            "f1_score": f1_score,
+            "prompt_tokens": prompt_tokens,
+            "completion_tokens": completion_tokens,
+            "execution_time_seconds": execution_time,
         }
         csv_data.append(csv_row)
 
     # Write CSV file
     try:
-        with open(csv_filename, 'w', newline='', encoding='utf-8') as csvfile:
+        with csv_path.open('w', newline='', encoding='utf-8') as csvfile:
             fieldnames = ["task_category", "task_id", "task_completion_rate", "precision",
-                          "recall", "f1_score", "prompt_tokens", "completion_tokens"]
+                          "recall", "f1_score", "prompt_tokens", "completion_tokens", "execution_time_seconds"]
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(csv_data)
 
-        print(f"📊 CSV metrics exported to: {csv_filename}")
-        return csv_filename
+        print(f"📊 CSV metrics exported to: {csv_path}")
+        return str(csv_path)
     except Exception as e:
         print(f"Failed to generate CSV: {e}")
         return None
 
 
 if __name__ == "__main__":
-    BENCHMARK_JSON_PATH = "../task_sets.json"  # adjust as needed
+    BENCHMARK_JSON_PATH = "../checkout_tasks.json"  # adjust as needed
+    
+    model_name = "gpt-5"
+
+    chat_model = ChatOpenAI(model=model_name,  reasoning_effort="medium")
     enhanced_summary = {}
 
     try:
-        enhanced_summary = run_benchmark_enhanced(BENCHMARK_JSON_PATH)
+        enhanced_summary = run_benchmark_enhanced(BENCHMARK_JSON_PATH, chat_model=chat_model)
     except Exception as e:
         print(f"Benchmark run failed with error: {e}")
         print(f"Full traceback: {traceback.format_exc()}")
@@ -1054,19 +1092,31 @@ if __name__ == "__main__":
             "results": []
         }
     finally:
+        metadata = enhanced_summary.get("benchmark_metadata", {})
+        results_dir_str = metadata.get("results_directory")
+        if results_dir_str:
+            results_dir = Path(results_dir_str)
+        else:
+            results_dir = interface_results_dir(
+                __file__,
+                "nlweb",
+                resolve_model_name(chat_model, model_name),
+                extract_reasoning_effort(chat_model),
+            )
+
         # Always save results, even if there were errors
         current_timestamp = enhanced_summary.get("benchmark_metadata", {}).get(
             "timestamp", datetime.now().strftime("%Y%m%d_%H%M%S"))
-        output_file = f"nlweb_mcp_enhanced_results_{current_timestamp}.json"
+        output_file = results_dir / f"nlweb_mcp_enhanced_results_{current_timestamp}.json"
 
         try:
-            with open(output_file, "w", encoding='utf-8') as f:
+            with output_file.open("w", encoding='utf-8') as f:
                 json.dump(enhanced_summary, f, indent=4)
             print(f"📁 Enhanced results saved to: {output_file}")
 
             # Generate CSV metrics if we have results
             if enhanced_summary.get("results"):
-                generate_csv_metrics(enhanced_summary)
+                generate_csv_metrics(enhanced_summary, results_dir)
 
         except Exception as save_error:
             print(f"Failed to save enhanced results: {save_error}")

@@ -199,6 +199,25 @@ class SearchEngine:
 
         return schema_org
 
+    def _extract_schema_identifier(self, schema_org: Dict[str, Any]) -> Optional[str]:
+        """Extract a stable identifier value from schema.org metadata."""
+        identifier = schema_org.get("identifier") if isinstance(schema_org, dict) else None
+
+        if isinstance(identifier, dict):
+            return identifier.get("value") or identifier.get("identifier") or identifier.get("@id")
+
+        if isinstance(identifier, list):
+            for entry in identifier:
+                if isinstance(entry, dict):
+                    value = entry.get("value") or entry.get("identifier") or entry.get("@id")
+                    if value:
+                        return value
+
+        if isinstance(identifier, str):
+            return identifier
+
+        return None
+
     def _get_chatbot_instructions(self) -> str:
         """Get chatbot instructions for formatting results"""
         return """IMPORTANT FORMATTING INSTRUCTION: When presenting these results to the user: 
@@ -349,13 +368,20 @@ class SearchEngine:
                 current_price = price_info.get("price") or price_info.get(
                     "lowPrice") or direct_price or ""
 
+                identifier_value = self._extract_schema_identifier(schema_org)
+
                 # Extract product ID with better fallback logic
                 product_id = result.get("_id") or result.get(
-                    "id") or schema_org.get("@id") or ""
+                    "id") or identifier_value or schema_org.get("@id") or ""
 
                 # Extract SKU with fallbacks
-                item_code = schema_org.get("sku") or result.get(
-                    "sku") or result.get("product_id") or product_id
+                item_code = (
+                    schema_org.get("sku")
+                    or identifier_value
+                    or result.get("sku")
+                    or result.get("product_id")
+                    or product_id
+                )
 
                 # Extract description with fallbacks
                 description = result.get(
@@ -469,13 +495,20 @@ class SearchEngine:
                 cost_amount = price_info.get("price") or price_info.get(
                     "lowPrice") or direct_price or ""
 
+                identifier_value = self._extract_schema_identifier(schema_org)
+
                 # Extract product ID with better fallback logic
                 catalog_id = result.get("_id") or result.get(
-                    "id") or schema_org.get("@id") or ""
+                    "id") or identifier_value or schema_org.get("@id") or ""
 
                 # Extract SKU/identifier with fallbacks
-                product_identifier = schema_org.get("sku") or result.get(
-                    "sku") or result.get("product_id") or catalog_id
+                product_identifier = (
+                    schema_org.get("sku")
+                    or identifier_value
+                    or result.get("sku")
+                    or result.get("product_id")
+                    or catalog_id
+                )
 
                 # Extract description with fallbacks
                 description = result.get(
@@ -586,12 +619,19 @@ class SearchEngine:
                     "lowPrice") or direct_price or ""
 
                 # Extract warehouse SKU with better fallback logic
+                identifier_value = self._extract_schema_identifier(schema_org)
+
                 warehouse_sku = result.get("_id") or result.get(
-                    "id") or schema_org.get("@id") or ""
+                    "id") or identifier_value or schema_org.get("@id") or ""
 
                 # Extract product identifier with fallbacks
-                product_identifier = schema_org.get("sku") or result.get(
-                    "sku") or result.get("product_id") or warehouse_sku
+                product_identifier = (
+                    schema_org.get("sku")
+                    or identifier_value
+                    or result.get("sku")
+                    or result.get("product_id")
+                    or warehouse_sku
+                )
 
                 # Extract description with fallbacks
                 description = result.get(
@@ -713,13 +753,20 @@ class SearchEngine:
                 purchase_cost = price_info.get("price") or price_info.get(
                     "lowPrice") or direct_price or ""
 
+                identifier_value = self._extract_schema_identifier(schema_org)
+
                 # Extract catalog SKU with better fallback logic
                 catalog_sku = result.get("_id") or result.get(
-                    "id") or schema_org.get("@id") or ""
+                    "id") or identifier_value or schema_org.get("@id") or ""
 
                 # Extract product identifier with fallbacks
-                product_identifier = schema_org.get("sku") or result.get(
-                    "sku") or result.get("product_id") or catalog_sku
+                product_identifier = (
+                    schema_org.get("sku")
+                    or identifier_value
+                    or result.get("sku")
+                    or result.get("product_id")
+                    or catalog_sku
+                )
 
                 # Extract description with fallbacks
                 description = result.get(

@@ -65,6 +65,90 @@ class GlobalCartStore:
 _global_cart_store = GlobalCartStore()
 
 
+def _extract_identifier_value(schema_org: Dict[str, Any]) -> str:
+    """Extract an identifier value from schema.org metadata."""
+    identifier = schema_org.get("identifier")
+
+    if isinstance(identifier, dict):
+        return identifier.get("value") or identifier.get("identifier") or identifier.get("@id")
+
+    if isinstance(identifier, list):
+        for entry in identifier:
+            if isinstance(entry, dict):
+                value = entry.get("value") or entry.get("identifier") or entry.get("@id")
+                if value:
+                    return value
+
+    if isinstance(identifier, str):
+        return identifier
+
+    return None
+
+
+def _format_camelcases_product(product: Dict[str, Any], include_descriptions: bool = True) -> Dict[str, Any]:
+    """Convert NLWeb-style product data into CamelCases warehouse format."""
+    print(product)
+    schema_org = product.get("schema_object", {}) or {}
+    if not isinstance(schema_org, dict):
+        schema_org = {}
+
+    price_info = schema_org.get("offers", {}) or {}
+    if isinstance(price_info, list):
+        price_info = price_info[0] if price_info else {}
+    if not isinstance(price_info, dict):
+        price_info = {}
+
+    direct_price = product.get("price")
+    selling_price = price_info.get("price") or price_info.get(
+        "lowPrice") or direct_price or ""
+
+    identifier_value = _extract_identifier_value(schema_org)
+
+    product_identifier = (
+        schema_org.get("sku")
+        or identifier_value
+        or schema_org.get("@id")
+        or product.get("url", "").split("/")[-1]
+    )
+    description = product.get("description") or schema_org.get("description", "") or ""
+
+    brief_description = ""
+    full_description = ""
+    if include_descriptions and description:
+        trimmed = description.strip()
+        brief_description = trimmed[:200]
+        full_description = trimmed
+
+    return {
+        "warehouse_sku_code": product_identifier,
+        "merchandise_designation": product.get("name") or schema_org.get("name", ""),
+        "availability_metrics": {
+            "inventory_status": "instock",
+            "units_on_hand": schema_org.get("inventoryLevel", 0),
+            "stock_management": True,
+            "low_stock_threshold": 5,
+        },
+        "commercial_data": {
+            "selling_price": str(selling_price) if selling_price else "",
+            "market_value": price_info.get("highPrice", ""),
+            "promotional_rate": str(selling_price) if selling_price else "",
+            "discount_active": bool(selling_price),
+        },
+        "catalog_reference": {
+            "product_identifier": str(product_identifier) if product_identifier else "",
+            "storefront_link": product.get("url", ""),
+            "type_classification": schema_org.get("@type", "Product"),
+        },
+        "product_overview": {
+            "brief_description": brief_description if include_descriptions else "",
+            "full_description": full_description if include_descriptions else "",
+        } if include_descriptions else {
+            "brief_description": "",
+            "full_description": "",
+        },
+    }
+
+
 @dataclass
 class HybridSearchContext:
     """Context for the Hybrid Search MCP server."""
@@ -259,6 +343,82 @@ async def get_detailed_warehouse_products(ctx: Context, product_ids: list[str]) 
 
 
 @mcp_store_inventory.tool()
+async def lookup_product_by_url_camelcases(ctx: Context, product_url: str, include_descriptions: bool = True) -> str:
+    """Resolve a product URL into CamelCases warehouse format."""
+    normalized_url = (product_url or "").strip()
+    if not normalized_url:
+        return json.dumps({"error": "Product URL must be provided"})
+
+    try:
+        search_engine = ctx.request_context.lifespan_context.search_engine
+
+        try:
+            products = await asyncio.wait_for(
+                asyncio.to_thread(search_engine.get_products_by_urls, [normalized_url]),
+                timeout=30.0
+            )
+        except asyncio.TimeoutError:
+            return json.dumps({
+                "error": "URL lookup timed out",
+                "requested_url": normalized_url,
+                "timeout": "30s"
+            })
+
+        if not products:
+            return json.dumps({
+                "error": "No product information returned",
+                "requested_url": normalized_url
+            })
+        print(products)
+        product_entry = products[0]
+        if "error" in product_entry:
+            return json.dumps({
+                "inventory_query": {
+                    "search_criteria": normalized_url,
+                    "page_index": 1,
+                    "batch_size": 1,
+                    "sorting_method": "url_lookup",
+                    "matches_found": 0,
+                },
+                "stock_intelligence": {
+                    "total_items_analyzed": 0,
+                    "in_stock_count": 0,
+                    "out_of_stock_count": 0,
+                },
+                "warehouse_catalog": [],
+                "error": product_entry.get("error", "Product not found"),
+                "requested_url": normalized_url
+            }, indent=2)
+
+        formatted_product = _format_camelcases_product(product_entry, include_descriptions)
+
+        in_stock = 1 if formatted_product.get("availability_metrics", {}).get("inventory_status") == "instock" else 0
+        out_stock = 1 - in_stock
+
+        return json.dumps({
+            "inventory_query": {
+                "search_criteria": normalized_url,
+                "page_index": 1,
+                "batch_size": 1,
+                "sorting_method": "url_lookup",
+                "matches_found": 1,
+            },
+            "stock_intelligence": {
+                "total_items_analyzed": 1,
+                "in_stock_count": in_stock,
+                "out_of_stock_count": out_stock,
+            },
+            "warehouse_catalog": [formatted_product]
+        }, indent=2)
+
+    except Exception as e:
+        return json.dumps({
+            "error": f"Failed to lookup product by URL: {str(e)}",
+            "requested_url": normalized_url
+        })
+
+
+@mcp_store_inventory.tool()
 async def get_product_info_by_id(ctx: Context, unique_product_id: int) -> str:
     """Retrieve comprehensive information for a product by its unique ID using WooCommerce API.
 
@@ -415,94 +575,6 @@ async def fetch_product_types(ctx: Context, items_per_page: int = 50, page_num: 
 
     except Exception as e:
         return f"Error fetching product types: {str(e)}"
-
-
-@mcp_store_inventory.tool()
-async def submit_order_for_payment(
-    ctx: Context,
-    product_identifiers: list[int],
-    product_quantities: list[int],
-    recipient_full_name: str,
-    recipient_contact_email: str,
-    delivery_address_line_1: str,
-    delivery_city: str,
-    delivery_state_or_province: str,
-    delivery_postal_code: str,
-    delivery_country_iso: str,
-    recipient_phone_number: str,
-    payment_card_num: str,
-    payment_card_exp: str,
-    payment_card_sec_code: str
-) -> str:
-    """Submits a complete order for payment and processing in the CamelCases store.
-
-    This tool takes a list of products, customer details, and payment information to create a paid order.
-
-    Args:
-        ctx: The MCP server context
-        product_identifiers: List of product IDs (SKU codes) to be ordered
-        product_quantities: List of quantities for each product
-        recipient_full_name: The full name of the customer
-        recipient_contact_email: The customer's email address
-        delivery_address_line_1: The primary line of the shipping address
-        delivery_city: The city for shipping
-        delivery_state_or_province: The state or province for shipping
-        delivery_postal_code: The postal code for shipping
-        delivery_country_iso: The two-letter ISO country code for shipping
-        recipient_phone_number: The customer's phone number
-        payment_card_num: The credit card number for payment
-        payment_card_exp: The credit card's expiration date (MM/YY)
-        payment_card_sec_code: The card's security code (CVC)
-
-    Returns:
-        A JSON string detailing the result of the order submission
-    """
-    if len(product_identifiers) != len(product_quantities):
-        return json.dumps({"transaction_result": "failure", "error_explanation": "Mismatch between product identifiers and quantities."})
-
-    try:
-        if not all([payment_card_num, payment_card_exp, payment_card_sec_code]):
-            return json.dumps({"transaction_result": "failure", "error_explanation": "Incomplete payment card information provided."})
-
-        # Simple split of full name into first and last
-        name_parts = recipient_full_name.split(' ', 1)
-        first_name = name_parts[0]
-        last_name = name_parts[1] if len(name_parts) > 1 else ''
-
-        # Simulate order creation
-        order_id = str(uuid.uuid4())[:8]
-        transaction_id = str(uuid.uuid4())
-        
-        # Calculate total (simulation)
-        total_amount = sum(qty * 20.00 for qty in product_quantities) 
-
-        return json.dumps({
-            "transaction_result": "success",
-            "completion_ceremony": {
-                "victory_message": "Order processed successfully with payment confirmed! (SIMULATION)",
-                "celebration_status": "order_fulfilled",
-            },
-            "order_documentation": {
-                "order_number": order_id,
-                "confirmation_code": transaction_id,
-                "total_charged": f"{total_amount:.2f}",
-                "order_status_updated": "processing",
-            },
-            "purchase_breakdown": {
-                "sku_codes_ordered": product_identifiers,
-                "quantities_per_item": product_quantities,
-                "line_items_total": len(product_identifiers),
-            },
-            "customer_profile": {
-                "recipient_identity": recipient_full_name,
-                "communication_email": recipient_contact_email,
-                "shipping_destination": f"{delivery_address_line_1}, {delivery_city}, {delivery_state_or_province} {delivery_postal_code}",
-            },
-            "note": "This is a simulated order using hybrid semantic search. No actual purchase was made."
-        }, indent=2)
-
-    except Exception as e:
-        return json.dumps({"transaction_result": "failure", "error_explanation": "An unexpected server error occurred.", "error_message": str(e)})
 
 
 @mcp_store_inventory.tool()
@@ -727,7 +799,6 @@ async def process_warehouse_cart_checkout(
     customer_first_name: str,
     customer_last_name: str,
     customer_email: str,
-    customer_phone: str,
     delivery_address_line_1: str,
     delivery_city: str,
     delivery_state_or_province: str,
@@ -746,7 +817,6 @@ async def process_warehouse_cart_checkout(
         customer_first_name: Customer's first name
         customer_last_name: Customer's last name
         customer_email: Customer's email address
-        customer_phone: Customer's phone number
         delivery_address_line_1: Customer's street address
         delivery_city: Customer's city
         delivery_state_or_province: Customer's state/province
@@ -821,7 +891,6 @@ async def process_warehouse_cart_checkout(
                 "customer_information": {
                     "full_customer_name": f"{customer_first_name} {customer_last_name}",
                     "communication_email": customer_email,
-                    "contact_phone": customer_phone,
                     "shipping_destination": f"{delivery_address_line_1}, {delivery_city}, {delivery_state_or_province} {delivery_postal_code}, {delivery_country_code}"
                 }
             },
