@@ -16,14 +16,13 @@ logger = logging.getLogger(__name__)
 # Constants
 ELASTICSEARCH_HOST = os.getenv("ELASTICSEARCH_HOST", "http://localhost:9200")
 EMBEDDING_DIMENSIONS = 1536  # OpenAI text-embedding-3-small
-INDEX_NAME = "webmall_v2"
+INDEX_NAME = "webmall_rag_index"
 
 # Embedding weights
 TITLE_WEIGHT = 0.5
-SUMMARY_WEIGHT = 0.3
 CONTENT_WEIGHT = 0.2
 
-class ElasticsearchRAGClientV2:
+class ElasticsearchRAGClient:
     def __init__(self, host: str = ELASTICSEARCH_HOST, index_name: str = INDEX_NAME):
         self.host = host
         self.index_name = index_name
@@ -150,12 +149,10 @@ class ElasticsearchRAGClientV2:
             logger.error(f"Failed to create index: {e}")
             raise
     
-    def create_composite_embedding(self, title_emb: List[float], summary_emb: List[float], 
-                                 content_emb: List[float]) -> List[float]:
+    def create_composite_embedding(self, title_emb: List[float], content_emb: List[float]) -> List[float]:
         """Create weighted composite embedding from individual field embeddings"""
         # Convert to numpy arrays
         title_vec = np.array(title_emb)
-        summary_vec = np.array(summary_emb)
         content_vec = np.array(content_emb)
         
         # Apply weights and combine
@@ -175,7 +172,6 @@ class ElasticsearchRAGClientV2:
             # Create composite embedding
             composite_embedding = self.create_composite_embedding(
                 data['title_embedding'],
-                data['summary_embedding'],
                 data['content_embedding']
             )
             

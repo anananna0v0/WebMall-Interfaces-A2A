@@ -32,7 +32,8 @@ class ProcessedChunk:
     title: str
     content: str
     metadata: Dict[str, Any]
-    embedding: List[float]
+    title_embedding: List[float]
+    content_embedding: List[float]
 
 
 def chunk_text(text: str, chunk_size: int = 5000) -> List[str]:
@@ -120,11 +121,13 @@ async def get_embedding(text: str) -> List[float]:
 
 async def process_chunk(chunk: str, chunk_number: int, url: str, content_type: str = "webpage") -> ProcessedChunk:
     """Process a single chunk of text."""
-    # Get embedding
-    embedding = await get_embedding(chunk)
+    # Get embeddings for content and title separately, fallback to zero vector if needed
+    content_embedding = await get_embedding(chunk)
 
     # get title 
     extracted = await get_title(chunk, url, content_type)
+    title_text = extracted.get("title", "Untitled")
+    title_embedding = await get_embedding(title_text)
 
     # Create metadata
     parsed_url = urlparse(url)
@@ -145,10 +148,11 @@ async def process_chunk(chunk: str, chunk_number: int, url: str, content_type: s
     return ProcessedChunk(
         url=url,
         chunk_number=chunk_number,
-        title=extracted['title'],
+        title=title_text,
         content=chunk,  # Store the original chunk content
         metadata=metadata,
-        embedding=embedding
+        title_embedding=title_embedding,
+        content_embedding=content_embedding
     )
 
 
@@ -162,7 +166,8 @@ async def insert_chunk(chunk: ProcessedChunk):
             "title": chunk.title,
             "content": chunk.content,
             "metadata": chunk.metadata,
-            "embedding": chunk.embedding
+            "title_embedding": chunk.title_embedding,
+            "content_embedding": chunk.content_embedding
         }
 
         result = await elasticsearch_client.insert_chunk(data)

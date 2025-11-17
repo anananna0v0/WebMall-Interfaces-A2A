@@ -1,0 +1,112 @@
+{
+  "Incorrect_product_variant": {
+    "description": "The correct product type but missing or different specifications",
+    "examples": [
+      "Antec C8 Gaming Case instead of Antec C8 ARGB Gaming Case",
+      "iPhone 15 128GB instead of iPhone 15 256GB",
+      "RTX 4070 instead of RTX 4070 Ti"
+    ]
+  },
+  "Wrong_brand": {
+    "description": "Product serves same purpose but from a different manufacturer",
+    "examples": [
+      "Samsung Galaxy S24 instead of iPhone 15",
+      "AMD Ryzen 9 instead of Intel Core i9",
+      "Corsair RAM instead of G.Skill RAM"
+    ]
+  },
+  "Wrong_product_type": {
+    "description": "Product is from a completely different category",
+    "examples": [
+      "Gaming mouse when searching for Gaming keyboard",
+      "Monitor when searching for Graphics card",
+      "Laptop when searching for Desktop PC"
+    ]
+  },
+  "Partially_matching": {
+    "description": "Product has some matching characteristics but differs in important aspects",
+    "examples": [
+      "AMD Ryzen 7 when searching for AMD Ryzen 9",
+      "32-inch monitor when searching for 27-inch monitor",
+      "Wireless headset when searching for Wired headset"
+    ]
+  },
+  "Completely_different": {
+    "description": "Product has no connection to the search query",
+    "examples": [
+      "Kitchen appliance when searching for Computer component",
+      "Clothing when searching for Electronics",
+      "Book when searching for Hardware"
+    ]
+  },
+  "Missing_specification": {
+    "description": "The product matches the general category but lacks specific features or specifications that are crucial to the search query.",
+    "examples": [
+      "Fractal Design case without radiator and GPU support details when searching for specific cooling and GPU compatibility",
+      "Laptop listing without RAM size when searching for a laptop with 16GB RAM"
+    ]
+  },
+  "Missing_product": {
+    "description": "The search results do not include one or more of the specified products, resulting in an incomplete match.",
+    "examples": [
+      "Searching for a specific laptop and a specific mouse, but only the mouse is found.",
+      "Looking for a gaming monitor and a gaming chair, but only the monitor is listed."
+    ]
+  },
+  "Incomplete_results": {
+    "description": "The returned results cover only a subset of the requested set (e.g., when asked for all offers/variants/colors), leading to an incomplete answer.",
+    "examples": [
+      "List all iPhone 15 color variants, but only the Black variant is shown.",
+      "Find all 14-inch laptops under $800, but only one or two results are returned while others are missing.",
+      "Show all offers for Samsung Galaxy smartphones in bright colors, but only one blue model is listed."
+    ]
+  },
+  "Optimization_mismatch": {
+    "description": "Returned result does not satisfy a requested optimization criterion (e.g., highest/lowest/fastest/best-rated), even if the product type matches.",
+    "examples": [
+      "Showing a 3500 MB/s NVMe when asked for the fastest SSD available; PCIe 5.0 options at ~12,000\u201314,500 MB/s exist.",
+      "Listing a $1,199 iPhone 15 when asked for the cheapest iPhone 15; lower-priced offers from other shops are available.",
+      "Returning a 60Hz monitor when asked for the highest refresh rate monitors across shops, while 240/360Hz models exist."
+    ]
+  },
+  "Directionality_mismatch": {
+    "description": "The product lists the correct or related interfaces but the signal direction and/or connector genders are reversed (e.g., source vs display end), making it incompatible for the intended use.",
+    "examples": [
+      "Searching for HDMI-to-DisplayPort adapter (HDMI source to DP monitor) but returning a DisplayPort-to-HDMI dongle (DP source to HDMI display).",
+      "Looking for HDMI-to-DVI adapter to connect an HDMI cable to a DVI monitor, but getting a DVI-to-HDMI cable intended for a DVI source to an HDMI display.",
+      "Needing USB-C video input to VGA (USB-C source to VGA monitor) but finding a VGA-to-USB-C capture device (VGA source to USB-C host)."
+    ]
+  },
+  "Wrong_interface_connector": {
+    "description": "The product is the correct general accessory type (e.g., an adapter/cable) but features the wrong connector/interface on one or both ends, making it incompatible even if the purpose or direction seems similar.",
+    "examples": [
+      "Need HDMI-to-DVI to connect an HDMI source to a DVI monitor; result shows HDMI-to-VGA.",
+      "Searching for USB-C to DisplayPort cable; result shows USB-C to HDMI dongle.",
+      "Looking for Mini DisplayPort to HDMI adapter; result shows full-size DisplayPort to HDMI adapter."
+    ]
+  },
+  "Wrong_condition": {
+    "description": "Product matches the requested model/specs but the item condition (e.g., new, refurbished, used, open-box) does not meet the requirement.",
+    "examples": [
+      "Refurbished iPhone 13 shown when a new iPhone 13 is requested.",
+      "Used GPU listed when the user asked for a brand-new GPU.",
+      "Open-box laptop returned for a query requiring a new laptop."
+    ]
+  },
+  "Color_mismatch": {
+    "description": "The product type matches the query, but the color requirement is not met, leading to a poor visual/aesthetic match.",
+    "examples": [
+      "Requested a white gaming keyboard; result shows a black keyboard.",
+      "Search for space gray laptop; result returns silver variant.",
+      "Looking for red console controller; result lists blue model."
+    ]
+  },
+  "Bundled_instead_of_single_item": {
+    "description": "The result is a bundle/kit including the target product plus additional items instead of the requested standalone item, affecting suitability and price comparisons.",
+    "examples": [
+      "Keyboard + mouse combo returned when asked for a gaming keyboard only.",
+      "GPU + PSU bundle shown when the request is for the GPU alone.",
+      "Two-pack of SSDs listed when a single SSD was requested."
+    ]
+  }
+}

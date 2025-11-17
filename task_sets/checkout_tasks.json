@@ -1,0 +1,241 @@
+[
+  
+  {
+    "id": "WEBMALL_CHECKOUT_V1",
+    "name": "Web Mall Agent Benchmark: Checkout and Order",
+    "date": "2025-02-21",
+    "description": "Evaluate the agent’s ability to complete the checkout process, including filling in user details and payment information.",
+    "authors": [
+      "",
+      "",
+      ""
+    ],
+    "license": "Apache 2.0",
+    "tasks": [
+      {
+        "id": "Webmall_Checkout_Task1",
+        "category": "Checkout",
+        "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
+        "task": "<task>\\nAdd the product on page {{URL_3}}/product/trust-tk-350-wireless-membrane-keyboard-spill-proof-silent-keys-media-keys-black to the shopping cart and complete the checkout process. Pay via credit card using the following information: Address: {{name}}, {{email}}, {{street}}, {{house_number}}, {{zip}}, {{city}}, {{state}}, {{country}}, Credit card number: {{card}}, CVV: {{cvv}}, expiry date: {{expiry_date}}.\\n</task>",
+        "motivation": "Assess the agent's ability to handle structured e-commerce checkout flows with required user details.",
+        "correct_answer": {
+          "type": "checkout",
+          "answers": [
+            "{{URL_3}}/product/trust-tk-350-wireless-membrane-keyboard-spill-proof-silent-keys-media-keys-black"
+          ]
+        },
+        "user_details": {
+          "name": "Jessica Morgan",
+          "street": "Maple Avenue",
+          "house_number": "742",
+          "zip": "60614",
+          "city": "Chicago",
+          "state": "IL",
+          "country": "USA",
+          "email": "jessica.morgan@yahoo.com"
+        },
+        "payment_info": {
+          "card": "4242424242424242",
+          "cvv": "123",
+          "expiry_date": "12/28"
+        }
+      },
+      {
+        "id": "Webmall_Checkout_Task2",
+        "category": "Checkout",
+        "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
+        "task": "<task>\\nAdd the product on page {{URL_1}}/product/palit-rtx3050-dual-v2-pcie4-8gb-ddr6-dvi-hdmi-dp-1777mhz-clock-rgb-lighting to the shopping cart and complete the checkout process. Pay via credit card using the following information: Address: {{name}}, {{email}}, {{street}}, {{house_number}}, {{zip}}, {{city}}, {{state}}, {{country}}, Credit card number: {{card}}, CVV: {{cvv}}, expiry date: {{expiry_date}}.\\n</task>",
+        "motivation": "Assess the agent's ability to handle structured e-commerce checkout flows with required user details.",
+        "correct_answer": {
+          "type": "checkout",
+          "answers": [
+            "{{URL_1}}/product/palit-rtx3050-dual-v2-pcie4-8gb-ddr6-dvi-hdmi-dp-1777mhz-clock-rgb-lighting"
+          ]
+        },
+        "user_details": {
+          "name": "Jessica Morgan",
+          "street": "Maple Avenue",
+          "house_number": "742",
+          "zip": "60614",
+          "city": "Chicago",
+          "state": "IL",
+          "country": "USA",
+          "email": "jessica.morgan@yahoo.com"
+        },
+        "payment_info": {
+          "card": "4242424242424242",
+          "cvv": "123",
+          "expiry_date": "12/28"
+        }
+      },
+      {
+        "id": "Webmall_Checkout_Task3",
+        "category": "Checkout",
+        "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
+        "task": "<task>\\nAdd the product on page {{URL_2}}/product/adata-1tb-hv620s-slim-external-hard-drive-2-5-usb-3-2-11-5mm-thick-black to the shopping cart and complete the checkout process. Pay via credit card using the following information: Address: {{name}}, {{email}}, {{street}}, {{house_number}}, {{zip}}, {{city}}, {{state}}, {{country}}, Credit card number: {{card}}, CVV: {{cvv}}, expiry date: {{expiry_date}}.\\n</task>",
+        "motivation": "Assess the agent's ability to handle structured e-commerce checkout flows with required user details.",
+        "correct_answer": {
+          "type": "checkout",
+          "answers": [
+            "{{URL_2}}/product/adata-1tb-hv620s-slim-external-hard-drive-2-5-usb-3-2-11-5mm-thick-black"
+          ]
+        },
+        "user_details": {
+          "name": "Jessica Morgan",
+          "street": "Maple Avenue",
+          "house_number": "742",
+          "zip": "60614",
+          "city": "Chicago",
+          "state": "IL",
+          "country": "USA",
+          "email": "jessica.morgan@yahoo.com"
+        },
+        "payment_info": {
+          "card": "4242424242424242",
+          "cvv": "123",
+          "expiry_date": "12/28"
+        }
+      },
+      {
+        "id": "Webmall_Checkout_Task4",
+        "category": "Checkout",
+        "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
+        "task": "<task>\\nAdd the product on page {{URL_4}}/product/spire-matx-tower-pc-fractal-core-1100-case-i5-12400-16gb-3200mhz-512gb-ssd-bequiet-550w-no-optical-kb-mouse-windows-11-pro to the shopping cart and complete the checkout process. Pay via credit card using the following information: Address: {{name}}, {{email}}, {{street}}, {{house_number}}, {{zip}}, {{city}}, {{state}}, {{country}}, Credit card number: {{card}}, CVV: {{cvv}}, expiry date: {{expiry_date}}.\\n</task>",
+        "motivation": "Assess the agent's ability to handle structured e-commerce checkout flows with required user details.",
+        "correct_answer": {
+          "type": "checkout",
+          "answers": [
+            "{{URL_4}}/product/spire-matx-tower-pc-fractal-core-1100-case-i5-12400-16gb-3200mhz-512gb-ssd-bequiet-550w-no-optical-kb-mouse-windows-11-pro"
+          ]
+        },
+        "user_details": {
+          "name": "Jessica Morgan",
+          "street": "Maple Avenue",
+          "house_number": "742",
+          "zip": "60614",
+          "city": "Chicago",
+          "state": "IL",
+          "country": "USA",
+          "email": "jessica.morgan@yahoo.com"
+        },
+        "payment_info": {
+          "card": "4242424242424242",
+          "cvv": "123",
+          "expiry_date": "12/28"
+        }
+      },
+      {
+        "id": "Webmall_Checkout_Task5",
+        "category": "Checkout",
+        "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
+        "task": "<task>\\nAdd the product on page {{URL_1}}/product/kingston-128gb-usb-3-2-gen1-type-c-memory-pen-datatraveler-70-cap to the shopping cart and complete the checkout process. Pay via credit card using the following information: Address: {{name}}, {{email}}, {{street}}, {{house_number}}, {{zip}}, {{city}}, {{state}}, {{country}}, Credit card number: {{card}}, CVV: {{cvv}}, expiry date: {{expiry_date}}.\\n</task>",
+        "motivation": "Assess the agent's ability to handle structured e-commerce checkout flows with required user details.",
+        "correct_answer": {
+          "type": "checkout",
+          "answers": [
+            "{{URL_1}}/product/kingston-128gb-usb-3-2-gen1-type-c-memory-pen-datatraveler-70-cap"
+          ]
+        },
+        "user_details": {
+          "name": "Jessica Morgan",
+          "street": "Maple Avenue",
+          "house_number": "742",
+          "zip": "60614",
+          "city": "Chicago",
+          "state": "IL",
+          "country": "USA",
+          "email": "jessica.morgan@yahoo.com"
+        },
+        "payment_info": {
+          "card": "4242424242424242",
+          "cvv": "123",
+          "expiry_date": "12/28"
+        }
+      },
+      {
+        "id": "Webmall_Checkout_Task6",
+        "category": "Checkout",
+        "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
+        "task": "<task>\\nAdd the product on page {{URL_2}}/product/corsair-3500x-gaming-case-w-glass-side-amp-front-e-atx-no-fans-usb-c-asus-btf-compatible-white to the shopping cart and complete the checkout process. Pay via credit card using the following information: Address: {{name}}, {{email}}, {{street}}, {{house_number}}, {{zip}}, {{city}}, {{state}}, {{country}}, Credit card number: {{card}}, CVV: {{cvv}}, expiry date: {{expiry_date}}.\\n</task>",
+        "motivation": "Assess the agent's ability to handle structured e-commerce checkout flows with required user details.",
+        "correct_answer": {
+          "type": "checkout",
+          "answers": [
+            "{{URL_2}}/product/corsair-3500x-gaming-case-w-glass-side-amp-front-e-atx-no-fans-usb-c-asus-btf-compatible-white"
+          ]
+        },
+        "user_details": {
+          "name": "Jessica Morgan",
+          "street": "Maple Avenue",
+          "house_number": "742",
+          "zip": "60614",
+          "city": "Chicago",
+          "state": "IL",
+          "country": "USA",
+          "email": "jessica.morgan@yahoo.com"
+        },
+        "payment_info": {
+          "card": "4242424242424242",
+          "cvv": "123",
+          "expiry_date": "12/28"
+        }
+      },
+      {
+        "id": "Webmall_Checkout_Task7",
+        "category": "Checkout",
+        "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
+        "task": "<task>\\nAdd the product on page {{URL_3}}/product/asus-rog-hone-ace-aim-lab-edition-gaming-mouse-pad-measurement-markings-for-aim-lab-software-hybrid-cloth-surface-oil-dust-repellent-508-x-420-mm to the shopping cart and complete the checkout process. Pay via credit card using the following information: Address: {{name}}, {{email}}, {{street}}, {{house_number}}, {{zip}}, {{city}}, {{state}}, {{country}}, Credit card number: {{card}}, CVV: {{cvv}}, expiry date: {{expiry_date}}.\\n</task>",
+        "motivation": "Assess the agent's ability to handle structured e-commerce checkout flows with required user details.",
+        "correct_answer": {
+          "type": "checkout",
+          "answers": [
+            "{{URL_3}}/product/asus-rog-hone-ace-aim-lab-edition-gaming-mouse-pad-measurement-markings-for-aim-lab-software-hybrid-cloth-surface-oil-dust-repellent-508-x-420-mm"
+          ]
+        },
+        "user_details": {
+          "name": "Jessica Morgan",
+          "street": "Maple Avenue",
+          "house_number": "742",
+          "zip": "60614",
+          "city": "Chicago",
+          "state": "IL",
+          "country": "USA",
+          "email": "jessica.morgan@yahoo.com"
+        },
+        "payment_info": {
+          "card": "4242424242424242",
+          "cvv": "123",
+          "expiry_date": "12/28"
+        }
+      },
+      {
+        "id": "Webmall_Checkout_Task8",
+        "category": "Checkout",
+        "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
+        "task": "<task>\\nAdd the product on page {{URL_4}}/product/adata-xpg-lancer-blade-rgb-32gb-kit-2-x-16gb-ddr5-6000mhz-cl30-1-35v-ecc-pmic-xmp-3-0-amd-expo-dimm-memory to the shopping cart and complete the checkout process. Pay via credit card using the following information: Address: {{name}}, {{email}}, {{street}}, {{house_number}}, {{zip}}, {{city}}, {{state}}, {{country}}, Credit card number: {{card}}, CVV: {{cvv}}, expiry date: {{expiry_date}}.\\n</task>",
+        "motivation": "Assess the agent's ability to handle structured e-commerce checkout flows with required user details.",
+        "correct_answer": {
+          "type": "checkout",
+          "answers": [
+            "{{URL_4}}/product/adata-xpg-lancer-blade-rgb-32gb-kit-2-x-16gb-ddr5-6000mhz-cl30-1-35v-ecc-pmic-xmp-3-0-amd-expo-dimm-memory"
+          ]
+        },
+        "user_details": {
+          "name": "Jessica Morgan",
+          "street": "Maple Avenue",
+          "house_number": "742",
+          "zip": "60614",
+          "city": "Chicago",
+          "state": "IL",
+          "country": "USA",
+          "email": "jessica.morgan@yahoo.com"
+        },
+        "payment_info": {
+          "card": "4242424242424242",
+          "cvv": "123",
+          "expiry_date": "12/28"
+        }
+      }
+    ]
+  }
+]

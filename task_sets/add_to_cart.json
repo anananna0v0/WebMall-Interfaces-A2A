@@ -1,0 +1,114 @@
+[
+
+  {
+    "id": "WEBMALL_ADD_TO_CART_V1",
+    "name": "Web Mall Agent Benchmark: Add Product to Cart",
+    "date": "2025-02-21",
+    "description": "Test the agent’s ability to navigate e-commerce interfaces and correctly add selected products to the shopping cart.",
+    "authors": [
+      "",
+      "",
+      ""
+    ],
+    "license": "Apache 2.0",
+    "tasks": [
+      {
+        "id": "Webmall_Add_To_Cart_Task1",
+        "category": "Add_To_Cart",
+        "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
+        "task": "<task>\\nFind all offers for the GameMax Iceburg 360mm ARGB Liquid CPU Cooler and add each of them to the respective shopping cart of the shop where you found the offer.\\n</task>",
+        "motivation": "Measure the agent’s ability to perform fundamental e-commerce actions accurately.",
+        "correct_answer": {
+          "type": "cart",
+          "answers": [
+            "{{URL_2}}/product/gamemax-iceburg-360mm-argb-liquid-cpu-cooler-12cm-argb-pwm-fans-infinity-mirror-rgb-rotatable-pump-head",
+            "{{URL_3}}/product/gamemax-iceburg-360mm-argb-liquid-cpu-cooler-12cm-argb-pwm-fans-infinity-mirror-rgb-rotatable-pump-head"
+          ]
+        }
+      },
+      {
+        "id": "Webmall_Add_To_Cart_Task2",
+        "category": "Add_To_Cart",
+        "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
+        "task": "<task>\\nFind all offers for the Asus ROG STRIX ARION LITE M.2 NVMe SSD Caddy and add each of them to the respective shopping cart of the shop where you found the offer.\\n</task>",
+        "motivation": "Measure the agent’s ability to perform fundamental e-commerce actions accurately.",
+        "correct_answer": {
+          "type": "cart",
+          "answers": [
+            "{{URL_2}}/product/asus-rog-strix-arion-lite-m-2-nvme-ssd-caddy-usb-3-2-gen2-type-c-aluminium-thermal-pads-rgb-lighting",
+            "{{URL_4}}/product/asus-rog-strix-arion-lite-m-2-nvme-ssd-caddy-usb-3-2-gen2-type-c-aluminium-thermal-pads-rgb-lighting"
+          ]
+        }
+      },
+      {
+        "id": "Webmall_Add_To_Cart_Task3",
+        "category": "Add_To_Cart",
+        "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
+        "task": "<task>\\nFind all offers for Kingston Fury Beast 16GB DDR5 and add each of them to the respective shopping cart of the shop where you found the offer.\\n</task>",
+        "motivation": "Measure the agent’s ability to perform fundamental e-commerce actions accurately.",
+        "correct_answer": {
+          "type": "cart",
+          "answers": [
+            "{{URL_3}}/product/kingston-fury-beast-16gb-ddr5-4800mhz-pc5-38400-cl38-1-1v-ecc-xmp-3-0-amd-expo-pmic-dimm-memory",
+            "{{URL_1}}/product/kingston-fury-beast-16gb-ddr5-5600mhz-pc5-44800-cl40-1-25v-ecc-xmp-3-0-pmic-dimm-memory"
+          ]
+        }
+      },
+      {
+        "id": "Webmall_Add_To_Cart_Task4",
+        "category": "Add_To_Cart",
+        "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
+        "task": "<task>\\nFind all offers for the motherboard Asus PRO H610T D4-CSM - Corporate Stable Model and add each of them to the respective shopping cart of the shop where you found the offer.\\n</task>",
+        "motivation": "Measure the agent’s ability to perform fundamental e-commerce actions accurately.",
+        "correct_answer": {
+          "type": "cart",
+          "answers": [
+            "{{URL_4}}/product/asus-pro-h610t-d4-csm-corporate-stable-model-intel-h610-1700-thin-mini-itx-2-ddr4-so-dimm-hdmi-dp-lvds-19v-dc-in-1x-m-2",
+            "{{URL_1}}/product/asus-pro-h610t-d4-csm-corporate-stable-model-intel-h610-1700-thin-mini-itx-2-ddr4-so-dimm-hdmi-dp-lvds-19v-dc-in-1x-m-2"
+          ]
+        }
+      },
+      {
+        "id": "Webmall_Add_To_Cart_Task5",
+        "category": "Add_To_Cart",
+        "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
+        "task": "<task>\\nFind all offers for the Asus DUAL RTX4070 SUPER OC White and add each of them to the respective shopping cart of the shop where you found the offer.\\n</task>",
+        "motivation": "Measure the agent’s ability to perform fundamental e-commerce actions accurately.",
+        "correct_answer": {
+          "type": "cart",
+          "answers": [
+            "{{URL_3}}/product/asus-dual-rtx4070-super-oc-white-pcie4-12gb-ddr6x-hdmi-3-dp-2550mhz-clock-overclocked"
+          ]
+        }
+      },
+      {
+        "id": "Webmall_Add_To_Cart_Task6",
+        "category": "Add_To_Cart",
+        "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
+        "task": "<task>\\nFind all offers for the Asus 23.8\" Frameless Eye Care Monitor (VA24DQSB) and add each of them to the respective shopping cart of the shop where you found the offer.\\n</task>",
+        "motivation": "Measure the agent’s ability to perform fundamental e-commerce actions accurately.",
+        "correct_answer": {
+          "type": "cart",
+          "answers": [
+            "{{URL_3}}/product/asus-23-8-frameless-eye-care-monitor-va24dqsb-ips-1920-x-1080-75hz-vga-hdmi-dp-usb-hub-vesa",
+            "{{URL_1}}/product/asus-23-8-frameless-eye-care-monitor-va24dqsb-ips-1920-x-1080-75hz-vga-hdmi-dp-usb-hub-vesa"
+          ]
+        }
+      },
+      {
+        "id": "Webmall_Add_To_Cart_Task7",
+        "category": "Add_To_Cart",
+        "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
+        "task": "<task>\\nFind all offers for the Antec C8 ARGB Gaming Case and add each of them to the respective shopping cart of the shop where you found the offer.\\n</task>",
+        "motivation": "Measure the agent’s ability to perform fundamental e-commerce actions accurately.",
+        "correct_answer": {
+          "type": "cart",
+          "answers": [
+            "{{URL_1}}/product/antec-c8-argb-gaming-case-w-glass-side-front-e-atx-3x-argb-fans-argb-pwm-fan-hub-dual-chamber-mesh-panels-usb-c-black",
+            "{{URL_1}}/product/antec-c8-argb-gaming-case-w-glass-side-front-e-atx-3x-argb-fans-argb-pwm-fan-hub-dual-chamber-mesh-panels-usb-c-white"
+          ]
+        }
+      }
+    ]
+  }
+]

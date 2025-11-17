@@ -1,5 +1,5 @@
 
-from rag.elasticsearch_client import ElasticsearchRAGClientV2
+from rag.elasticsearch_client import ElasticsearchRAGClient
 import os
 import sys
 import json
@@ -42,7 +42,7 @@ URLS = {
 }
 
 # Initialize Elasticsearch V2 for RAG
-es_client = ElasticsearchRAGClientV2()
+es_client = ElasticsearchRAGClient()
 
 # Initialize embeddings model
 embeddings_model = OpenAIEmbeddings(model="text-embedding-3-small")
@@ -345,22 +345,17 @@ def create_fallback_result(user_task: str, urls_in_db: List[str], expected_flat:
     }
 
 
-async def get_model_answer_v2_improved(user_task: str, urls_in_db: List[str], expected_flat: List[str],
-                                       total_tokens_used: Dict, model_name: str = "gpt-4") -> Dict:
-    """Get model answer using improved V2 RAG system with LangGraph tool binding."""
+async def get_model_answer(user_task: str, urls_in_db: List[str], expected_flat: List[str],
+                                       total_tokens_used: Dict, chat_model) -> Dict:
+    """Get model answer using system with LangGraph tool binding."""
 
     # Start execution timer
     task_start_time = time.time()
-
-    print("🚀 V2 IMPROVED: INITIATING MULTI-SEARCH RAG SYSTEM...")
 
     # Reset global variables for this task
     global search_history, search_results_cache
     search_history = []
     search_results_cache = []
-
-    # Initialize the model and create a React agent
-    model = get_model(model_name, temperature=0.0)
 
     # Create the system prompt with intelligent search strategy guidance
     system_prompt = """You are an advanced RAG-capable agent that can browse four webshops, find product offers, manage shopping carts, and complete purchases.
@@ -412,7 +407,7 @@ RESPONSE FORMAT:
     # Create a React agent that handles tool calling automatically
     # Set recursion limit to 50 (double the default) to handle complex tasks
     agent = create_react_agent(
-        model=model, tools=[search_products, get_product_details, *cart_tools])
+        model=chat_model, tools=[search_products, get_product_details, *cart_tools])
 
     # Run the agent with proper token tracking and error handling
     try:
@@ -632,7 +627,7 @@ with open(BENCHMARK_JSON_PATH, "r", encoding="utf-8") as f:
     benchmark = json.load(f)
 
 
-async def process_benchmark_v2_improved(model_name: str = "gpt-4"):
+async def process_benchmark(chat_model, model_name: str = "gpt-4"):
     """Process benchmark tasks with improved V2 RAG integration"""
     print("\n" + "=" * 60)
     print("V2 IMPROVED BENCHMARK - MULTI-SEARCH RAG SYSTEM")
@@ -760,9 +755,9 @@ async def process_benchmark_v2_improved(model_name: str = "gpt-4"):
 
             # Get model answer using improved V2 system with error handling
             try:
-                model_result = await get_model_answer_v2_improved(
+                model_result = await get_model_answer(
                     user_task, urls_in_db, expected_flat, total_tokens_used,
-                    model_name=model_name
+                    chat_model=chat_model
                 )
 
                 # Check if this was a failed result
@@ -1093,19 +1088,10 @@ async def process_benchmark_v2_improved(model_name: str = "gpt-4"):
 async def main():
     """Main function with proper cleanup"""
     try:
-        # You can easily switch models here
-        # Examples: "gpt-4", "gpt-3.5-turbo", "claude-3-opus-20240229", "claude-3-sonnet-20240229"
+        model_name = "gpt-5-mini"
+        chat_model = ChatOpenAI(model_name=model_name)
 
-        # Check for model override in environment
-        if os.getenv("BENCHMARK_MODEL"):
-            model_name = os.getenv("BENCHMARK_MODEL")
-
-        # Check if model_name is defined
-        if not model_name:
-            model_name = "gpt-4.1"  # Default to GPT-4
-            print(f"No model name provided, using default: {model_name}")
-
-        await process_benchmark_v2_improved(model_name=model_name)
+        await process_benchmark(chat_model=chat_model, model_name=model_name)
     finally:
         # Clean up Elasticsearch client
         await es_client.close()
