@@ -285,18 +285,23 @@
                 an overview of the interfaces and their interaction patterns.
               </p>
               <p>
-                Our study evaluates the agents with GPT-4.1, GPT-5, GPT-5-mini and Claude Sonnet 4, measuring task completion, precision/recall/F1, execution time, and token
-                consumption to derive per-task cost estimates. Across search-oriented tasks, RAG, MCP, and NLWeb agents outperform the HTML baseline
-                by roughly 11 percentage points in task completion while using 2–5× fewer tokens. The GPT-5 RAG agent delivers the best overall
-                completion rate (0.79) with moderate token usage, while GPT-5-mini offers cost-effectiveness when absolute accuracy requirements are lower.
+                Our study evaluates the agents with GPT-4.1, GPT-5, GPT-5-mini and Claude Sonnet 4, measuring task completion, precision/recall/F1,
+                execution time, and token consumption to derive per-task cost estimates. Across search-oriented tasks, RAG, MCP, and NLWeb agents
+                outperform the HTML baseline by roughly 11 percentage points in task completion while using 2–5× fewer tokens. The GPT-5 RAG agent
+                delivers the best overall completion rate (0.79) with moderate token usage, while GPT-5-mini offers cost-effectiveness when absolute
+                accuracy requirements are lower.
               </p>
               <p>This work makes two concrete contributions:</p>
               <ol>
                 <li>
-                  <b>Unified testbed</b>: We introduce a testbed for comparing different agent architectures. The testbed consists of four simulated e-shops, each offering its products via HTML, MCP, and NLWeb interfaces. For each of the four architectures (HTML, RAG, MCP, and NLWeb) the testbed contains specialized agents that interact with the e-shops using the respective interfaces. 
+                  <b>Unified testbed</b>: We introduce a testbed for comparing different agent architectures. The testbed consists of four simulated
+                  e-shops, each offering its products via HTML, MCP, and NLWeb interfaces. For each of the four architectures (HTML, RAG, MCP, and
+                  NLWeb) the testbed contains specialized agents that interact with the e-shops using the respective interfaces.
                 </li>
                 <li>
-                  <b>Systematic evaluation</b>: Using different sets of challenging e-commerce tasks, we systematically evaluate agent performance across interfaces and models (GPT-4.1, GPT-5, GPT-5-mini, Claude Sonnet 4) and analyze the effectiveness, efficiency, and cost of the different agents.
+                  <b>Systematic evaluation</b>: Using different sets of challenging e-commerce tasks, we systematically evaluate agent performance
+                  across interfaces and models (GPT-4.1, GPT-5, GPT-5-mini, Claude Sonnet 4) and analyze the effectiveness, efficiency, and cost of
+                  the different agents.
                 </li>
               </ol>
               <p>
@@ -336,9 +341,9 @@
                 pages by clicking hyperlinks and performing form-filling actions. For our experiments we use the AX+MEM agent from the
                 <a href="https://wbsg-uni-mannheim.github.io/WebMall/" target="_blank">WebMall benchmark</a>, which is implemented with the
                 <a href="https://github.com/ServiceNow/AgentLab" target="_blank">AgentLab</a> library and executed inside
-                <a href="https://github.com/ServiceNow/BrowserGym" target="_blank">BrowserGym</a>. The agent observes the accessibility tree
-                (AXTree) of each page and can store relevant information in short-term memory to maintain context across multiple steps. We disable
-                visual perception in our setup because adding screenshots on top of the AXTree reduced performance in prior WebMall experiments.
+                <a href="https://github.com/ServiceNow/BrowserGym" target="_blank">BrowserGym</a>. The agent observes the accessibility tree (AXTree)
+                of each page and can store relevant information in short-term memory to maintain context across multiple steps. We disable visual
+                perception in our setup because adding screenshots on top of the AXTree reduced performance in prior WebMall experiments.
               </p>
 
               <h4 class="title is-5">HTML Agent Workflow</h4>
@@ -371,10 +376,10 @@
               <p>
                 The RAG architecture includes a search engine that crawls the HTML interfaces of all four shops, strips navigation and markup, and
                 indexes the remaining text. Our implementation builds a unified Elasticsearch index fed by the
-                <a href="https://github.com/Unstructured-IO/unstructured" target="_blank">Unstructured</a> processing pipeline. The RAG agent retrieves
-                content by issuing queries to this search engine instead of visiting the live sites. It iteratively formulates queries, inspects the
-                returned documents, and refines follow-up queries as needed. For transactional steps (add-to-cart or checkout) we expose dedicated
-                Python functions that the agent can invoke directly.
+                <a href="https://github.com/Unstructured-IO/unstructured" target="_blank">Unstructured</a> processing pipeline. The RAG agent
+                retrieves content by issuing queries to this search engine instead of visiting the live sites. It iteratively formulates queries,
+                inspects the returned documents, and refines follow-up queries as needed. For transactional steps (add-to-cart or checkout) we expose
+                dedicated Python functions that the agent can invoke directly.
               </p>
               <p>
                 The agent leverages the <a href="https://www.langchain.com/langgraph" target="_blank">LangGraph</a> framework to orchestrate retrieval
@@ -398,12 +403,7 @@
                 For more details about the implementation of the RAG agent please refer to the
                 <a href="https://github.com/wbsg-uni-mannheim/WebMall-Interfaces/tree/main/src/rag">RAG source code</a>
                 in our repository. The prompt used for defining the agent can be found
-                <a
-                  href="https://github.com/wbsg-uni-mannheim/WebMall-Interfaces/blob/main/src/benchmark_rag.py#L373"
-                  target="_blank"
-                >
-                  here</a
-                >.
+                <a href="https://github.com/wbsg-uni-mannheim/WebMall-Interfaces/blob/main/src/benchmark_rag.py#L373" target="_blank"> here</a>.
               </p>
             </div>
           </div>
@@ -508,10 +508,11 @@ async def find_items_techtalk(
                 Transactional workflows (cart actions, checkout) remain available via the shop’s MCP tools.
               </p>
               <p>
-                In our deployment we create one Elasticsearch index per shop to support semantic search within the NLWeb server. Each query is embedded
-                and matched against the shop’s own index before the results are serialized through the schema.org product vocabulary. For reference, a
-                sample <code>ask</code> call and response is available
-                <a href="https://github.com/wbsg-uni-mannheim/WebMall-Interfaces/blob/main/website/examples/nlweb_query.json" target="_blank">here</a>.
+                In our deployment we create one Elasticsearch index per shop to support semantic search within the NLWeb server. Each query is
+                embedded and matched against the shop’s own index before the results are serialized through the schema.org product vocabulary. For
+                reference, a sample <code>ask</code> call and response is available
+                <a href="https://github.com/wbsg-uni-mannheim/WebMall-Interfaces/blob/main/website/examples/nlweb_query.json" target="_blank">here</a
+                >.
               </p>
               <p>
                 The NLWeb agent uses the same <a href="https://www.langchain.com/langgraph" target="_blank">LangGraph</a> framework as our other
@@ -718,42 +719,54 @@ async def find_items_techtalk(
                 original WebMall benchmark, <a href="https://wbsg-uni-mannheim.github.io/WebMall/#results" target="_blank">AX+MEM</a>.
               </p>
               <p>
-                Every agent architecture is evaluated in combination with both GPT-4.1 (gpt-4.1-2025-04-14), GPT-5 (gpt-5-2025-08-07), GPT-5-mini (gpt-5-mini-2025-08-07) and Claude 4 Sonnet
-                (claude-sonnet-4-20250514) to assess variations in effectiveness across models. Note that our experiments do not utilize prompt
-                caching. Detailed execution logs for all runs are available in our
-                <a href="https://github.com/wbsg-uni-mannheim/WebMall-Interfaces/tree/main/results" target="_blank">GitHub repository</a>,
-                organized by interface type and model. For quick understanding of agent behavior,
-                <a href="https://github.com/wbsg-uni-mannheim/WebMall-Interfaces/tree/main/results/v1/shortened_logs" target="_blank"
+                Every agent architecture is evaluated in combination with both GPT-4.1 (gpt-4.1-2025-04-14), GPT-5 (gpt-5-2025-08-07), GPT-5-mini
+                (gpt-5-mini-2025-08-07) and Claude 4 Sonnet (claude-sonnet-4-20250514) to assess variations in effectiveness across models. Note that
+                our experiments do not utilize prompt caching. Detailed execution logs for all runs are available in our
+                <a href="https://github.com/wbsg-uni-mannheim/WebMall-Interfaces/tree/main/results" target="_blank">GitHub repository</a>, organized
+                by interface type and model. For quick understanding of agent behavior,
+                <a href="https://github.com/wbsg-uni-mannheim/WebMall-Interfaces/tree/main/results/demo-logs" target="_blank"
                   >shortened execution logs</a
                 >
                 containing one successful task execution per agent and model are also available.
               </p>
 
               <h3 class="title is-4" id="results-metrics">4.1 Evaluation Metrics</h3>
-              <p>We assess effectiveness using four metrics derived from comparing the agent's response against the ground truth solutions:</p>
               <ul>
                 <li>
-                  <strong>Task Completion Rate</strong>: Binary metric (0 or 1) measuring exact task completion. An agent achieves 1.0 only if no
-                  correct product is missing and no additional products are returned.
+                  <strong>Task completion rate (CR)</strong>: Computed as a binary success measure. For retrieval tasks, the set of URLs returned by the
+                  agent must be identical to the test set. For transactional tasks (e.g., add-to-cart, checkout), completion requires reaching the
+                  specified final state. This metric therefore captures strict task correctness.
                 </li>
                 <li>
-                  <strong>Precision</strong>: Fraction of the products returned by the agent that are correct (intersection ÷ total products
-                  returned). Higher precision means fewer incorrect products.
+                  <strong>Precision, Recall, F1</strong>: Computed by comparing the set of answers returned by the agent to the test set. Precision
+                  measures the fraction of agent-returned items that are correct, recall measures the fraction of test set items recovered. These
+                  metrics capture graded performance and are informative in cases of partial matches where completion rate alone would report failure.
                 </li>
                 <li>
-                  <strong>Recall</strong>: Fraction of correct products that the agent found (intersection ÷ total correct products). Higher recall
-                  means fewer missing products.
+                  <strong>Runtime (s)</strong>: End-to-end latency per task, measured from task submission to final output, including model reasoning
+                  and all tool calls.
                 </li>
-                <li><strong>F1 Score</strong>: Harmonic mean of precision and recall.</li>
+                <li>
+                  <strong>Token usage</strong>: Total number of input and output tokens consumed by the agent per task category. We explicitly exclude
+                  embedding tokens used for indexing, as their cost is several orders of magnitude lower than LLM inference tokens and they provide
+                  little information in this context.
+                </li>
+                <li>
+                  <strong>Cost ($)</strong>: Estimated inference cost based on token usage, calculated using the published per-token input and output
+                  prices from the respective model providers. The current agent implementations do not utilize prompt caching.
+                </li>
               </ul>
 
               <h3 class="title is-4" id="results-overall">4.2 Overall Results</h3>
-              <p>
-                The following table shows the overall performance of each interface averaged across all tasks and both models (GPT-4.1 and Claude 4
-                Sonnet):
-              </p>
+              <p>The following table shows the overall performance of each interface averaged across all tasks and models:</p>
               <div class="table-container">
                 <div id="overall-results-table"></div>
+              </div>
+              <div class="text-content-constrained">
+                <p>
+                  <strong>Key insight:</strong> API-based (MCP: F1 0.75 and NLWeb: F1 0.76) and RAG (F1 0.76) outperform the HTML browsing agent (AX+MEM:
+                  F1 0.69) by roughly 6-7 F1 points on average.
+                </p>
               </div>
 
               <h3 class="title is-4" id="results-interface-model">4.3 Results by Interface and Model</h3>
@@ -764,7 +777,17 @@ async def find_items_techtalk(
               <div class="table-container">
                 <div id="results-by-interface-and-model-table"></div>
               </div>
-
+              <div class="text-content-constrained">
+                <p><strong>Key insights</strong></p>
+                <ul>
+                  <li>
+                    Across all interfaces, GPT-5 yields the highest combination of task completion and F1 (e.g., AX+MEM: CR 0.69/F1 0.76 vs. 0.55–0.59 CR and 0.64–0.68 F1 for other models; RAG: CR 0.79/F1 0.87 vs. 0.61–0.65 CR and 0.68–0.75 F1).
+                  </li>
+                  <li>
+                    The GPT-5 RAG agent attains the best overall effectiveness in the table (CR 0.79, F1 0.87), outperforming GPT-5 MCP (CR 0.73, F1 0.82) and GPT-5 NLWeb (CR 0.73, F1 0.84).
+                  </li>
+                </ul>
+              </div>
 
               <h3 class="title is-4" id="results-task-groups">4.4 Results by Task Group</h3>
               <h4 class="title is-5">Specific Product Search</h4>
@@ -776,7 +799,23 @@ async def find_items_techtalk(
               <div class="table-container">
                 <div id="specific-product-search-table"></div>
               </div>
+              <div class="text-content-constrained">
+                <p><strong>Key insights</strong></p>
+                <ul>
+                  <li>
+                    For every interface, GPT-5 delivers the strongest effectiveness: it yields the highest combination of completion rate and F1 compared to GPT-4.1, GPT-5-mini, and Claude Sonnet 4 within the same interface.
+                  </li>
+                  <li>
+                    The best-performing configurations for specific product search are GPT-5 with RAG, MCP, and NLWeb (CR 0.83–0.87, F1 0.96), which all achieve very high precision and recall (P ≥ 0.95, R ≥ 0.95).
+                  </li>
+                  <li>
+                    While different models show some variation within a given interface (e.g., RAG F1 ranges from 0.86 to 0.96, MCP from 0.84 to 0.96), the choice of interface has a larger impact on effectiveness in this task category: for the same model, RAG, MCP, and NLWeb consistently achieve higher CR and F1 than the HTML agent.
+                  </li>
+                </ul>
+              </div>
 
+              <br >
+              <br >
 
               <h4 class="title is-5">Vague Product Search</h4>
               <p>
@@ -787,7 +826,27 @@ async def find_items_techtalk(
               <div class="table-container">
                 <div id="vague-product-search-table"></div>
               </div>
-
+              <div class="text-content-constrained">
+                <p><strong>Key insights</strong></p>
+                <ul>
+                  <li>
+                    Across interfaces and models, vague product search shows a clear drop in effectiveness compared to specific product search: the
+                    average F1 decreases from about 0.87 to 0.76 (≈0.11 F1), and the average completion rate falls from about 0.73 to 0.60 (≈0.13 CR).
+                  </li>
+                  <li>
+                    RAG with GPT-5 remains the strongest configuration (CR 0.79, F1 0.90), with NLWeb and MCP using GPT-5 or GPT-5-mini (F1 0.82–0.86), while the HTML agent with GPT-5 reaches F1 0.83.
+                  </li>
+                  <li>
+                    For GPT-5, the performance gap between interfaces narrows compared to specific product search: AX+MEM, MCP, and NLWeb cluster
+                    relatively closely on F1 (0.82–0.86), but RAG still leads with F1 0.90 on vague queries.
+                  </li>
+                  <li>
+                    Within each interface, models vary in effectiveness (e.g., RAG F1 ranges from 0.68 to 0.90, NLWeb from 0.73 to 0.86), yet the
+                    interface design continues to matter: for GPT-4.1 and Claude Sonnet 4, RAG, MCP, and NLWeb consistently reach higher F1 than the
+                    HTML agent on vague product search.
+                  </li>
+                </ul>
+              </div>
 
               <h4 class="title is-5">Cheapest Product Search</h4>
               <p>
@@ -798,7 +857,28 @@ async def find_items_techtalk(
               <div class="table-container">
                 <div id="cheapest-product-search-table"></div>
               </div>
-
+              <div class="text-content-constrained">
+                <p><strong>Key insights</strong></p>
+                <ul>
+                  <li>
+                    Cheapest product search is the most challenging category: averaged over all interfaces and models, F1 drops from about 0.88 on
+                    specific product search and 0.77 on vague search to about 0.64 here (≈0.24 and ≈0.13 F1 lower, respectively), while average
+                    completion rate decreases from roughly 0.74 to 0.60 (≈0.14 CR).
+                  </li>
+                  <li>
+                    RAG with GPT-5 remains the top-performing configuration (CR 0.72, F1 0.78), with RAG+GPT-5-mini (CR 0.69, F1 0.76) and NLWeb+GPT-5
+                    (CR 0.65, F1 0.75) close behind, indicating that several interfaces can reach similar effectiveness on price-focused tasks.
+                  </li>
+                  <li>
+                    For GPT-5, the performance gap between interfaces narrows further compared to the other task groups: AX+MEM, RAG, MCP, and NLWeb
+                    all achieve F1 scores between 0.72 and 0.78, so the best and worst GPT-5 setups differ by only 0.06 F1.
+                  </li>
+                  <li>
+                    Interface design still matters, especially for weaker models: with GPT-4.1, RAG, MCP, and the HTML agent attain F1 scores between
+                    0.58 and 0.68, whereas NLWeb+GPT-4.1 lags noticeably at 0.42 F1.
+                  </li>
+                </ul>
+              </div>
 
               <h4 class="title is-5">Actions and Transactions</h4>
               <p>
@@ -809,10 +889,32 @@ async def find_items_techtalk(
               <div class="table-container">
                 <div id="actions-transactions-table"></div>
               </div>
-
+              <div class="text-content-constrained">
+                <p><strong>Key insights</strong></p>
+                <ul>
+                  <li>
+                    Transactional tasks are generally solved very reliably: averaged across all interfaces and models, completion rate is about 0.81
+                    and F1 about 0.86, clearly higher than for any of the search-oriented task groups.
+                  </li>
+                  <li>
+                    The HTML agent shows an unusual pattern: AX+MEM with GPT-4.1 achieves a perfect score (CR 1.00, F1 1.00), while GPT-5 and GPT-5-mini
+                    drop to substantially lower effectiveness (CR 0.67/F1 0.64 and CR 0.53/F1 0.56, respectively).
+                  </li>
+                  <li>
+                    For the other interfaces, the GPT-5 series performs strongly: RAG, MCP, and NLWeb with GPT-5 all reach CR 0.93 and F1 0.98, closely
+                    matched by their GPT-4.1 and Claude Sonnet 4 counterparts (F1 0.96–0.98), indicating that executing structured action sequences is
+                    a comparatively easy setting for these architectures.
+                  </li>
+                  <li>
+                    GPT-5-mini consistently trails its larger counterparts on actions and transactions (e.g., RAG: F1 0.54, MCP: 0.88, NLWeb: 0.87),
+                    suggesting that reduced model capacity has a more pronounced impact on multi-step transactional workflows than on many retrieval
+                    tasks.
+                  </li>
+                </ul>
+              </div>
 
               <h3 class="title is-4" id="results-cost-runtime">4.5 Cost & Runtime Analysis</h3>
-              <p>Cost and execution time analysis based on model pricing and runtime results from our experiments. Token prices as of July 2025:</p>
+              <p>Cost and execution time analysis based on model pricing and runtime results from our experiments.</p>
               <ul>
                 <li>
                   <strong>GPT-4.1</strong>: $2.00/MTok input, $8.00/MTok output (<a
@@ -851,19 +953,52 @@ async def find_items_techtalk(
                 <!-- Cost tables will be inserted here -->
               </div>
 
-
-              <h3 class="title is-4" id="results-cost-effectiveness">4.5 Cost vs Effectiveness Comparison</h3>
+              <h3 class="title is-4" id="results-cost-effectiveness">4.6 Cost vs Effectiveness Comparison</h3>
               <p>
                 The scatter plot below visualizes the relationship between cost and effectiveness across different agent interfaces and models. Each
-                point represents a combination of interface type (RAG, MCP, NLWeb, HTML) and language model (GPT-4.1, Claude 4 Sonnet).
+                point represents a combination of interface type (RAG, MCP, NLWeb, HTML) and language model (GPT-4.1, GPT-5, GPT-5-mini, Claude Sonnet 4).
               </p>
+              <div class="text-content-constrained">
+                <p><strong>Cost–effectiveness insights</strong></p>
+                <ul>
+                  <li>
+                    RAG offers a particularly attractive price–performance trade-off. RAG with GPT-5-mini is by far the cheapest configuration in our
+                    study (cost $0.01 with CR 0.65 and F1 0.75), while RAG with GPT-5 achieves the highest overall effectiveness (CR 0.79, F1 0.87) at a
+                    still moderate cost of $0.15.
+                  </li>
+                  <li>
+                    Among the API-based interfaces, NLWeb with GPT-5 combines strong effectiveness (CR 0.73, F1 0.84) with relatively low cost ($0.09),
+                    whereas MCP with GPT-5 is slightly more expensive ($0.18, F1 0.82) but remains competitive in terms of performance.
+                  </li>
+                  <li>
+                    The HTML agent (AX+MEM) is consistently less cost-efficient: even with GPT-5 it reaches lower effectiveness (F1 0.76) at a higher
+                    cost ($0.50) than the best RAG and NLWeb configurations, while Claude Sonnet 4 with HTML is both the most expensive ($1.05) and not
+                    the most effective option (F1 0.66).
+                  </li>
+                </ul>
+
+                <p><strong>Runtime patterns</strong></p>
+                <ul>
+                  <li>
+                    GPT-5 configurations tend to be noticeably slower than other models for the same interface: for example, AX+MEM with GPT-5 averages
+                    522 s per task versus 92 s with GPT-4.1, and RAG with GPT-5 takes 114 s compared to 8 s with GPT-4.1.
+                  </li>
+                  <li>
+                    Claude Sonnet 4 and GPT-4.1 generally offer the fastest execution times across interfaces (e.g., RAG+GPT-4.1: 8 s, MCP+GPT-4.1: 11 s,
+                    NLWeb+Claude: 20 s), but GPT-4.1 in particular trades some effectiveness for speed (e.g., RAG F1 0.75 vs. 0.87 with GPT-5).
+                  </li>
+                  <li>
+                    For many interfaces, GPT-5-mini sits between GPT-4.1 and GPT-5 in terms of runtime (e.g., RAG: 51 s vs. 8 s and 114 s; MCP: 80 s vs.
+                    11 s and 94 s), offering moderate speed but also reduced effectiveness compared to full GPT-5.
+                  </li>
+                </ul>
+              </div>
               <div style="max-width: 900px; margin: 2rem auto">
                 <canvas id="costPerformanceChart" width="900" height="600"></canvas>
               </div>
               <div class="model-legend-wrapper">
                 <div id="modelLegend" class="model-legend"></div>
               </div>
-
             </div>
           </div>
         </div>
