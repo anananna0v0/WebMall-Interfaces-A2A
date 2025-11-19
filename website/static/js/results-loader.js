@@ -82,6 +82,8 @@ function calculateCost(promptTokens, completionTokens, model) {
     // Pricing per million tokens (MTok)
     const pricing = {
         "GPT-4.1": { input: 2.0, output: 8.0 },
+        "GPT-5": { input: 2.0, output: 8.0 },
+        "GPT-5-mini": { input: 0.2, output: 0.6 },
         "Claude Sonnet 4": { input: 3.0, output: 15.0 },
     };
 
@@ -1146,5 +1148,36 @@ function highlightBestInGroup(rows, columns) {
     });
 }
 
+// Function to load HTML table from external file
+async function loadHTMLTable(containerId, tableFilePath) {
+    try {
+        const container = document.getElementById(containerId);
+        if (!container) {
+            console.error(`Container ${containerId} not found`);
+            return;
+        }
+
+        const response = await fetch(tableFilePath);
+        if (!response.ok) {
+            throw new Error(`Failed to load table: ${response.statusText}`);
+        }
+
+        const html = await response.text();
+        container.innerHTML = html;
+    } catch (error) {
+        console.error(`Error loading HTML table from ${tableFilePath}:`, error);
+    }
+}
+
 // Load results when page is ready
-document.addEventListener("DOMContentLoaded", loadResults);
+document.addEventListener("DOMContentLoaded", function() {
+    loadResults();
+
+    // Load external HTML tables
+    loadHTMLTable('overall-results-table', './tables/overall_results.html');
+    loadHTMLTable('results-by-interface-and-model-table', './tables/results_by_interface_and_model.html');
+    loadHTMLTable('specific-product-search-table', './tables/specific_product_search.html');
+    loadHTMLTable('vague-product-search-table', './tables/vague_product_search.html');
+    loadHTMLTable('cheapest-product-search-table', './tables/cheapest_product_search.html');
+    loadHTMLTable('actions-transactions-table', './tables/actions_transactions.html');
+});

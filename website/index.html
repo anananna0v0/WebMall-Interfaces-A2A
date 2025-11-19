@@ -134,6 +134,33 @@
         max-width: 800px;
         margin: 0 auto;
       }
+
+      .model-legend {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+        margin-top: 1rem;
+        font-size: 0.9rem;
+      }
+
+      .model-legend-item {
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+
+      .model-legend-swatch {
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        border: 1px solid #d1d5db;
+      }
+
+      .model-legend-wrapper {
+        max-width: 900px;
+        margin: 0 auto 2rem;
+      }
     </style>
 
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
@@ -155,18 +182,27 @@
           <div class="navbar-item has-dropdown is-hoverable">
             <a class="navbar-link"> Agent Interfaces </a>
             <div class="navbar-dropdown">
+              <a class="navbar-item" href="#browser-based"> HTML Agent </a>
               <a class="navbar-item" href="#rag-alternative"> RAG Agent </a>
               <a class="navbar-item" href="#mcp"> MCP Agent </a>
               <a class="navbar-item" href="#nlweb-mcp"> NLWeb Agent </a>
+              <a class="navbar-item" href="#technical"> Technical Details </a>
             </div>
           </div>
-          <a class="navbar-item" href="#technical"> Technical Details </a>
           <a class="navbar-item" href="#use-case"> Use Case </a>
-          <a class="navbar-item" href="#results"> Results </a>
+          <div class="navbar-item has-dropdown is-hoverable">
+            <a class="navbar-link" href="#results"> Results </a>
+            <div class="navbar-dropdown">
+              <a class="navbar-item" href="#results-metrics"> Evaluation Metrics </a>
+              <a class="navbar-item" href="#results-overall"> Overall Results </a>
+              <a class="navbar-item" href="#results-interface-model"> Interface &amp; Model </a>
+              <a class="navbar-item" href="#results-task-groups"> By Task Group </a>
+              <a class="navbar-item" href="#results-cost-runtime"> Cost &amp; Runtime </a>
+              <a class="navbar-item" href="#results-cost-effectiveness"> Cost vs Effectiveness </a>
+            </div>
+          </div>
           <a class="navbar-item" href="#running"> Running the Benchmark </a>
           <a class="navbar-item" href="#related-work"> Related Work </a>
-          <a class="navbar-item" href="#references"> References </a>
-          <a class="navbar-item" href="#feedback"> Feedback </a>
         </div>
       </div>
     </nav>
@@ -234,32 +270,39 @@
             <h2 class="title is-3">1. Introduction</h2>
             <div class="content has-text-justified">
               <p>
-                LLM agents use different architectures and interfaces to interact with the World Wide Web. Some agents rely on traditional web
-                browsers to
-                <b>navigate HTML pages</b> originally designed for human users. Others do not directly access websites but instead retrieve web
-                content by <b>querying search engines</b> that have indexed the Web. A third architectural approach assumes that websites expose
-                <b>site-specific Web APIs</b>, which agents interact with via the Model Context Protocol (MCP). A fourth architecture, proposed by
-                Microsoft under the <b>NLWeb initiative</b>, defines a standardized interface through which agents query individual websites and
-                receive responses formatted as structured Schema.org data.
+                LLM-based agents are increasingly deployed to automate web tasks such as product search, offer comparison, and order placement. We see
+                four dominant ways these agents interact with websites: (1) <b>HTML browsing</b> by clicking links and filling forms, (2)
+                <b>retrieval-augmented generation (RAG)</b> over pre-crawled content, (3) <b>Model Context Protocol (MCP)</b> access to site-specific
+                Web APIs, and (4) <b>NLWeb</b>, which lets agents issue natural-language queries that are answered with Schema.org-style JSON data.
+                Despite rapid experimentation with these interfaces, the community still lacks a systematic comparison of their effectiveness and
+                efficiency on the same challenging task sets.
               </p>
               <p>
-                This page presents the results of the first experimental comparison of these four architectures, using the
-                <b>same set of tasks</b> within an e-commerce scenario. The experiments were conducted across four simulated webshops, each offering
-                products via different interfaces. Four corresponding LLM agents — the MCP Agent, RAG Agent, NLWeb Agent, and HTML Agent — are
-                evaluated performing the same set of 91 tasks, each using a different method for interacting with the shops.
+                To close this gap we introduce a reproducible testbed with four simulated e-shops. Each shop offers its catalog via HTML, MCP, and
+                NLWeb, while a dedicated crawler provides the corpus needed for the RAG interface. For every interface (HTML, RAG, MCP, NLWeb) we
+                build a specialized agent so that all four agents face <b>exactly the same tasks</b> covering specific and vague product search,
+                cheapest-offer comparisons, and transactional workflows such as cart management and checkout. The architecture diagram below provides
+                an overview of the interfaces and their interaction patterns.
               </p>
               <p>
-                We compare the <b>effectiveness</b> (success rate, F1) of the different agents in solving the tasks, which are grouped into categories
-                such as searching for specific products, searching for the cheapest product given concrete or vague requirements, adding products to
-                shopping carts, and finally checking out the products and paying for them by credit card. We also assess the <b>efficiency</b> of each
-                architecture by measuring task runtime and token usage. The analysis of input and output tokens provides a basis for estimating both
-                the operational cost of each agent as well as its energy consumption and environmental impact.
+                Our study evaluates the agents with GPT-4.1, GPT-5, GPT-5-mini and Claude Sonnet 4, measuring task completion, precision/recall/F1, execution time, and token
+                consumption to derive per-task cost estimates. Across search-oriented tasks, RAG, MCP, and NLWeb agents outperform the HTML baseline
+                by roughly 11 percentage points in task completion while using 2–5× fewer tokens. The GPT-5 RAG agent delivers the best overall
+                completion rate (0.79) with moderate token usage, while GPT-5-mini offers cost-effectiveness when absolute accuracy requirements are lower.
               </p>
+              <p>This work makes two concrete contributions:</p>
+              <ol>
+                <li>
+                  <b>Unified testbed</b>: We introduce a testbed for comparing different agent architectures. The testbed consists of four simulated e-shops, each offering its products via HTML, MCP, and NLWeb interfaces. For each of the four architectures (HTML, RAG, MCP, and NLWeb) the testbed contains specialized agents that interact with the e-shops using the respective interfaces. 
+                </li>
+                <li>
+                  <b>Systematic evaluation</b>: Using different sets of challenging e-commerce tasks, we systematically evaluate agent performance across interfaces and models (GPT-4.1, GPT-5, GPT-5-mini, Claude Sonnet 4) and analyze the effectiveness, efficiency, and cost of the different agents.
+                </li>
+              </ol>
               <p>
-                In our WebMall experiments, the MCP, RAG, and NLWeb Agents achieve comparable — and in many cases higher — task completion rates than
-                the HTML Agent (AX+MEM), while using 5–10× fewer tokens. On basic tasks, the NLWeb Agent achieves the highest completion rate (up to
-                88% with Claude 4 Sonnet), and the RAG Agent shows competitive effectiveness across both basic and advanced tasks. All three
-                alternatives use significantly fewer tokens than the HTML Agent.
+                The remainder of this page summarizes the architectures, describes the task design, and presents the experimental findings. All code
+                and data needed to reproduce the results are available in our
+                <a href="https://github.com/wbsg-uni-mannheim/WebMall-Interfaces" target="_blank">GitHub repository</a>.
               </p>
             </div>
           </div>
@@ -277,6 +320,7 @@
             agents and Webshops use for communication.
           </p>
         </div>
+        <img src="static/images/interface_overview.png" alt="" />
       </div>
     </section>
 
@@ -288,15 +332,13 @@
             <h3 class="title is-4">2.1 Browser-based Agent (HTML Agent)</h3>
             <div class="content">
               <p>
-                The HTML Agent accesses the Webshops via their traditional HTML interfaces intended for human use. We employ the AX+MEM HTML Agent
-                from the
-                <a href="https://wbsg-uni-mannheim.github.io/WebMall/" target="_blank">WebMall benchmark</a> for our experiments. The agent is
-                implemented using the
-                <a href="https://github.com/ServiceNow/AgentLab" target="_blank">AgentLab</a>
-                library which accompanies
-                <a href="https://github.com/ServiceNow/BrowserGym" target="_blank">BrowserGym</a>. The agent uses the accessibility tree (AXTree) of
-                HTML pages as observation space and has access to short-term memory, which it can use to store relevant information at each step in
-                order to maintain context across longer task sequences.
+                Within this architecture, e-shops expose traditional HTML interfaces intended for human consumption. The agents interact with these
+                pages by clicking hyperlinks and performing form-filling actions. For our experiments we use the AX+MEM agent from the
+                <a href="https://wbsg-uni-mannheim.github.io/WebMall/" target="_blank">WebMall benchmark</a>, which is implemented with the
+                <a href="https://github.com/ServiceNow/AgentLab" target="_blank">AgentLab</a> library and executed inside
+                <a href="https://github.com/ServiceNow/BrowserGym" target="_blank">BrowserGym</a>. The agent observes the accessibility tree
+                (AXTree) of each page and can store relevant information in short-term memory to maintain context across multiple steps. We disable
+                visual perception in our setup because adding screenshots on top of the AXTree reduced performance in prior WebMall experiments.
               </p>
 
               <h4 class="title is-5">HTML Agent Workflow</h4>
@@ -327,24 +369,17 @@
             <h3 class="title is-4">2.2 Agent querying a Search Engine (RAG Agent)</h3>
             <div class="content">
               <p>
-                The RAG Agent does not directly access the Webshops but interacts with a search engine that has crawled and indexed all pages of all
-                Webshops. Our RAG implementation uses
-                <a href="https://www.elastic.co/elasticsearch/vector-database" target="_blank">Elasticsearch</a>
-                to create a unified search index containing scraped content from all four WebMall shops. Before indexing, we remove navigation
-                elements and HTML tags from the pages using the
-                <a href="https://github.com/Unstructured-IO/unstructured" target="_blank">Unstructured library</a>. An example of a resulting JSON
-                file can be found
-                <a href="https://github.com/wbsg-uni-mannheim/WebMall-Interfaces/tree/main/website/examples/rag_elastic.json" target="_blank">here</a
-                >. The system generates composite embeddings that combine product titles and descriptions, enabling semantic similarity search. The
-                search engine is presented to the agent as a tool that can be called one or multiple times with differing queries to iteratively
-                refine the results.
+                The RAG architecture includes a search engine that crawls the HTML interfaces of all four shops, strips navigation and markup, and
+                indexes the remaining text. Our implementation builds a unified Elasticsearch index fed by the
+                <a href="https://github.com/Unstructured-IO/unstructured" target="_blank">Unstructured</a> processing pipeline. The RAG agent retrieves
+                content by issuing queries to this search engine instead of visiting the live sites. It iteratively formulates queries, inspects the
+                returned documents, and refines follow-up queries as needed. For transactional steps (add-to-cart or checkout) we expose dedicated
+                Python functions that the agent can invoke directly.
               </p>
               <p>
-                The agent leverages the
-                <a href="https://www.langchain.com/langgraph" target="_blank">LangGraph</a>
-                framework to orchestrate retrieval workflows and incorporates specialized Python functions for e-commerce actions like adding items to
-                carts and completing checkouts. More specifically, the RAG agent is implemented as a LangGraph ReAct agent with the following
-                available tools:
+                The agent leverages the <a href="https://www.langchain.com/langgraph" target="_blank">LangGraph</a> framework to orchestrate retrieval
+                workflows and incorporates specialized tools for e-commerce actions. Concretely, the RAG agent is a LangGraph ReAct agent with the
+                following capabilities:
               </p>
               <ol>
                 <li><strong>search_products</strong>: Execute semantic search queries against Elasticsearch (returns title + URL for efficiency)</li>
@@ -354,8 +389,9 @@
               </ol>
               <h4 class="title is-5">RAG Agent Workflow</h4>
               <p>
-                The agent follows a two-phase search approach: first using lightweight searches to identify promising products, then fetching detailed
-                information only for relevant items to minimize token usage.
+                The agent follows a multi-query process: it first issues lightweight searches to gather candidates, inspects the responses, and
+                reformulates queries as many times as needed to cover all shops. Only after narrowing down promising items does it call
+                <code>get_product_details</code> for detailed attributes, minimizing token usage.
               </p>
 
               <p>
@@ -363,7 +399,7 @@
                 <a href="https://github.com/wbsg-uni-mannheim/WebMall-Interfaces/tree/main/src/rag">RAG source code</a>
                 in our repository. The prompt used for defining the agent can be found
                 <a
-                  href="https://github.com/wbsg-uni-mannheim/WebMall-Interfaces/blob/main/src/rag/benchmark_v2_improved_langgraph.py#L370"
+                  href="https://github.com/wbsg-uni-mannheim/WebMall-Interfaces/blob/main/src/benchmark_rag.py#L373"
                   target="_blank"
                 >
                   here</a
@@ -383,22 +419,19 @@
             <h3 class="title is-4">2.3 Agent querying Web APIs via MCP (MCP Agent)</h3>
             <div class="content">
               <p>
-                This architecture assumes that the e-shops provide proprietary API as well as MCP descriptions of the APIs. The agent interacts with the e-shops by calling shop-specific functions. These APIs are exposed via the
-                <a href="https://modelcontextprotocol.io" target="_blank">Model Context Protocol (MCP)</a>, originally proposed by
-                <a href="https://www.anthropic.com/news/model-context-protocol" target="_blank">Anthropic</a>. MCP is an open protocol designed to
-                standardize communication between LLM applications and external tools or data sources. Instead of parsing unstructured web content, an
-                agent (the MCP <em>Host</em>) connects to a dedicated MCP <em>Server</em> that exposes a well-defined set of tools (functions). 
+                In the Model Context Protocol (MCP) architecture, the e-shops expose their product search, cart manipulation, and checkout
+                functionality via proprietary APIs. Each shop hosts its own MCP server that defines the available functions and parameters, and the
+                agent invokes these endpoints over the protocol instead of scraping HTML content.
               </p>
               <p>
-                In our setup, we run four independent MCP servers, one for each WebMall shop. These servers expose tools for actions like search, cart
-                management, and checkout. However, to simulate a realistic, multi-shop environment, the WebAPIs are heterogeneous - the data
-                format and tools returned by each server are intentionally different. This heterogeneity forces the agent to adapt to different API
-                responses from each shop, testing its ability to handle diverse, non-standardized data structures, which reflects the reality of
-                integrating with multiple independent web APIs.
+                Like the RAG setup, the MCP agent can iteratively refine its queries: it issues a search, inspects the JSON response, and adjusts the
+                next request accordingly. However, every shop uses its own function names, parameter conventions, and response schema. This
+                heterogeneity places the burden of normalization on the agent, which must interpret different JSON formats when comparing or merging
+                results across shops.
               </p>
               <p>
-                The MCP agent is implemented using the same <a href="https://www.langchain.com/langgraph" target="_blank">LangGraph</a> framework as the RAG agent.
-                It uses MCP tools exposed by each shop's server for product search, cart management, and checkout operations.
+                Our MCP agent reuses the <a href="https://www.langchain.com/langgraph" target="_blank">LangGraph</a> framework from the RAG setup but
+                swaps in MCP tool calls for product search, cart management, and checkout operations.
               </p>
 
               <h4 class="title is-5">MCP Agent Workflow</h4>
@@ -408,17 +441,21 @@
               <ol>
                 <li>
                   <strong>Connection and Discovery:</strong>
-                  The agent, acting as an MCP Host, establishes a connection with the MCP Server for a specific shop and discovers the available tools
-                  through the protocol's capability negotiation.
+                  The agent (acting as an MCP Host) connects to the shop-specific MCP server and enumerates the available tools and parameters.
                 </li>
                 <li>
-                  <strong>Tool Execution:</strong> The agent invokes tools like <code>search_products</code> or <code>add_to_cart</code> by sending
-                  JSON-RPC messages to the server. The server executes the corresponding actions.
+                  <strong>Iterative Tool Execution:</strong> The agent invokes search or cart functions with an initial query, inspects the JSON
+                  result, and can reissue refined queries to explore additional items or shops.
                 </li>
-                <li><strong>Response Handling:</strong> The agent receives a structured but potentially heterogeneous JSON response.</li>
+                <li>
+                  <strong>Response Harmonization:</strong> Because each shop returns different attribute names and structures, the agent normalizes
+                  the data before making comparisons or taking follow-up actions.
+                </li>
               </ol>
               <p>
-                The example below illustrates the heterogeneity of WebAPIs by comparing the search methods of two shops. <code>search_products</code> and <code>find_items_techtalk</code> use different parameter names, while the second method offers the possiblity to sort by price, which is not possible in the first method.
+                The example below illustrates the heterogeneity of WebAPIs by comparing the search methods of two shops.
+                <code>search_products</code> and <code>find_items_techtalk</code> use different parameter names, while the second method offers the
+                possiblity to sort by price, which is not possible in the first method.
               </p>
               <div class="code-block">
                 <pre>
@@ -465,26 +502,21 @@ async def find_items_techtalk(
             <h3 class="title is-4">2.4 Agent querying NLWeb Sites (NLWeb Agent)</h3>
             <div class="content">
               <p>
-                The NLWeb agent interacts with the e-shops through a standardized natural language interface that needs to be offered by all NLWeb sites. Each e-shop
-                must implement "ask" endpoint that accepts natural language queries and returns structured responses using the
-                schema.org format.
-                <a href="https://github.com/nlweb-ai/NLWeb" target="_blank">NLWeb</a>
-                (Natural Language for Web), proposed and supported by
-                <a href="https://www.microsoft.com/en-us/research/blog/nlweb-a-blueprint-for-web-agent-interfaces/" target="_blank">Microsoft</a>,
-                provides a standardized mechanism for this interaction. It leverages existing semi-structured formats, particularly
-                schema.org and RSS, to create a semantic layer over a site's content.
+                The NLWeb interface extends MCP by requiring each shop to expose a standardized natural-language query endpoint. Every provider hosts
+                an <code>ask</code> tool that accepts queries like “laptops under $1000 with 16GB RAM,” performs an internal search, and returns
+                results in schema.org-style JSON. Because all shops respond with the same vocabulary, agents spend less effort harmonizing the data.
+                Transactional workflows (cart actions, checkout) remain available via the shop’s MCP tools.
               </p>
               <p>
-                In our implementation, we create one dedicated Elasticsearch index per e-shop (NLWeb Site) that enables semantic search of that
-                site's content. Each NLWeb server processes natural language queries by generating embeddings and performing cosine similarity search
-                against its shop-specific index. Additionally, we create an MCP server per shop to enable other functionality like cart management and
-                checkout operations, complementing the <code>ask</code> tool for product search.
+                In our deployment we create one Elasticsearch index per shop to support semantic search within the NLWeb server. Each query is embedded
+                and matched against the shop’s own index before the results are serialized through the schema.org product vocabulary. For reference, a
+                sample <code>ask</code> call and response is available
+                <a href="https://github.com/wbsg-uni-mannheim/WebMall-Interfaces/blob/main/website/examples/nlweb_query.json" target="_blank">here</a>.
               </p>
               <p>
-                The NLWeb Agent uses the same <a href="https://www.langchain.com/langgraph" target="_blank">LangGraph</a> framework as the other
-                agents. An example of an <code>ask</code> tool call and response can be found
-                <a href="https://github.com/wbsg-uni-mannheim/WebMall-Interfaces/blob/main/website/examples/nlweb_query.json" target="_blank">here</a
-                >.
+                The NLWeb agent uses the same <a href="https://www.langchain.com/langgraph" target="_blank">LangGraph</a> framework as our other
+                agents, combining the standardized search tool with MCP-based cart and checkout functions. Table 2 later in this section summarizes
+                the main characteristics of all four architectures.
               </p>
               <h4 class="title is-5">NLWeb Agent Workflow</h4>
               <p>The agent’s interaction with the NLWeb + MCP interface follows the workflow below:</p>
@@ -522,18 +554,19 @@ async def find_items_techtalk(
         <div class="columns is-centered">
           <div class="column is-full-width">
             <h2 class="title is-3">2.5 Comparison of the Different Architectures</h2>
-			              <p>
-                The table below compares the four different architectures along the features offered by the e-shops and the functionality implemented by the agents.
-              </p>
+            <p>
+              The table below compares the four different architectures along the features offered by the e-shops and the functionality implemented by
+              the agents.
+            </p>
             <div class="results-table">
               <table class="table is-striped is-hoverable is-fullwidth">
                 <thead>
                   <tr>
                     <th>Aspect</th>
+                    <th>HTML</th>
                     <th>RAG</th>
                     <th>MCP</th>
                     <th>NLWeb</th>
-                    <th>HTML</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -544,25 +577,25 @@ async def find_items_techtalk(
                     <td colspan="4"></td>
                   </tr>
                   <tr>
-                    <td>Interface Offered</td>
+                    <td>Interface</td>
                     <td>HTML pages</td>
-                    <td>proprietary APIs</td>
-                    <td>standardized API</td>
-                    <td>HTML pages + search box</td>
+                    <td>Retrieval API</td>
+                    <td>Proprietary APIs</td>
+                    <td>Standardized API</td>
                   </tr>
                   <tr>
-                    <td>Search Functionality</td>
-                    <td>Not used as shops are crawled</td>
-                    <td>Search structured data</td>
-                    <td>Search structured data</td>
-                    <td>Search free text</td>
+                    <td>Search functionality</td>
+                    <td>Free-text search per shop</td>
+                    <td>Search engine over crawled content</td>
+                    <td>Per-shop index; structured data</td>
+                    <td>Per-shop index; structured data</td>
                   </tr>
                   <tr>
-                    <td>Search Response</td>
-                    <td>N/A</td>
-                    <td>heterogenous JSON</td>
-                    <td>schema.org JSON</td>
-                    <td>HTML result list</td>
+                    <td>Search response</td>
+                    <td>HTML result list with links</td>
+                    <td>Pre-processed HTML pages</td>
+                    <td>Heterogeneous JSON</td>
+                    <td>Schema.org JSON</td>
                   </tr>
                   <tr>
                     <td>
@@ -571,39 +604,32 @@ async def find_items_techtalk(
                     <td colspan="4"></td>
                   </tr>
                   <tr>
-                    <td>Communication Protocol</td>
-                    <td>direct calls to search engine</td>
-                    <td>JSON-RPC via MCP</td>
-                    <td>JSON-RPC via MCP</td>
+                    <td>Communication protocol</td>
                     <td>HTML over HTTP</td>
+                    <td>Direct calls to search engine</td>
+                    <td>JSON-RPC via MCP</td>
+                    <td>JSON-RPC via MCP</td>
                   </tr>
                   <tr>
-                    <td>Query Strategy</td>
-                    <td>Multi-query search engine</td>
-                    <td>Multi-query per shop</td>
-                    <td>Multi-query per shop</td>
+                    <td>Query strategy</td>
                     <td>Site search and browsing</td>
+                    <td>Multi-query</td>
+                    <td>Multi-query per shop</td>
+                    <td>Multi-query per shop</td>
                   </tr>
                   <tr>
-                    <td>Search Refinement</td>
-                    <td>Self-evaluation & iteration</td>
-                    <td>Self-evaluation & iteration</td>
-                    <td>Self-evaluation & iteration</td>
+                    <td>Query refinement</td>
                     <td>Interactive page exploration</td>
+                    <td>Self-evaluation &amp; iteration</td>
+                    <td>Self-evaluation &amp; iteration</td>
+                    <td>Self-evaluation &amp; iteration</td>
                   </tr>
                   <tr>
-                    <td>Cart Management</td>
-                    <td>direct functions calls</td>
+                    <td>Add to cart / checkout</td>
+                    <td>Clicking &amp; form filling</td>
+                    <td>Direct function calls</td>
                     <td>MCP tool invocation</td>
                     <td>MCP tool invocation</td>
-                    <td>Browser interactions</td>
-                  </tr>
-                  <tr>
-                    <td>Checkout Process</td>
-                    <td>direct functions calls</td>
-                    <td>MCP tool invocation</td>
-                    <td>MCP tool invocation</td>
-                    <td>Form filling & submission</td>
                   </tr>
                 </tbody>
               </table>
@@ -629,27 +655,38 @@ async def find_items_techtalk(
                 complexity:
               </p>
 
-              <h4 class="title is-5">Basic Tasks</h4>
+              <h4 class="title is-5">Specific Product Search (23 tasks)</h4>
+              <p><em>Example: Find all offers for Fractal Design PC Gaming Cases which support 240mm radiators and 330mm GPUs.</em></p>
               <ul>
                 <li><strong>Find Specific Product (12 tasks)</strong>: Locate a particular product by name or model number</li>
-                <li><strong>Find Cheapest Offer (10 tasks)</strong>: Identify the lowest-priced option for a specific product across shops</li>
                 <li>
                   <strong>Products Fulfilling Specific Requirements (11 tasks)</strong>: Find products matching precise technical specifications
                 </li>
-                <li><strong>Add to Cart (7 tasks)</strong>: Add selected products to the shopping cart</li>
-                <li><strong>Checkout (8 tasks)</strong>: Complete the purchase process with payment and shipping information</li>
               </ul>
 
-              <h4 class="title is-5">Advanced Tasks</h4>
+              <h4 class="title is-5">Vague Product Search (19 tasks)</h4>
+              <p><em>Example: Find all offers for compact keyboards that are best suited for working with a laptop remotely.</em></p>
               <ul>
+                <li><strong>Products Satisfying Vague Requirements (8 tasks)</strong>: Interpret and fulfill imprecise or subjective requirements</li>
+                <li><strong>Find Substitutes (6 tasks)</strong>: Identify alternative products when the requested item is unavailable</li>
+                <li><strong>Find Compatible Products (5 tasks)</strong>: Locate accessories or components compatible with a given product</li>
+              </ul>
+
+              <h4 class="title is-5">Cheapest Product Search (26 tasks)</h4>
+              <p><em>Example: Find the cheapest offer for a new Xbox gaming console with at least 512 GB disk space in white.</em></p>
+              <ul>
+                <li><strong>Find Cheapest Offer (10 tasks)</strong>: Identify the lowest-priced option for a specific product across shops</li>
                 <li>
                   <strong>Cheapest Offer with Specific Requirements (10 tasks)</strong>: Find the most affordable product meeting detailed criteria
                 </li>
-                <li><strong>Products Satisfying Vague Requirements (8 tasks)</strong>: Interpret and fulfill imprecise or subjective requirements</li>
                 <li><strong>Cheapest Offer with Vague Requirements (6 tasks)</strong>: Combine price optimization with fuzzy requirement matching</li>
-                <li><strong>Find Substitutes (6 tasks)</strong>: Identify alternative products when the requested item is unavailable</li>
-                <li><strong>Find Compatible Products (5 tasks)</strong>: Locate accessories or components compatible with a given product</li>
-                <li><strong>End To End (8 tasks)</strong>: Complete full shopping workflows from search to checkout</li>
+              </ul>
+
+              <h4 class="title is-5">Transactional Tasks (15 tasks)</h4>
+              <p><em>Example: Add the product on page {url} to the shopping cart and complete the checkout process.</em></p>
+              <ul>
+                <li><strong>Add to Cart (7 tasks)</strong>: Add selected products to the shopping cart</li>
+                <li><strong>Checkout (8 tasks)</strong>: Complete the purchase process with payment and shipping information</li>
               </ul>
 
               <p>
@@ -676,15 +713,15 @@ async def find_items_techtalk(
             <h2 class="title is-3">4. Experimental Results</h2>
             <div class="content">
               <p>
-                We evaluated each agent on the complete WebMall task set. The evaluation compares the effectiveness of different
-                agent architectures: RAG Agent, MCP Agent, and NLWeb Agent. For comparison, we also include results from the strongest HTML Agent
-                configuration from the original WebMall benchmark, <a href="https://wbsg-uni-mannheim.github.io/WebMall/#results" target="_blank">AX+MEM</a>.
+                We evaluated each agent on the complete WebMall task set. The evaluation compares the effectiveness of different agent architectures:
+                RAG Agent, MCP Agent, and NLWeb Agent. For comparison, we also include results from the strongest HTML Agent configuration from the
+                original WebMall benchmark, <a href="https://wbsg-uni-mannheim.github.io/WebMall/#results" target="_blank">AX+MEM</a>.
               </p>
               <p>
-                Every agent architecture is evaluated in combination with both GPT-4.1 (gpt-4.1-2025-04-14) and Claude 4 Sonnet (claude-sonnet-4-20250514) to assess
-                variations in effectiveness across models. Note that our experiments do not utilize prompt caching. Detailed execution logs for all
-                runs are available in our
-                <a href="https://github.com/wbsg-uni-mannheim/WebMall-Interfaces/tree/main/results/v1" target="_blank">GitHub repository</a>,
+                Every agent architecture is evaluated in combination with both GPT-4.1 (gpt-4.1-2025-04-14), GPT-5 (gpt-5-2025-08-07), GPT-5-mini (gpt-5-mini-2025-08-07) and Claude 4 Sonnet
+                (claude-sonnet-4-20250514) to assess variations in effectiveness across models. Note that our experiments do not utilize prompt
+                caching. Detailed execution logs for all runs are available in our
+                <a href="https://github.com/wbsg-uni-mannheim/WebMall-Interfaces/tree/main/results" target="_blank">GitHub repository</a>,
                 organized by interface type and model. For quick understanding of agent behavior,
                 <a href="https://github.com/wbsg-uni-mannheim/WebMall-Interfaces/tree/main/results/v1/shortened_logs" target="_blank"
                   >shortened execution logs</a
@@ -692,7 +729,7 @@ async def find_items_techtalk(
                 containing one successful task execution per agent and model are also available.
               </p>
 
-              <h3 class="title is-4">4.1 Evaluation Metrics</h3>
+              <h3 class="title is-4" id="results-metrics">4.1 Evaluation Metrics</h3>
               <p>We assess effectiveness using four metrics derived from comparing the agent's response against the ground truth solutions:</p>
               <ul>
                 <li>
@@ -700,87 +737,81 @@ async def find_items_techtalk(
                   correct product is missing and no additional products are returned.
                 </li>
                 <li>
-                  <strong>Precision</strong>: Fraction of the products returned by the agent that are correct (intersection ÷ total products returned). Higher precision
-                  means fewer incorrect products.
+                  <strong>Precision</strong>: Fraction of the products returned by the agent that are correct (intersection ÷ total products
+                  returned). Higher precision means fewer incorrect products.
                 </li>
                 <li>
-                  <strong>Recall</strong>: Fraction of correct products that the agent found (intersection ÷ total correct products). Higher recall means
-                  fewer missing products.
+                  <strong>Recall</strong>: Fraction of correct products that the agent found (intersection ÷ total correct products). Higher recall
+                  means fewer missing products.
                 </li>
                 <li><strong>F1 Score</strong>: Harmonic mean of precision and recall.</li>
               </ul>
 
-              <h3 class="title is-4">4.2 Effectiveness by Task Type</h3>
+              <h3 class="title is-4" id="results-overall">4.2 Overall Results</h3>
               <p>
-                The results are shown in the following tables, sorted by completion rate and categorized by task type. Best results per metric are
-                highlighted in bold.
+                The following table shows the overall performance of each interface averaged across all tasks and both models (GPT-4.1 and Claude 4
+                Sonnet):
               </p>
-              <div id="results-by-type" class="results-table">
-                <!-- Results table will be inserted here -->
+              <div class="table-container">
+                <div id="overall-results-table"></div>
               </div>
 
-              <div id="findings-4-2-basic" class="content">
-                <h5 class="title is-5">Key Findings</h5>
-                <ul>
-                  <li>
-                    NLWeb with Claude Sonnet achieves the highest completion rate (88%) for basic tasks, while using fewer tokens than the HTML Agent.
-                  </li>
-                  <li>RAG delivers strong basic-task effectiveness with substantially lower token usage than the HTML Agent.</li>
-                  <li>The HTML agents consume 5–10× more tokens than other agents without consistent advantages in completion rate.</li>
-                </ul>
-              </div>
-
-              <div id="findings-4-2-advanced" class="content">
-                <h5 class="title is-5">Key Findings</h5>
-                <ul>
-                  <li>
-                    HTML with Claude Sonnet attains the highest completion rate for advanced tasks (~49%) but with substantially higher token usage.
-                  </li>
-                  <li>Differences across models are pronounced in advanced tasks; Claude tends to outperform GPT 4.1 across all agent architectures.</li>
-                </ul>
-              </div>
-
-              <h3 class="title is-4">4.3 Effectiveness by Category</h3>
+              <h3 class="title is-4" id="results-interface-model">4.3 Results by Interface and Model</h3>
               <p>
-                Results grouped by task complexity:
-                <strong>Basic</strong> tasks include straightforward operations like finding specific products and simple checkout processes, while
-                <strong>Advanced</strong> tasks require complex reasoning such as interpreting vague requirements, finding substitutes, and compatible products.
+                The following table shows detailed results for each interface broken down by the model used. This allows for direct comparison of how
+                different models perform with each interface architecture.
               </p>
-              <div id="results-by-category" class="results-table">
-                <!-- Results table will be inserted here -->
+              <div class="table-container">
+                <div id="results-by-interface-and-model-table"></div>
               </div>
 
-              <div id="findings-4-3-basic" class="content">
-                <h5 class="title is-5">Key Findings</h5>
-                <ul>
-                  <li>
-                    Find Specific Product: Structured/indexed approaches (RAG, NLWeb, MCP) reach or approach very high completion, while the HTML
-                    agent trails on this category.
-                  </li>
-                  <li>Find Cheapest Offer: RAG achieves strong effectiveness with lower token usage than the HTML Agent.</li>
-                  <li>Best Fit Specific: HTML underperforms compared to structured/indexed interfaces.</li>
-                  <li>
-                    Checkout: API- and tool-based interfaces (MCP, NLWeb, RAG) are more reliable and efficient than HTML for transactional steps.
-                  </li>
-                </ul>
+
+              <h3 class="title is-4" id="results-task-groups">4.4 Results by Task Group</h3>
+              <h4 class="title is-5">Specific Product Search</h4>
+              <p>
+                The Specific Product Search category includes tasks where users need to find particular products by name, model number, or specific
+                technical requirements. This represents 23 tasks from the WebMall benchmark and tests the agents' ability to accurately retrieve and
+                filter products based on precise criteria.
+              </p>
+              <div class="table-container">
+                <div id="specific-product-search-table"></div>
               </div>
 
-              <div id="findings-4-3-advanced" class="content">
-                <h5 class="title is-5">Key Findings</h5>
-                <ul>
-                  <li>Best Fit Vague: NLWeb performs well on vague requirement matching when standardized data is available.</li>
-                  <li>
-                    Cheapest Best Fit Vague and Find Compatible Products: Completion rates are low across all agents, reflecting the difficulty of
-                    these tasks.
-                  </li>
-                  <li>
-                    End-to-End: Standardized product data and transactional APIs (NLWeb/MCP) enable strong end-to-end performance; RAG remains
-                    efficient on extended tasks.
-                  </li>
-                </ul>
+
+              <h4 class="title is-5">Vague Product Search</h4>
+              <p>
+                The Vague Product Search category includes 19 tasks that require interpreting imprecise or subjective requirements, finding product
+                substitutes, and identifying compatible products. These tasks test the agents' ability to understand fuzzy requirements and apply
+                semantic reasoning to match products that may not have exact specification matches.
+              </p>
+              <div class="table-container">
+                <div id="vague-product-search-table"></div>
               </div>
 
-              <h3 class="title is-4">4.4 Cost & Runtime Analysis</h3>
+
+              <h4 class="title is-5">Cheapest Product Search</h4>
+              <p>
+                The Cheapest Product Search category includes 26 tasks focused on finding the most affordable options. These tasks test the agents'
+                ability to compare prices across products and shops, while also filtering by specific or vague requirements. This category combines
+                price optimization with product search capabilities.
+              </p>
+              <div class="table-container">
+                <div id="cheapest-product-search-table"></div>
+              </div>
+
+
+              <h4 class="title is-5">Actions and Transactions</h4>
+              <p>
+                The Actions and Transactions category includes 15 tasks focused on e-commerce operations: adding products to cart (7 tasks) and
+                completing checkout processes (8 tasks). These tasks test the agents' ability to interact with transactional APIs and navigate
+                multi-step workflows requiring sequential actions.
+              </p>
+              <div class="table-container">
+                <div id="actions-transactions-table"></div>
+              </div>
+
+
+              <h3 class="title is-4" id="results-cost-runtime">4.5 Cost & Runtime Analysis</h3>
               <p>Cost and execution time analysis based on model pricing and runtime results from our experiments. Token prices as of July 2025:</p>
               <ul>
                 <li>
@@ -791,7 +822,19 @@ async def find_items_techtalk(
                   >)
                 </li>
                 <li>
-                  <strong>Claude 4 Sonnet</strong>: $3.00/MTok input, $15.00/MTok output (<a
+                  <strong>GPT-5</strong>: $2.00/MTok input, $8.00/MTok output (<a href="https://platform.openai.com/docs/models/gpt-5" target="_blank"
+                    >OpenAI pricing</a
+                  >)
+                </li>
+                <li>
+                  <strong>GPT-5-mini</strong>: $0.20/MTok input, $0.60/MTok output (<a
+                    href="https://platform.openai.com/docs/models/gpt-5-mini"
+                    target="_blank"
+                    >OpenAI pricing</a
+                  >)
+                </li>
+                <li>
+                  <strong>Claude Sonnet 4</strong>: $3.00/MTok input, $15.00/MTok output (<a
                     href="https://docs.anthropic.com/en/docs/about-claude/models/overview#model-comparison-table"
                     target="_blank"
                     >Anthropic pricing</a
@@ -808,60 +851,19 @@ async def find_items_techtalk(
                 <!-- Cost tables will be inserted here -->
               </div>
 
-              <div id="findings-4-4-basic" class="content">
-                <h5 class="title is-5">Key Findings</h5>
-                <ul>
-                  <li>RAG with GPT-4.1 shows a favorable cost–effectiveness profile on basic tasks.</li>
-                  <li>NLWeb with Claude Sonnet provides the highest accuracy at higher cost and latency.</li>
-                  <li>MCP with Claude Sonnet tends to be costlier due to higher prompt token usage.</li>
-                </ul>
-              </div>
 
-              <div id="findings-4-4-advanced" class="content">
-                <h5 class="title is-5">Key Findings</h5>
-                <ul>
-                  <li>HTML with Claude Sonnet achieves the highest completion rate, but at higher cost and runtime.</li>
-                  <li>RAG with GPT-4.1 offers competitive completion with much lower cost and latency.</li>
-                  <li>NLWeb with Claude Sonnet balances effectiveness and efficiency relative to MCP and HTML.</li>
-                </ul>
-              </div>
-
-              <h3 class="title is-4">4.5 Cost vs Effectiveness Comparison</h3>
+              <h3 class="title is-4" id="results-cost-effectiveness">4.5 Cost vs Effectiveness Comparison</h3>
               <p>
                 The scatter plot below visualizes the relationship between cost and effectiveness across different agent interfaces and models. Each
                 point represents a combination of interface type (RAG, MCP, NLWeb, HTML) and language model (GPT-4.1, Claude 4 Sonnet).
               </p>
-              <div style="text-align: center; margin: 1rem 0">
-                <div class="buttons has-addons is-centered">
-                  <button class="button is-primary is-selected" id="btnAll" onclick="updateScatterChart('all', this)">All Tasks</button>
-                  <button class="button" id="btnBasic" onclick="updateScatterChart('basic', this)">Basic Tasks</button>
-                  <button class="button" id="btnAdvanced" onclick="updateScatterChart('advanced', this)">Advanced Tasks</button>
-                </div>
-              </div>
               <div style="max-width: 900px; margin: 2rem auto">
                 <canvas id="costPerformanceChart" width="900" height="600"></canvas>
               </div>
+              <div class="model-legend-wrapper">
+                <div id="modelLegend" class="model-legend"></div>
+              </div>
 
-              <h3 class="title is-4">Key Findings</h3>
-              <ul>
-                <li>
-                  <strong>Effectiveness:</strong> The task completion rates are mixed and strongly depend on the specific model/architecture combination. The RAG, MCP, and NLWeb agents often match or exceed the effectiveness of the HTML agent. 
-				  The completion rates for the basic task set are rather high, with the NLWeb agent achieving the best result (88%).
-				  For the advanced tasks, the completion rates remain below 50% for all model/architecture combinations. This shows that the agents can in principle also solve advanced tasks, but are still not relyable enough for practical deployment.
-                </li>
-				<li>
-                  <strong>Efficiency:</strong> The RAG, MCP, and NLWeb agents use 5-10 times less tokens than the HTML agent, translating to significantly lower costs.
-                </li>
-                <li>
-                  <strong>Runtime:</strong> RAG and MCP-based agents complete tasks faster due to direct data access without page navigation overhead.
-                </li>
-                <li>
-                  <strong>Viability:</strong> GPT-4.1 with RAG delivers low average cost per task (about $0.02 on basic tasks in our runs) with solid
-                  effectiveness (about 83% completion), making it a practical option for basic shopping tasks. For advanced tasks, effectiveness is
-                  mixed across interfaces and models, so selection should consider task complexity and cost trade-offs.
-                </li>
-
-              </ul>
             </div>
           </div>
         </div>
@@ -935,26 +937,15 @@ python benchmark_api_mcp.py      # API MCP interface</pre
             <h2 class="title is-3">6. Related Work</h2>
             <div class="content has-text-justified">
               <p>
-                The closest related work to our experiments is [<a href="#Song2025">Song 2025</a>], which uses tasks from the WebArena benchmark to
-                compare LLM agents that access websites via APIs with agents that browse HTML interfaces. The study concludes that API-based agents
-                are more effective than HTML agents, with hybrid agents achieving the best overall performance. A second relevant study is [<a
-                  href="#Zhang2025"
-                  >Zhang 2025</a
-                >], which compares API agents to GUI agents. This paper introduces a set of dimensions for comparing API and GUI agents and reports
-                the results of an experimental evaluation using 27 office-related tasks, involving Word, Excel, and PPT. Complementary to these, [<a
-                  href="#Lyu2025"
-                  >Lyu 2025</a
-                >] introduces <em>DeepShop</em>, a benchmark for shopping agents with complex, multi-attribute queries that require filters and
-                sorting; it finds that RAG struggles without web interaction and that agents face difficulties with filters/sorting, resulting in low
-                overall success rates. DeepShop evaluates on live e-commerce sites that change over time, so exact runs are less reproducible than the
-                controlled, repeatable experiments in this work.
-              </p>
-              <p>
-                A survey of agents for computer use, including Web agents, is presented by [<a href="#Sager2025">Sager 2025</a>]. [<a
-                  href="#Yehudai2025"
-                  >Yehudai 2025</a
-                >] surveys benchmarks used for evaluating LLM agents, while [<a href="#Petrova2025">Petrova 2025</a>] discusses LLM-based agents in
-                the context of the historical development of the Semantic Web and FIPA-based multi-agent systems.
+                We discuss related work on architectures that LLM agents use to interact with websites. [<a href="#Song2025">Song 2025</a>] compares
+                HTML browsing with direct API calling and shows that API agents achieve a 15% higher success rate on the WebArena benchmark [<a
+                  href="#Zhou2023"
+                  >Zhou 2023</a
+                >] than HTML agents when reliable APIs exist. [<a href="#Lyu2025">Lyu 2025</a>] studies shopping tasks and contrasts browsing-based
+                agents with RAG-based agents, reporting a ten-point F1 gain for RAG while noting declines for more complex comparison tasks. However,
+                DeepShop evaluates on the live Web, which limits reproducibility. These papers corroborate that the interface strongly affects agent
+                success but each compares at most two architectures. Our work extends this line of research by presenting the first controlled
+                comparison of four architectures—HTML, RAG, MCP, and NLWeb—on identical tasks in a reproducible environment.
               </p>
             </div>
           </div>
@@ -988,6 +979,11 @@ python benchmark_api_mcp.py      # API MCP interface</pre
               <p id="Song2025">
                 [Song 2025] Song, Yueqi, et al.:
                 <a href="https://arxiv.org/abs/2410.16464" target="_blank"> Beyond Browsing: API-Based Web Agents</a>. arXiv:2410.16464, 2025.
+              </p>
+              <p id="Zhou2023">
+                [Zhou 2023] Zhou, Shuyan, et al.:
+                <a href="https://arxiv.org/abs/2307.13854" target="_blank"> WebArena: A Realistic Web Environment for Building Autonomous Agents</a>.
+                arXiv:2307.13854, 2023.
               </p>
               <p id="Zhang2025">
                 [Zhang 2025] Zhang, Chaoyun, et al.:
@@ -1040,189 +1036,149 @@ python benchmark_api_mcp.py      # API MCP interface</pre
     <script>
       // Cost vs Effectiveness Scatter Plot
       let costPerfChart = null;
-
-      // Effectiveness data for different task categories - from actual CSV results
-      const performanceData = {
-        all: {
-          // Calculate all as weighted average: (basic * 48 + advanced * 43) / 91
-          "RAG_GPT-4.1": { cost: 0.03, performance: 64 },
-          "MCP_GPT-4.1": { cost: 0.07, performance: 49 },
-          "NLWeb_GPT-4.1": { cost: 0.075, performance: 52 },
-          "HTML_GPT-4.1": { cost: 0.345, performance: 56 },
-          "RAG_Claude 4 Sonnet": { cost: 0.2, performance: 67 },
-          "MCP_Claude 4 Sonnet": { cost: 0.75, performance: 63 },
-          "NLWeb_Claude 4 Sonnet": { cost: 0.16, performance: 68 },
-          "HTML_Claude 4 Sonnet": { cost: 1.155, performance: 61 },
-        },
-        basic: {
-          "RAG_GPT-4.1": { cost: 0.02, performance: 83 },
-          "MCP_GPT-4.1": { cost: 0.06, performance: 71 },
-          "NLWeb_GPT-4.1": { cost: 0.06, performance: 69 },
-          "HTML_GPT-4.1": { cost: 0.29, performance: 75 },
-          "RAG_Claude 4 Sonnet": { cost: 0.11, performance: 85 },
-          "MCP_Claude 4 Sonnet": { cost: 0.65, performance: 79 },
-          "NLWeb_Claude 4 Sonnet": { cost: 0.13, performance: 88 },
-          "HTML_Claude 4 Sonnet": { cost: 0.94, performance: 71 },
-        },
-        advanced: {
-          "RAG_GPT-4.1": { cost: 0.04, performance: 44 },
-          "MCP_GPT-4.1": { cost: 0.08, performance: 26 },
-          "NLWeb_GPT-4.1": { cost: 0.09, performance: 33 },
-          "HTML_GPT-4.1": { cost: 0.4, performance: 35 },
-          "RAG_Claude 4 Sonnet": { cost: 0.29, performance: 47 },
-          "MCP_Claude 4 Sonnet": { cost: 0.85, performance: 44 },
-          "NLWeb_Claude 4 Sonnet": { cost: 0.19, performance: 46 },
-          "HTML_Claude 4 Sonnet": { cost: 1.37, performance: 49 },
-        },
+      const MODEL_COLORS = {
+        "GPT-4.1": "#36A2EB",
+        "GPT-5": "#FF6384",
+        "GPT-5-mini": "#9966FF",
+        "Claude Sonnet 4": "#4BC0C0",
       };
 
-      function updateScatterChart(category, buttonElement) {
-        // Update button states
-        document.querySelectorAll(".buttons button").forEach((btn) => {
-          btn.classList.remove("is-primary", "is-selected");
-        });
+      async function loadInterfaceResults() {
+        try {
+          const response = await fetch("./tables/results_by_interface_and_model.html");
+          const html = await response.text();
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, "text/html");
+          const rows = Array.from(doc.querySelectorAll("tbody tr"));
 
-        // Handle button element
-        if (buttonElement) {
-          buttonElement.classList.add("is-primary", "is-selected");
-        } else {
-          // Initial load - select the All Tasks button
-          const allTasksButton = document.getElementById("btnAll");
-          if (allTasksButton) {
-            allTasksButton.classList.add("is-primary", "is-selected");
-          }
+          return rows
+            .map((row) => {
+              const cells = row.querySelectorAll("td");
+              if (cells.length < 9) {
+                return null;
+              }
+
+              const interfaceName = cells[0].textContent.trim();
+              const model = cells[1].textContent.trim();
+              const completionRate = parseFloat(cells[2].textContent.trim());
+              const cost = parseFloat(cells[8].textContent.replace(/[^0-9.]/g, ""));
+
+              if (isNaN(completionRate) || isNaN(cost)) {
+                return null;
+              }
+
+              return {
+                interfaceName,
+                model,
+                completionRate: completionRate * 100,
+                cost,
+              };
+            })
+            .filter(Boolean);
+        } catch (error) {
+          console.error("Failed to load interface results for chart:", error);
+          return [];
         }
+      }
 
-        const data = performanceData[category];
+      function buildCostEffectivenessDatasets(points) {
+        const interfaceShapes = {
+          "AX+MEM": "triangle",
+          "RAG Agent": "circle",
+          "API (MCP)": "rect",
+          NLWeb: "rectRot",
+        };
+        const defaultShape = "circle";
+        const defaultColor = "#888888";
+        const interfaceLegendColor = "#6b7280";
+
+        const grouped = points.reduce((acc, point) => {
+          if (!acc[point.interfaceName]) {
+            acc[point.interfaceName] = [];
+          }
+
+          acc[point.interfaceName].push({
+            x: point.cost,
+            y: point.completionRate,
+            model: point.model,
+            color: MODEL_COLORS[point.model] || defaultColor,
+          });
+          return acc;
+        }, {});
+
+        return Object.entries(grouped).map(([interfaceName, dataPoints]) => {
+          const shape = interfaceShapes[interfaceName] || defaultShape;
+          const colors = dataPoints.map((point) => point.color);
+
+          return {
+            label: interfaceName,
+            data: dataPoints.map((point) => ({
+              x: point.x,
+              y: point.y,
+              model: point.model,
+            })),
+            backgroundColor: interfaceLegendColor,
+            borderColor: interfaceLegendColor,
+            pointBackgroundColor: colors,
+            pointBorderColor: colors,
+            pointHoverBackgroundColor: colors,
+            pointHoverBorderColor: colors,
+            pointStyle: shape,
+            pointRadius: 10,
+            pointHoverRadius: 12,
+          };
+        });
+      }
+
+      function renderModelLegend() {
+        const container = document.getElementById("modelLegend");
+        if (!container) return;
+        container.innerHTML = "";
+
+        Object.entries(MODEL_COLORS).forEach(([model, color]) => {
+          const item = document.createElement("div");
+          item.className = "model-legend-item";
+
+          const swatch = document.createElement("span");
+          swatch.className = "model-legend-swatch";
+          swatch.style.backgroundColor = color;
+
+          const label = document.createElement("span");
+          label.textContent = model;
+
+          item.appendChild(swatch);
+          item.appendChild(label);
+          container.appendChild(item);
+        });
+      }
+
+      async function renderCostEffectivenessChart() {
         const ctx = document.getElementById("costPerformanceChart");
+        if (!ctx) return;
+
+        const points = await loadInterfaceResults();
+        if (!points.length) {
+          console.warn("No datapoints available for cost-effectiveness chart.");
+          return;
+        }
 
         if (costPerfChart) {
           costPerfChart.destroy();
         }
 
-        // Define different point styles for models
-        const pointStyles = {
-          "GPT-4.1": "circle",
-          "Claude 4 Sonnet": "rect",
-        };
+        const datasets = buildCostEffectivenessDatasets(points);
+        const completionValues = points.map((p) => p.completionRate);
+        const costValues = points.map((p) => p.cost);
+
+        const yMin = Math.max(0, Math.floor(Math.min(...completionValues) / 5) * 5 - 5);
+        const yMax = Math.min(100, Math.ceil(Math.max(...completionValues) / 5) * 5 + 5);
+        const xMin = Math.max(0.01, Math.min(...costValues) * 0.7);
+        const xMax = Math.max(2, Math.max(...costValues) * 1.3);
 
         costPerfChart = new Chart(ctx, {
           type: "scatter",
           data: {
-            datasets: [
-              {
-                label: "RAG (GPT-4.1)",
-                data: [
-                  {
-                    x: data["RAG_GPT-4.1"].cost,
-                    y: data["RAG_GPT-4.1"].performance,
-                  },
-                ],
-                backgroundColor: "#FF6384",
-                borderColor: "#FF6384",
-                pointStyle: "circle",
-                pointRadius: 10,
-                pointHoverRadius: 12,
-              },
-              {
-                label: "RAG (Claude 4)",
-                data: [
-                  {
-                    x: data["RAG_Claude 4 Sonnet"].cost,
-                    y: data["RAG_Claude 4 Sonnet"].performance,
-                  },
-                ],
-                backgroundColor: "#FF6384",
-                borderColor: "#FF6384",
-                pointStyle: "rect",
-                pointRadius: 10,
-                pointHoverRadius: 12,
-              },
-              {
-                label: "MCP (GPT-4.1)",
-                data: [
-                  {
-                    x: data["MCP_GPT-4.1"].cost,
-                    y: data["MCP_GPT-4.1"].performance,
-                  },
-                ],
-                backgroundColor: "#36A2EB",
-                borderColor: "#36A2EB",
-                pointStyle: "circle",
-                pointRadius: 10,
-                pointHoverRadius: 12,
-              },
-              {
-                label: "MCP (Claude 4)",
-                data: [
-                  {
-                    x: data["MCP_Claude 4 Sonnet"].cost,
-                    y: data["MCP_Claude 4 Sonnet"].performance,
-                  },
-                ],
-                backgroundColor: "#36A2EB",
-                borderColor: "#36A2EB",
-                pointStyle: "rect",
-                pointRadius: 10,
-                pointHoverRadius: 12,
-              },
-              {
-                label: "NLWeb (GPT-4.1)",
-                data: [
-                  {
-                    x: data["NLWeb_GPT-4.1"].cost,
-                    y: data["NLWeb_GPT-4.1"].performance,
-                  },
-                ],
-                backgroundColor: "#4BC0C0",
-                borderColor: "#4BC0C0",
-                pointStyle: "circle",
-                pointRadius: 10,
-                pointHoverRadius: 12,
-              },
-              {
-                label: "NLWeb (Claude 4)",
-                data: [
-                  {
-                    x: data["NLWeb_Claude 4 Sonnet"].cost,
-                    y: data["NLWeb_Claude 4 Sonnet"].performance,
-                  },
-                ],
-                backgroundColor: "#4BC0C0",
-                borderColor: "#4BC0C0",
-                pointStyle: "rect",
-                pointRadius: 10,
-                pointHoverRadius: 12,
-              },
-              {
-                label: "HTML (GPT-4.1)",
-                data: [
-                  {
-                    x: data["HTML_GPT-4.1"].cost,
-                    y: data["HTML_GPT-4.1"].performance,
-                  },
-                ],
-                backgroundColor: "#FFCE56",
-                borderColor: "#FFCE56",
-                pointStyle: "circle",
-                pointRadius: 10,
-                pointHoverRadius: 12,
-              },
-              {
-                label: "HTML (Claude 4)",
-                data: [
-                  {
-                    x: data["HTML_Claude 4 Sonnet"].cost,
-                    y: data["HTML_Claude 4 Sonnet"].performance,
-                  },
-                ],
-                backgroundColor: "#FFCE56",
-                borderColor: "#FFCE56",
-                pointStyle: "rect",
-                pointRadius: 10,
-                pointHoverRadius: 12,
-              },
-            ],
+            datasets,
           },
           options: {
             responsive: true,
@@ -1230,7 +1186,7 @@ python benchmark_api_mcp.py      # API MCP interface</pre
             plugins: {
               title: {
                 display: true,
-                text: `Cost vs Effectiveness: ${category.charAt(0).toUpperCase() + category.slice(1)} Tasks`,
+                text: "Cost vs Effectiveness: All Interfaces & Models",
                 font: {
                   size: 18,
                 },
@@ -1243,12 +1199,24 @@ python benchmark_api_mcp.py      # API MCP interface</pre
                   },
                   usePointStyle: true,
                   padding: 15,
+                  generateLabels: function (chart) {
+                    const labels = Chart.defaults.plugins.legend.labels.generateLabels(chart);
+                    return labels.map((label) => ({
+                      ...label,
+                      fillStyle: "#6b7280",
+                      strokeStyle: "#6b7280",
+                    }));
+                  },
                 },
               },
               tooltip: {
                 callbacks: {
+                  title: function (items) {
+                    const item = items[0];
+                    return `${item.dataset.label} · ${item.raw.model}`;
+                  },
                   label: function (context) {
-                    return [`Cost: $${context.parsed.x.toFixed(4)} per task`, `Completion Rate: ${context.parsed.y.toFixed(1)}%`];
+                    return [`Cost: $${context.parsed.x.toFixed(2)} per task`, `Completion Rate: ${context.parsed.y.toFixed(1)}%`];
                   },
                 },
               },
@@ -1264,12 +1232,12 @@ python benchmark_api_mcp.py      # API MCP interface</pre
                     size: 14,
                   },
                 },
-                min: 0.01,
-                max: 2,
+                min: xMin,
+                max: xMax,
                 ticks: {
                   callback: function (value) {
                     if ([0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2].includes(value)) {
-                      return "$" + value.toFixed(2);
+                      return "$" + Number(value).toFixed(2);
                     }
                     return "";
                   },
@@ -1283,8 +1251,8 @@ python benchmark_api_mcp.py      # API MCP interface</pre
                     size: 14,
                   },
                 },
-                min: category === "basic" ? 65 : category === "advanced" ? 20 : 45,
-                max: category === "basic" ? 90 : category === "advanced" ? 55 : 70,
+                min: yMin,
+                max: yMax,
                 ticks: {
                   callback: function (value) {
                     return value + "%";
@@ -1295,11 +1263,11 @@ python benchmark_api_mcp.py      # API MCP interface</pre
             },
           },
         });
+
+        renderModelLegend();
       }
 
-      document.addEventListener("DOMContentLoaded", function () {
-        updateScatterChart("all");
-      });
+      document.addEventListener("DOMContentLoaded", renderCostEffectivenessChart);
     </script>
   </body>
 </html>

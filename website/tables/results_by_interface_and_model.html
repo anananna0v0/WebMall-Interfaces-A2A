@@ -1,0 +1,210 @@
+<table class="table is-hoverable is-fullwidth model-comparison-table">
+  <thead>
+    <tr>
+      <th>Interface</th>
+      <th>Model</th>
+      <th>Task Completion Rate</th>
+      <th>Precision</th>
+      <th>Recall</th>
+      <th>F1 Score</th>
+      <th>Prompt Tokens</th>
+      <th>Completion Tokens</th>
+      <th>Cost</th>
+      <th>Execution Time (s)</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>AX+MEM</td>
+      <td>GPT-4.1</td>
+      <td>0.55</td>
+      <td>0.74</td>
+      <td>0.66</td>
+      <td>0.68</td>
+      <td>142,838</td>
+      <td>3,923</td>
+      <td>$0.32</td>
+      <td>92</td>
+    </tr>
+    <tr>
+      <td>AX+MEM</td>
+      <td><strong>GPT-5</strong></td>
+      <td>0.69</td>
+      <td>0.78</td>
+      <td>0.76</td>
+      <td>0.76</td>
+      <td>232,594</td>
+      <td>21,165</td>
+      <td>$0.50</td>
+      <td>522</td>
+    </tr>
+    <tr>
+      <td>AX+MEM</td>
+      <td>GPT-5-mini</td>
+      <td>0.49</td>
+      <td>0.70</td>
+      <td>0.62</td>
+      <td>0.64</td>
+      <td>201,447</td>
+      <td>14,437</td>
+      <td>$0.08</td>
+      <td>211</td>
+    </tr>
+    <tr>
+      <td>AX+MEM</td>
+      <td>Claude Sonnet 4</td>
+      <td>0.59</td>
+      <td>0.70</td>
+      <td>0.66</td>
+      <td>0.66</td>
+      <td>267,760</td>
+      <td>16,196</td>
+      <td>$1.05</td>
+      <td>299</td>
+    </tr>
+    <tr class="interface-group-start">
+      <td>RAG Agent</td>
+      <td>GPT-4.1</td>
+      <td>0.61</td>
+      <td>0.74</td>
+      <td>0.77</td>
+      <td>0.75</td>
+      <td>14,030</td>
+      <td>448</td>
+      <td>$0.03</td>
+      <td>8</td>
+    </tr>
+    <tr>
+      <td>RAG Agent</td>
+      <td><strong>GPT-5</strong></td>
+      <td><strong>0.79</strong></td>
+      <td><strong>0.87</strong></td>
+      <td><strong>0.90</strong></td>
+      <td><strong>0.87</strong></td>
+      <td><strong>73,622</strong></td>
+      <td><strong>5,520</strong></td>
+      <td><strong>$0.15</strong></td>
+      <td><strong>114</strong></td>
+    </tr>
+    <tr>
+      <td>RAG Agent</td>
+      <td>GPT-5-mini</td>
+      <td>0.65</td>
+      <td>0.74</td>
+      <td>0.77</td>
+      <td>0.75</td>
+      <td>33,852</td>
+      <td>2,400</td>
+      <td>$0.01</td>
+      <td>51</td>
+    </tr>
+    <tr>
+      <td>RAG Agent</td>
+      <td>Claude Sonnet 4</td>
+      <td>0.64</td>
+      <td>0.68</td>
+      <td>0.69</td>
+      <td>0.68</td>
+      <td>57,338</td>
+      <td>1,547</td>
+      <td>$0.20</td>
+      <td>32</td>
+    </tr>
+    <tr class="interface-group-start">
+      <td>API (MCP)</td>
+      <td>GPT-4.1</td>
+      <td>0.49</td>
+      <td>0.66</td>
+      <td>0.81</td>
+      <td>0.69</td>
+      <td>29,541</td>
+      <td>422</td>
+      <td>$0.06</td>
+      <td>11</td>
+    </tr>
+    <tr>
+      <td>API (MCP)</td>
+      <td><strong>GPT-5</strong></td>
+      <td>0.73</td>
+      <td>0.81</td>
+      <td>0.83</td>
+      <td>0.82</td>
+      <td>116,405</td>
+      <td>3,436</td>
+      <td>$0.18</td>
+      <td>94</td>
+    </tr>
+    <tr>
+      <td>API (MCP)</td>
+      <td>GPT-5-mini</td>
+      <td>0.63</td>
+      <td>0.74</td>
+      <td>0.81</td>
+      <td>0.76</td>
+      <td>101,629</td>
+      <td>2,690</td>
+      <td>$0.03</td>
+      <td>80</td>
+    </tr>
+    <tr>
+      <td>API (MCP)</td>
+      <td>Claude Sonnet 4</td>
+      <td>0.61</td>
+      <td>0.72</td>
+      <td>0.79</td>
+      <td>0.73</td>
+      <td>231,264</td>
+      <td>1,110</td>
+      <td>$0.71</td>
+      <td>44</td>
+    </tr>
+    <tr class="interface-group-start">
+      <td>NLWeb</td>
+      <td>GPT-4.1</td>
+      <td>0.48</td>
+      <td>0.64</td>
+      <td>0.75</td>
+      <td>0.67</td>
+      <td>28,496</td>
+      <td>381</td>
+      <td>$0.06</td>
+      <td>14</td>
+    </tr>
+    <tr>
+      <td>NLWeb</td>
+      <td><strong>GPT-5</strong></td>
+      <td>0.73</td>
+      <td>0.85</td>
+      <td>0.85</td>
+      <td>0.84</td>
+      <td>54,382</td>
+      <td>2,540</td>
+      <td>$0.09</td>
+      <td>59</td>
+    </tr>
+    <tr>
+      <td>NLWeb</td>
+      <td>GPT-5-mini</td>
+      <td>0.65</td>
+      <td>0.77</td>
+      <td>0.82</td>
+      <td>0.78</td>
+      <td>93,436</td>
+      <td>5,013</td>
+      <td>$0.03</td>
+      <td>102</td>
+    </tr>
+    <tr>
+      <td>NLWeb</td>
+      <td>Claude Sonnet 4</td>
+      <td>0.66</td>
+      <td>0.74</td>
+      <td>0.81</td>
+      <td>0.76</td>
+      <td>45,659</td>
+      <td>756</td>
+      <td>$0.15</td>
+      <td>20</td>
+    </tr>
+  </tbody>
+</table>
