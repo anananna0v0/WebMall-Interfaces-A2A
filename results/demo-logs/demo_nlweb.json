@@ -1,0 +1,182 @@
+{
+    "task_id": "Webmall_Single_Product_Search_Task2",
+    "task": "Find all offers for the Canon EOS R5 Mark II.",
+    "correct_urls": [
+        "https://webmall-1.informatik.uni-mannheim.de/product/eos-r5-mark-ii-body/",
+        "https://webmall-2.informatik.uni-mannheim.de/product/canon-eos-r5-ii/",
+        "https://webmall-3.informatik.uni-mannheim.de/product/canon-eos-r5-mark-ii-full-frame-sans-miroir-camera/",
+        "https://webmall-4.informatik.uni-mannheim.de/product/canon-eos-r5-mark-ii-mirrorless-digital-camera-body-only/"
+    ],
+    "metrics": {
+        "task_completion_rate": 1,
+        "avg_precision": 1.0,
+        "avg_recall": 1.0,
+        "f1_score": 1.0
+    },
+    "tool_calls": [
+        {
+            "tool_name": "ask_webmall_1",
+            "mcp_server": "WebMall-1 (E-Store Athletes)",
+            "tool_arguments": {
+                "question": "Canon EOS R5 Mark II",
+                "top_k": 10
+            },
+            "tool_output": {
+                "url": "https://webmall-1.informatik.uni-mannheim.de/product/eos-r5-mark-ii-body/",
+                "name": "EOS R5 Mark II Body",
+                "site": "WebMall-1",
+                "siteUrl": "WebMall-1",
+                "score": 92,
+                "schema_object": {
+                    "@context": "https://schema.org/",
+                    "@type": "Product",
+                    "name": "EOS R5 Mark II Body",
+                    "image": [
+                        "https://webmall-1.informatik.uni-mannheim.de/wp-content/uploads/2025/05/3119.jpg"
+                    ],
+                    "description": "<p>The EOS R5 Mark II is a worthy successor to the incredibly versatile EOS R5 bringing with it a host of new features that make this the most powerful EOS 5 series camera ever made.  It starts with a brand-new 45MP sensor that is stacked and back illuminated for blazingly fast read-out speeds that allow for a 30 fps electronic shutter, then builds on that with major focus improvements, increased video capabilities, and so much more.</p>",
+                    "category": "Canon",
+                    "offers": {
+                        "@type": "Offer",
+                        "url": "https://webmall-1.informatik.uni-mannheim.de/product/eos-r5-mark-ii-body/",
+                        "priceCurrency": "EUR",
+                        "price": "1500.0",
+                        "priceValidUntil": "",
+                        "availability": "https://schema.org/InStock",
+                        "itemCondition": "https://schema.org/NewCondition"
+                    },
+                    "url": "https://webmall-1.informatik.uni-mannheim.de/product/eos-r5-mark-ii-body/",
+                    "identifier": {
+                        "@type": "PropertyValue",
+                        "name": "WooCommerce ID",
+                        "value": "1963"
+                    }
+                },
+                "ranking_type": "SEMANTIC_SEARCH"
+            }
+        },
+        {
+            "tool_name": "ask_webmall_2",
+            "mcp_server": "WebMall-2 (TechTalk)",
+            "tool_arguments": {
+                "question": "Canon EOS R5 Mark II",
+                "top_k": 10
+            },
+            "tool_output": {
+                "url": "https://webmall-2.informatik.uni-mannheim.de/product/canon-eos-r5-ii/",
+                "name": "Canon EOS R5 II",
+                "site": "WebMall-2",
+                "siteUrl": "WebMall-2",
+                "score": 88,
+                "schema_object": {
+                    "@context": "https://schema.org/",
+                    "@type": "Product",
+                    "name": "Canon EOS R5 II",
+                    "image": [
+                        "https://webmall-2.informatik.uni-mannheim.de/wp-content/uploads/2025/05/3120-scaled.jpg"
+                    ],
+                    "description": "<p>New Itemrnrn45MP Full-Frame Stacked BSI CMOS SensorrnDIGIC Accelerator ProcessingrnDual Pixel Intelligent AF, Eye Controlrn8K 60 Raw/4K 60 SRAW/4K 120 10-Bit VideornUp to 30 fps, Pre-Continuous Shoot Modern5.76m-Dot EVF with OVF Sim. View Assistrn3.2\" Vari-Angle Touchscreen LCDrnIn-Camera Upscaling to 179MPrnCFexpress &amp;amp; SD UHS-II Memory Card Slots&amp;lt;br /&amp;gt;Wi-Fi 6E/Wi-Fi 6 Support&amp;lt;/p&amp;gt;</p>",
+                    "category": "Cameras",
+                    "offers": {
+                        "@type": "Offer",
+                        "url": "https://webmall-2.informatik.uni-mannheim.de/product/canon-eos-r5-ii/",
+                        "priceCurrency": "EUR",
+                        "price": "1544.54",
+                        "priceValidUntil": "",
+                        "availability": "https://schema.org/InStock",
+                        "itemCondition": "https://schema.org/NewCondition"
+                    },
+                    "url": "https://webmall-2.informatik.uni-mannheim.de/product/canon-eos-r5-ii/",
+                    "identifier": {
+                        "@type": "PropertyValue",
+                        "name": "WooCommerce ID",
+                        "value": "3526"
+                    }
+                },
+                "ranking_type": "SEMANTIC_SEARCH"
+            }
+        },
+        {
+            "tool_name": "ask_webmall_3",
+            "mcp_server": "WebMall-3 (CamelCases)",
+            "tool_arguments": {
+                "question": "Canon EOS R5 Mark II",
+                "top_k": 10
+            },
+            "tool_output": {
+                "url": "https://webmall-3.informatik.uni-mannheim.de/product/canon-eos-r5-mark-ii-full-frame-sans-miroir-camera/",
+                "name": "Canon EOS R5 Mark II Full Frame sans miroir cam\u00e9ra",
+                "site": "WebMall-3",
+                "siteUrl": "WebMall-3",
+                "score": 89,
+                "schema_object": {
+                    "@context": "https://schema.org/",
+                    "@type": "Product",
+                    "name": "Canon EOS R5 Mark II Full Frame sans miroir cam\u00e9ra",
+                    "image": [
+                        "https://webmall-3.informatik.uni-mannheim.de/wp-content/uploads/2025/05/3121.jpg"
+                    ],
+                    "description": "<p>Discover the Canon R5 Mark II Full Frame Mirrorless Camera, featuring exceptional image quality, advanced autofocus, and 8K video capabilities. Perfect for professionals and enthusiasts. Preorder now to get a free Canon jacket and save up to $2,000 on lenses!</p>",
+                    "category": "Visual Art",
+                    "offers": {
+                        "@type": "Offer",
+                        "url": "https://webmall-3.informatik.uni-mannheim.de/product/canon-eos-r5-mark-ii-full-frame-sans-miroir-camera/",
+                        "priceCurrency": "EUR",
+                        "price": "1544.2",
+                        "priceValidUntil": "",
+                        "availability": "https://schema.org/InStock",
+                        "itemCondition": "https://schema.org/NewCondition"
+                    },
+                    "url": "https://webmall-3.informatik.uni-mannheim.de/product/canon-eos-r5-mark-ii-full-frame-sans-miroir-camera/",
+                    "identifier": {
+                        "@type": "PropertyValue",
+                        "name": "WooCommerce ID",
+                        "value": "1203"
+                    }
+                },
+                "ranking_type": "SEMANTIC_SEARCH"
+            }
+        },
+        {
+            "tool_name": "ask_webmall_4",
+            "mcp_server": "WebMall-4 (Hardware Cafe)",
+            "tool_arguments": {
+                "question": "Canon EOS R5 Mark II",
+                "top_k": 10
+            },
+            "tool_output": {
+                "url": "https://webmall-4.informatik.uni-mannheim.de/product/canon-eos-r5-mark-ii-mirrorless-digital-camera-body-only/",
+                "name": "Canon EOS R5 Mark II Mirrorless Digital Camera, Body Only",
+                "site": "WebMall-4",
+                "siteUrl": "WebMall-4",
+                "score": 92,
+                "schema_object": {
+                    "@context": "https://schema.org/",
+                    "@type": "Product",
+                    "name": "Canon EOS R5 Mark II Mirrorless Digital Camera, Body Only",
+                    "image": [
+                        "https://webmall-4.informatik.uni-mannheim.de/wp-content/uploads/2025/05/3128.jpg"
+                    ],
+                    "description": "<p>The EOS R5 Mark II is a worthy successor to the incredibly versatile EOS R5 bringing a host of\u00a0new features that make this the most powerful EOS 5 series camera ever. It starts with a brand-new 45MP sensor that is back illuminated and stacked for blazingly fast read-out speeds that\u00a0allow for a 30 fps electronic shutter, then builds on that with major focus improvements,\u00a0increased video capabilities, and so much more.nDIGIC AcceleratorThe DIGIC Accelerator chip is a completely new front-end processor developed by Canon to\u00a0supplement the power of the proven DIGIC X processor. The DIGIC Accelerator handles the\u00a0processing that makes so many of the new features of this camera possible, allowing the DIGIC\u00a0X chip to focus solely on image processing, again contributing to incredible speed. The DIGIC\u00a0Accelerator processes large volumes of data directly from the image sensor for actions like AF\u00a0detection to exposure metering calculations that enable eye-control focus, subject identification\u00a0and tracking, and even deep learning with features like neural upscaling and noise reduction.nTotally new SensorEven though the pixel count is the same as the EOS R5, this is a completely new 45MP sensor\u00a0design. This new full-frame sensor is stacked and back-illuminated allowing for incredible\u00a0electronic shutter performance of 30 fps RAW or full-resolution JPEG still images. Sensor read-out speeds are dramatically increased, significantly reducing rolling shutter distortion. Pre-continuous shooting is now possible in electronic shutter mode, when the shutter is pressed\u00a0halfway the camera begins capturing images, and when fully pressed, the previous \u00bd-second of\u00a0images are written to the memory card.nTime to focusAutofocus has been significantly updated on the EOS R5 Mark II with features like subject\u00a0tracking which it shares with the new flagship EOS R1. Subject tracking allows you to maintain\u00a0focus on a subject even when they are obscured briefly while shooting. And, for even faster\u00a0positioning of your active AF Area, the R5 Mark II adds Canon\u2019s EyenControl AF - even more advanced than the Eye Control in the EOS R3 camera. Once you calibrate the viewfinder to your eye, just look where you want to focus, and the AF Area will move there when you press the AF\u00a0activation button.nAction priorityThanks again to the increased camera processing power of the DIGIC Accelerator chip, we have\u00a0developed a new AF mode called Action priority. This new focusing technology selects subjects\u00a0according to movement and other factors so you always get a great action shot! This feature\u00a0works with three sports at the moment, soccer, volleyball, and basketball. With Action priority\u00a0the camera can recognize and track specific people, and takes into account ball tracking,\u00a0movement tracking, eye-control AF and more to help ensure you get the action shot you want\u00a0when everything is moving so fast.nGet CinematicWith its 45MP sensor, 8K video up to 60 frames per second can be recorded internally, to the\u00a0camera\u2019s CFexpress card (sold separately). A new menu now includes Cinema EOSterminology, making it even easier for users to access and understand the video\u00a0features of this camera, and be easily integrated into video\u00a0productions where Cinema EOS cameras may be used like the EOS C70\u00a0or EOS C400.\u00a0RAW video can be recorded at 8K resolution, and there\u2019s now an S-RAW setting for 4K RAW\u00a0video recording. RAW video is now 14-bit recording, for even greater range of tonalities. For\u00a0users who don\u2019t need RAW video, MP4-type video can be recorded in a multitude of possible file\u00a0types and resolutions, from Full HD (at up to 240 frames per second), 4K at up to 120 framesper second with sound and 8K. Any of the \u201cFine\u201d options record oversampled video, for even greater sharpness and detail. Canon Log 2 and C-Log 3 are available. And, the R5 Mark II adds features like a full-size HDMI port on the camera, Waveform monitors, and up to 24-bit, 4-channel audio recording.n</p>",
+                    "category": "EOS R5 Mark II",
+                    "offers": {
+                        "@type": "Offer",
+                        "url": "https://webmall-4.informatik.uni-mannheim.de/product/canon-eos-r5-mark-ii-mirrorless-digital-camera-body-only/",
+                        "priceCurrency": "EUR",
+                        "price": "1399.0",
+                        "priceValidUntil": "",
+                        "availability": "https://schema.org/InStock",
+                        "itemCondition": "https://schema.org/NewCondition"
+                    },
+                    "url": "https://webmall-4.informatik.uni-mannheim.de/product/canon-eos-r5-mark-ii-mirrorless-digital-camera-body-only/",
+                    "identifier": {
+                        "@type": "PropertyValue",
+                        "name": "WooCommerce ID",
+                        "value": "1437"
+                    }
+                },
+                "ranking_type": "SEMANTIC_SEARCH"
+            }
+        }
+    ]
+}
