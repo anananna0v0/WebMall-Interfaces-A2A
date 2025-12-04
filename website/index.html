@@ -514,7 +514,7 @@
               </p>
 
               <h4 class="title is-5">Example: RAG Interface</h4>
-              <p>The following example shows how the RAG agent queries for a Canon camera and what the search engine returns:</p>
+              <p>The following example shows how the RAG agent queries for a Canon camera. The tool response contains multiple product descriptions in this format. Below we show one example to illustrate the response structure:</p>
 
               <div class="interface-example">
                 <div class="interface-example-header">RAG Search Example</div>
@@ -525,7 +525,7 @@
   <span class="json-key">"query"</span>: <span class="json-string">"Canon EOS R5 Mark II"</span>,
   <span class="json-key">"results"</span>: <span class="json-number">15</span>
 }</pre>
-                  <div class="example-label" style="margin-top: 1rem;">Tool Response</div>
+                  <div class="example-label" style="margin-top: 1rem;">Product Description from Tool Response</div>
                   <pre><span class="json-key">"title"</span>: <span class="json-string">"Canon EOS R5 Mark II Mirrorless Digital Camera Body Only"</span>,
 <span class="json-key">"url"</span>: <span class="json-string">"https://webmall-4.de/product/canon-eos-r5-mark-ii-mirrorless-digital-camera-body-only/"</span>,
 <span class="json-key">"description"</span>: <span class="json-string">"Free Shipping on Orders Over $50! Limited Time Offer – Shop Now!
@@ -640,7 +640,7 @@ async def find_items_techtalk(
               </p>
 
               <h4 class="title is-5">Example: MCP Interface Comparison</h4>
-              <p>The following side-by-side comparison shows how two different shops return data for the same product query. Note the different parameter names, response structures, and attribute naming conventions:</p>
+              <p>The following side-by-side comparison shows how two different shops return data for the same product query. Each tool response contains multiple product descriptions. Below we show one example per shop to illustrate the structural differences. Note the different parameter names, response structures, and attribute naming conventions:</p>
 
               <div class="side-by-side-examples">
                 <div class="interface-example">
@@ -653,7 +653,7 @@ async def find_items_techtalk(
   <span class="json-key">"page"</span>: <span class="json-number">1</span>,
   <span class="json-key">"include_descriptions"</span>: <span class="json-number">true</span>
 }</pre>
-                    <div class="example-label" style="margin-top: 1rem;">Tool Response</div>
+                    <div class="example-label" style="margin-top: 1rem;">Product Description from Tool Response</div>
                     <pre>{
   <span class="json-key">"ID"</span>: <span class="json-string">"1963"</span>,
   <span class="json-key">"label"</span>: <span class="json-string">"EOS R5 Mark II Body"</span>,
@@ -692,7 +692,7 @@ async def find_items_techtalk(
   <span class="json-key">"sort_by_price"</span>: <span class="json-string">"none"</span>,
   <span class="json-key">"include_descriptions"</span>: <span class="json-number">true</span>
 }</pre>
-                    <div class="example-label" style="margin-top: 1rem;">Tool Response</div>
+                    <div class="example-label" style="margin-top: 1rem;">Product Description from Tool Response</div>
                     <pre>{
   <span class="json-key">"catalog_entry_id"</span>: <span class="json-string">"3526"</span>,
   <span class="json-key">"merchandise_title"</span>: <span class="json-string">"Canon EOS R5 II"</span>,
@@ -770,7 +770,7 @@ async def find_items_techtalk(
                 <li><strong>Standardized Response:</strong> The agent receives a list of products in the standardized schema.org JSON format.</li>
               </ol>
               <h4 class="title is-5">Example: NLWeb Interface Comparison</h4>
-              <p>The following side-by-side comparison shows how two different shops return data for the same product query using NLWeb. Unlike MCP, both shops return data in the standardized schema.org format, making cross-shop comparisons more straightforward:</p>
+              <p>The following side-by-side comparison shows how two different shops return data for the same product query using NLWeb. Each tool response contains multiple product descriptions. Below we show one example per shop. Unlike MCP, both shops return data in the standardized schema.org format, making cross-shop comparisons more straightforward:</p>
 
               <div class="side-by-side-examples">
                 <div class="interface-example">
@@ -782,7 +782,7 @@ async def find_items_techtalk(
   <span class="json-key">"query"</span>: <span class="json-string">"Canon EOS R5 Mark II"</span>,
   <span class="json-key">"top_k"</span>: <span class="json-number">10</span>
 }</pre>
-                    <div class="example-label" style="margin-top: 1rem;">Tool Response</div>
+                    <div class="example-label" style="margin-top: 1rem;">Product Description from Tool Response</div>
                     <pre>{
   <span class="json-key">"@context"</span>: <span class="json-string">"https://schema.org/"</span>,
   <span class="json-key">"@type"</span>: <span class="json-string">"Product"</span>,
@@ -817,7 +817,7 @@ async def find_items_techtalk(
   <span class="json-key">"query"</span>: <span class="json-string">"Canon EOS R5 Mark II"</span>,
   <span class="json-key">"top_k"</span>: <span class="json-number">10</span>
 }</pre>
-                    <div class="example-label" style="margin-top: 1rem;">Tool Response</div>
+                    <div class="example-label" style="margin-top: 1rem;">Product Description from Tool Response</div>
                     <pre>{
   <span class="json-key">"@context"</span>: <span class="json-string">"https://schema.org/"</span>,
   <span class="json-key">"@type"</span>: <span class="json-string">"Product"</span>,
