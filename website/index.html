@@ -161,6 +161,92 @@
         max-width: 900px;
         margin: 0 auto 2rem;
       }
+
+      /* Interface example styles */
+      .interface-example {
+        margin: 1.5rem 0;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      .interface-example-header {
+        background: #f3f4f6;
+        color: #374151;
+        padding: 0.75rem 1rem;
+        font-weight: 600;
+        font-size: 0.9rem;
+        border-bottom: 1px solid #e5e7eb;
+      }
+
+      .interface-example-content {
+        background: #1e1e1e;
+        padding: 1rem;
+        overflow-x: auto;
+      }
+
+      .interface-example pre {
+        margin: 0;
+        color: #d4d4d4;
+        font-family: "Monaco", "Menlo", "Ubuntu Mono", monospace;
+        font-size: 0.8rem;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+      }
+
+      .interface-example .json-key {
+        color: #5cb3ff;
+      }
+
+      .interface-example .json-string {
+        color: #ff8c69;
+      }
+
+      .interface-example .json-number {
+        color: #50c878;
+      }
+
+      .interface-example .comment {
+        color: #50c878;
+      }
+
+      .side-by-side-examples {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin: 1.5rem 0;
+      }
+
+      @media (max-width: 768px) {
+        .side-by-side-examples {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .side-by-side-examples .interface-example {
+        margin: 0;
+      }
+
+      .example-label {
+        background: #374151;
+        color: #9ca3af;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 0.5rem;
+        display: inline-block;
+        border-radius: 4px;
+      }
+
+      .interface-example-header.server-1 {
+        background: #f3f4f6;
+      }
+
+      .interface-example-header.server-2 {
+        background: #f3f4f6;
+      }
     </style>
 
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
@@ -237,6 +323,14 @@
               </div>
               <div class="column has-text-centered">
                 <div class="publication-links">
+                  <span class="link-block">
+                    <a href="https://arxiv.org/abs/2511.23281" class="external-link button is-normal is-rounded is-dark">
+                      <span class="icon">
+                        <i class="ai ai-arxiv"></i>
+                      </span>
+                      <span>Technical Report</span>
+                    </a>
+                  </span>
                   <span class="link-block">
                     <a href="https://github.com/wbsg-uni-mannheim/WebMall-Interfaces" class="external-link button is-normal is-rounded is-dark">
                       <span class="icon">
@@ -419,6 +513,47 @@
                 <code>get_product_details</code> for detailed attributes, minimizing token usage.
               </p>
 
+              <h4 class="title is-5">Example: RAG Interface</h4>
+              <p>The following example shows how the RAG agent queries for a Canon camera and what the search engine returns:</p>
+
+              <div class="interface-example">
+                <div class="interface-example-header">RAG Search Example</div>
+                <div class="interface-example-content">
+                  <div class="example-label">Agent Query</div>
+                  <pre><span class="json-key">"tool_name"</span>: <span class="json-string">"search_products"</span>,
+<span class="json-key">"tool_args"</span>: {
+  <span class="json-key">"query"</span>: <span class="json-string">"Canon EOS R5 Mark II"</span>,
+  <span class="json-key">"results"</span>: <span class="json-number">15</span>
+}</pre>
+                  <div class="example-label" style="margin-top: 1rem;">Tool Response</div>
+                  <pre><span class="json-key">"title"</span>: <span class="json-string">"Canon EOS R5 Mark II Mirrorless Digital Camera Body Only"</span>,
+<span class="json-key">"url"</span>: <span class="json-string">"https://webmall-4.de/product/canon-eos-r5-mark-ii-mirrorless-digital-camera-body-only/"</span>,
+<span class="json-key">"description"</span>: <span class="json-string">"Free Shipping on Orders Over $50! Limited Time Offer – Shop Now!
+Hardware Cafe
+
+Your cart is currently empty!
+Support:
++1 (129) 366-8351
+hardware@cafe.com
+Canon EOS R5 Mark II Mirrorless Digital Camera, Body Only
+
+Canon EOS R5 Mark II Mirrorless Digital Camera, Body Only
+1.399,00 €
+Category: EOS R5 Mark II
+Description
+Description
+The EOS R5 Mark II is a worthy successor to the incredibly versatile EOS R5
+bringing a host of new features that make this the most powerful EOS 5 series
+camera ever. It starts with a brand-new 45MP sensor that is back illuminated
+and stacked for blazingly fast read-out speeds that allow for a 30 fps
+electronic shutter, then builds on that with major focus improvements,
+increased video capabilities, and so much more.
+DIGIC Accelerator The DIGIC Accelerator chip is a completely new front-end
+processor developed by Canon to supplement the power of the proven DIGIC X
+processor. [...]"</span></pre>
+                </div>
+              </div>
+
               <p>
                 For more details about the implementation of the RAG agent please refer to the
                 <a href="https://github.com/wbsg-uni-mannheim/WebMall-Interfaces/tree/main/src/rag">RAG source code</a>
@@ -503,6 +638,83 @@ async def find_items_techtalk(
                 The heterogeneity extends beyond function signatures to the data structures that are returned by the different search endpoints, e.g.
                 each shop used a different set of attribute names and its own product categorization hierarchy.
               </p>
+
+              <h4 class="title is-5">Example: MCP Interface Comparison</h4>
+              <p>The following side-by-side comparison shows how two different shops return data for the same product query. Note the different parameter names, response structures, and attribute naming conventions:</p>
+
+              <div class="side-by-side-examples">
+                <div class="interface-example">
+                  <div class="interface-example-header server-1">E-Store Athletes (Shop 1)</div>
+                  <div class="interface-example-content">
+                    <div class="example-label">Agent Query</div>
+                    <pre><span class="json-key">"tool_arguments"</span>: {
+  <span class="json-key">"query"</span>: <span class="json-string">"Canon EOS R5 Mark II"</span>,
+  <span class="json-key">"per_page"</span>: <span class="json-number">20</span>,
+  <span class="json-key">"page"</span>: <span class="json-number">1</span>,
+  <span class="json-key">"include_descriptions"</span>: <span class="json-number">true</span>
+}</pre>
+                    <div class="example-label" style="margin-top: 1rem;">Tool Response</div>
+                    <pre>{
+  <span class="json-key">"ID"</span>: <span class="json-string">"1963"</span>,
+  <span class="json-key">"label"</span>: <span class="json-string">"EOS R5 Mark II Body"</span>,
+  <span class="json-key">"desc"</span>: {
+    <span class="json-key">"longVersion"</span>: <span class="json-string">"&lt;p&gt;The EOS R5 Mark II is a worthy successor…&lt;/p&gt;"</span>,
+    <span class="json-key">"quickPitch"</span>: <span class="json-string">"&lt;p&gt;The EOS R5 Mark II…&lt;/p&gt;"</span>
+  },
+  <span class="json-key">"stock"</span>: {
+    <span class="json-key">"itemCode"</span>: <span class="json-string">"1963"</span>,
+    <span class="json-key">"status"</span>: <span class="json-string">"In stock"</span>,
+    <span class="json-key">"leftOverCount"</span>: <span class="json-number">0</span>
+  },
+  <span class="json-key">"labels"</span>: {
+    <span class="json-key">"categories"</span>: [<span class="json-string">"Canon"</span>]
+  },
+  <span class="json-key">"priceInfo"</span>: {
+    <span class="json-key">"current"</span>: <span class="json-string">"1500.0"</span>,
+    <span class="json-key">"usual"</span>: <span class="json-string">""</span>
+  },
+  <span class="json-key">"addresses"</span>: {
+    <span class="json-key">"selfLink"</span>: <span class="json-string">"https://webmall-1.de/mark-ii-body/"</span>,
+    <span class="json-key">"shareLink"</span>: <span class="json-string">"https://webmall-1.de/r5-mark-ii-body/"</span>
+  }
+}</pre>
+                  </div>
+                </div>
+
+                <div class="interface-example">
+                  <div class="interface-example-header server-2">TechTalk (Shop 2)</div>
+                  <div class="interface-example-content">
+                    <div class="example-label">Agent Query</div>
+                    <pre><span class="json-key">"tool_arguments"</span>: {
+  <span class="json-key">"query"</span>: <span class="json-string">"Canon EOS R5 Mark II"</span>,
+  <span class="json-key">"limit"</span>: <span class="json-number">20</span>,
+  <span class="json-key">"page_num"</span>: <span class="json-number">1</span>,
+  <span class="json-key">"sort_by_price"</span>: <span class="json-string">"none"</span>,
+  <span class="json-key">"include_descriptions"</span>: <span class="json-number">true</span>
+}</pre>
+                    <div class="example-label" style="margin-top: 1rem;">Tool Response</div>
+                    <pre>{
+  <span class="json-key">"catalog_entry_id"</span>: <span class="json-string">"3526"</span>,
+  <span class="json-key">"merchandise_title"</span>: <span class="json-string">"Canon EOS R5 II"</span>,
+  <span class="json-key">"financial_details"</span>: {
+    <span class="json-key">"cost_amount"</span>: <span class="json-string">"1544.54"</span>,
+    <span class="json-key">"standard_rate"</span>: <span class="json-string">""</span>
+  },
+  <span class="json-key">"content_sections"</span>: {
+    <span class="json-key">"detailed_info"</span>: <span class="json-string">"&lt;p&gt;Full Frame Stacked BSI CMOS…&lt;/p&gt;"</span>,
+    <span class="json-key">"visual_assets"</span>: [<span class="json-string">"https://webmall-2.de/…/0-scaled.jpg"</span>]
+  },
+  <span class="json-key">"inventory_tracking"</span>: {
+    <span class="json-key">"product_identifier"</span>: <span class="json-string">"3526"</span>,
+    <span class="json-key">"availability_state"</span>: <span class="json-string">"On the shelf"</span>
+  },
+  <span class="json-key">"classification_tags"</span>: [<span class="json-string">"Cameras"</span>],
+  <span class="json-key">"direct_link"</span>: <span class="json-string">"https://webmall-2.de/product/canon-eos-r5-ii/"</span>
+}</pre>
+                  </div>
+                </div>
+              </div>
+
               <p>
                 For complete implementation details, refer to the
                 <a href="https://github.com/wbsg-uni-mannheim/WebMall-Interfaces/tree/main/src/api_mcp">MCP server code</a>
@@ -557,6 +769,81 @@ async def find_items_techtalk(
                 </li>
                 <li><strong>Standardized Response:</strong> The agent receives a list of products in the standardized schema.org JSON format.</li>
               </ol>
+              <h4 class="title is-5">Example: NLWeb Interface Comparison</h4>
+              <p>The following side-by-side comparison shows how two different shops return data for the same product query using NLWeb. Unlike MCP, both shops return data in the standardized schema.org format, making cross-shop comparisons more straightforward:</p>
+
+              <div class="side-by-side-examples">
+                <div class="interface-example">
+                  <div class="interface-example-header server-1">E-Store Athletes (Shop 1)</div>
+                  <div class="interface-example-content">
+                    <div class="example-label">Agent Query</div>
+                    <pre><span class="json-key">"mcp_server"</span>: <span class="json-string">"E-Store Athletes"</span>,
+<span class="json-key">"tool_arguments"</span>: {
+  <span class="json-key">"question"</span>: <span class="json-string">"Canon EOS R5 Mark II"</span>,
+  <span class="json-key">"top_k"</span>: <span class="json-number">10</span>
+}</pre>
+                    <div class="example-label" style="margin-top: 1rem;">Tool Response</div>
+                    <pre>{
+  <span class="json-key">"@context"</span>: <span class="json-string">"https://schema.org/"</span>,
+  <span class="json-key">"@type"</span>: <span class="json-string">"Product"</span>,
+  <span class="json-key">"name"</span>: <span class="json-string">"EOS R5 Mark II Body"</span>,
+  <span class="json-key">"image"</span>: [<span class="json-string">"https://webmall-1.de/…/3119.jpg"</span>],
+  <span class="json-key">"description"</span>: <span class="json-string">"&lt;p&gt;The EOS R5 Mark…&lt;/p&gt;"</span>,
+  <span class="json-key">"category"</span>: <span class="json-string">"Canon"</span>,
+  <span class="json-key">"offers"</span>: {
+    <span class="json-key">"@type"</span>: <span class="json-string">"Offer"</span>,
+    <span class="json-key">"url"</span>: <span class="json-string">"https://webmall-1.de/product/eos-r5-mark-ii-body/"</span>,
+    <span class="json-key">"priceCurrency"</span>: <span class="json-string">"EUR"</span>,
+    <span class="json-key">"price"</span>: <span class="json-string">"1500.0"</span>,
+    <span class="json-key">"availability"</span>: <span class="json-string">"InStock"</span>,
+    <span class="json-key">"itemCondition"</span>: <span class="json-string">"NewCondition"</span>
+  },
+  <span class="json-key">"url"</span>: <span class="json-string">"https://webmall-1.de/…/eos-r5-mark-ii-body/"</span>,
+  <span class="json-key">"identifier"</span>: {
+    <span class="json-key">"@type"</span>: <span class="json-string">"PropertyValue"</span>,
+    <span class="json-key">"name"</span>: <span class="json-string">"WooCommerce ID"</span>,
+    <span class="json-key">"value"</span>: <span class="json-string">"1963"</span>
+  }
+}</pre>
+                  </div>
+                </div>
+
+                <div class="interface-example">
+                  <div class="interface-example-header server-2">TechTalk (Shop 2)</div>
+                  <div class="interface-example-content">
+                    <div class="example-label">Agent Query</div>
+                    <pre><span class="json-key">"mcp_server"</span>: <span class="json-string">"TechTalk"</span>,
+<span class="json-key">"tool_arguments"</span>: {
+  <span class="json-key">"question"</span>: <span class="json-string">"Canon EOS R5 Mark II"</span>,
+  <span class="json-key">"top_k"</span>: <span class="json-number">10</span>
+}</pre>
+                    <div class="example-label" style="margin-top: 1rem;">Tool Response</div>
+                    <pre>{
+  <span class="json-key">"@context"</span>: <span class="json-string">"https://schema.org/"</span>,
+  <span class="json-key">"@type"</span>: <span class="json-string">"Product"</span>,
+  <span class="json-key">"name"</span>: <span class="json-string">"Canon EOS R5 II"</span>,
+  <span class="json-key">"image"</span>: [<span class="json-string">"https://webmall-2.de/…/3120.jpg"</span>],
+  <span class="json-key">"description"</span>: <span class="json-string">"&lt;p&gt;Pixel Intelligent AF…&lt;/p&gt;"</span>,
+  <span class="json-key">"category"</span>: <span class="json-string">"Cameras"</span>,
+  <span class="json-key">"offers"</span>: {
+    <span class="json-key">"@type"</span>: <span class="json-string">"Offer"</span>,
+    <span class="json-key">"url"</span>: <span class="json-string">"https://webmall-2.de/product/canon-eos-r5-ii/"</span>,
+    <span class="json-key">"priceCurrency"</span>: <span class="json-string">"EUR"</span>,
+    <span class="json-key">"price"</span>: <span class="json-string">"1544.54"</span>,
+    <span class="json-key">"availability"</span>: <span class="json-string">"InStock"</span>,
+    <span class="json-key">"itemCondition"</span>: <span class="json-string">"NewCondition"</span>
+  },
+  <span class="json-key">"url"</span>: <span class="json-string">"https://webmall-2.de/…/canon-eos-r5-ii/"</span>,
+  <span class="json-key">"identifier"</span>: {
+    <span class="json-key">"@type"</span>: <span class="json-string">"PropertyValue"</span>,
+    <span class="json-key">"name"</span>: <span class="json-string">"WooCommerce ID"</span>,
+    <span class="json-key">"value"</span>: <span class="json-string">"3526"</span>
+  }
+}</pre>
+                  </div>
+                </div>
+              </div>
+
               <p>
                 The complete implementation is available in the
                 <a href="https://github.com/wbsg-uni-mannheim/WebMall-Interfaces/tree/main/src/nlweb_mcp">NLWeb + MCP directory</a>. The prompt used
