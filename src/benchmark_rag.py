@@ -1193,6 +1193,49 @@ async def process_benchmark(model_name: str, chat_model: Any):
     print(f"📊 Total Tokens Used: {total_tokens_used['total_tokens']:,}")
 
 
+# SAIA API Configuration (GWDG HPC)
+# Base URL for SAIA OpenAI-compatible API
+SAIA_BASE_URL = "https://chat-ai.academiccloud.de/v1"
+
+# Available SAIA models:
+# - openai-gpt-oss-120b: Large GPT model
+# - meta-llama-3.1-8b-instruct: Llama 3.1 8B
+# - llama-3.3-70b-instruct: Llama 3.3 70B
+# - mistral-large-instruct: Mistral Large
+# - qwen3-32b: Qwen 3 32B
+# - qwen2.5-coder-32b-instruct: Qwen 2.5 Coder
+# See https://docs.hpc.gwdg.de/services/saia/ for full list
+
+
+def create_saia_model(model_name: str = "openai-gpt-oss-120b", temperature: float = 0.0) -> ChatOpenAI:
+    """
+    Create a ChatOpenAI instance configured for SAIA API.
+
+    Args:
+        model_name: SAIA model name (default: openai-gpt-oss-120b)
+        temperature: Model temperature (default: 0.0)
+
+    Returns:
+        ChatOpenAI instance configured for SAIA
+
+    Requires:
+        GOAI_API_KEY environment variable to be set with your SAIA API key
+    """
+    api_key = os.getenv("GOAI_API_KEY")
+    if not api_key:
+        raise ValueError(
+            "GOAI_API_KEY environment variable not set. "
+            "Get your API key from https://kisski.gwdg.de/ (KISSKI LLM Service)"
+        )
+
+    return ChatOpenAI(
+        model=model_name,
+        api_key=api_key,
+        base_url=SAIA_BASE_URL,
+        temperature=temperature
+    )
+
+
 # Main execution
 async def main():
     """Main function with proper cleanup"""
@@ -1200,9 +1243,21 @@ async def main():
         # You can easily switch models here
         # Examples: "gpt-4", "gpt-3.5-turbo", "claude-3-opus-20240229", "claude-3-sonnet-20240229"
 
-        model_name = "gpt-5-mini"
+        # === SAIA Models (GWDG HPC) ===
+        # Uncomment to use SAIA API with openai-gpt-oss-120b or other models
+        # Requires GOAI_API_KEY environment variable
 
-        chat_model = ChatOpenAI(model=model_name,  reasoning_effort="medium")
+        model_name = "openai-gpt-oss-120b"
+        chat_model = create_saia_model(model_name=model_name, temperature=0.0)
+
+        # Other SAIA models you can try:
+        # model_name = "llama-3.3-70b-instruct"
+        # model_name = "mistral-large-instruct"
+        # model_name = "qwen3-32b"
+
+        # === OpenAI Models ===
+        # model_name = "gpt-5-mini"
+        # chat_model = ChatOpenAI(model=model_name, reasoning_effort="medium")
 
         await process_benchmark(model_name=model_name, chat_model=chat_model)
     finally:

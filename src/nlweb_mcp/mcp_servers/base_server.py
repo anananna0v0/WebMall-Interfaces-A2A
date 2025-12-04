@@ -254,7 +254,7 @@ def create_nlweb_server(shop_id: str, index_name: str, port: int = 8000) -> Fast
     )
 
     @mcp.tool(name=f"ask_{shop_id}")
-    async def ask(ctx: Context, question: str, top_k: int = DEFAULT_TOP_K) -> str:
+    async def ask(ctx: Context, query: str, top_k: int = DEFAULT_TOP_K) -> str:
         f"""Search for products in {shop_id.replace('_', '-').upper()} using natural language queries.
 
         This tool performs semantic search across the {shop_id.replace('_', '-').upper()} product catalog using 
@@ -262,7 +262,7 @@ def create_nlweb_server(shop_id: str, index_name: str, port: int = 8000) -> Fast
 
         Args:
             ctx: The MCP server provided context which includes the search engine
-            question: The search query or question about products
+            query: The search query or query about products
             top_k: Number of results to return (default: 10, max: 50)
 
         Returns:
@@ -272,15 +272,15 @@ def create_nlweb_server(shop_id: str, index_name: str, port: int = 8000) -> Fast
             search_engine = ctx.request_context.lifespan_context.search_engine
             
             # Validate parameters
-            if not question or not question.strip():
-                return json.dumps({"error": "Question parameter is required and cannot be empty"})
+            if not query or not query.strip():
+                return json.dumps({"error": "Query parameter is required and cannot be empty"})
             
             top_k = min(max(1, top_k), 50)  # Clamp between 1 and 50
             
             # Perform semantic search with timeout (exclude descriptions to save tokens)
             try:
                 results = await asyncio.wait_for(
-                    asyncio.to_thread(search_engine.search, question.strip(), top_k, True),
+                    asyncio.to_thread(search_engine.search, query.strip(), top_k, True),
                     timeout=45.0  # 45 second timeout for search
                 )
                 # Save results to file
@@ -288,18 +288,18 @@ def create_nlweb_server(shop_id: str, index_name: str, port: int = 8000) -> Fast
                     json.dump(results, f, indent=2)
                 return json.dumps(results, indent=2)
             except asyncio.TimeoutError:
-                logger.warning(f"Search timeout for question: {question[:100]}...")
+                logger.warning(f"Search timeout for query: {query[:100]}...")
                 return json.dumps({
                     "error": "Search request timed out",
-                    "question": question,
+                    "query": query,
                     "timeout": "45s"
                 })
             
         except Exception as e:
-            logger.error(f"Search failed for question '{question}': {e}")
+            logger.error(f"Search failed for query '{query}': {e}")
             return json.dumps({
                 "error": f"Search failed: {str(e)}",
-                "question": question,
+                "query": query,
                 "shop_id": ctx.request_context.lifespan_context.shop_id
             })
 

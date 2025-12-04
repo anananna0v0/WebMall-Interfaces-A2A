@@ -53,25 +53,25 @@ HYBRID_MCP_SERVERS = {
         "url": "http://localhost:8060/sse",
         "transport": "sse",
         "shop_id": "webmall_1",
-        "format_type": "server_a_weird"
+        "format_type": "server_a"
     },
     "TechTalk": {
         "url": "http://localhost:8061/sse",
         "transport": "sse",
         "shop_id": "webmall_2",
-        "format_type": "server_b_bizarre"
+        "format_type": "server_b"
     },
     "CamelCases": {
         "url": "http://localhost:8062/sse",
         "transport": "sse",
         "shop_id": "webmall_3",
-        "format_type": "server_c_eccentric"
+        "format_type": "server_c"
     },
     "Hardware Cafe": {
         "url": "http://localhost:8063/sse",
         "transport": "sse",
         "shop_id": "webmall_4",
-        "format_type": "server_d_unconventional"
+        "format_type": "server_d"
     }
 }
 
@@ -148,7 +148,7 @@ def extract_urls_from_hybrid_response(tool_output: str, format_type: str) -> set
         urls = set()
 
         # Handle different heterogeneous formats
-        if format_type == "server_a_weird":
+        if format_type == "server_a":
             # Server A search format: "results" -> "addresses" -> "selfLink"/"shareLink"
             if "results" in response_data:
                 for result in response_data["results"]:
@@ -169,7 +169,8 @@ def extract_urls_from_hybrid_response(tool_output: str, format_type: str) -> set
                             urls.add(addresses["shareLink"])
             # Server A checkout format: "productAddresses" or "orderDetails" -> "productAddresses"
             if "productAddresses" in response_data:
-                print(f"  🏪 Server A: Found productAddresses ({len(response_data['productAddresses'])} items)")
+                print(
+                    f"  🏪 Server A: Found productAddresses ({len(response_data['productAddresses'])} items)")
                 for addr in response_data["productAddresses"]:
                     if "selfLink" in addr:
                         urls.add(addr["selfLink"])
@@ -181,7 +182,8 @@ def extract_urls_from_hybrid_response(tool_output: str, format_type: str) -> set
                 print(f"  🏪 Server A: Found orderDetails")
                 order = response_data["orderDetails"]
                 if "productAddresses" in order:
-                    print(f"    Found productAddresses in orderDetails ({len(order['productAddresses'])} items)")
+                    print(
+                        f"    Found productAddresses in orderDetails ({len(order['productAddresses'])} items)")
                     for addr in order["productAddresses"]:
                         if "selfLink" in addr:
                             urls.add(addr["selfLink"])
@@ -190,7 +192,7 @@ def extract_urls_from_hybrid_response(tool_output: str, format_type: str) -> set
                             urls.add(addr["shareLink"])
                             print(f"      ✅ Added URL: {addr['shareLink']}")
 
-        elif format_type == "server_b_bizarre":
+        elif format_type == "server_b":
             # Server B search format: "catalog_entries" -> "direct_link"
             if "catalog_entries" in response_data:
                 for entry in response_data["catalog_entries"]:
@@ -213,7 +215,7 @@ def extract_urls_from_hybrid_response(tool_output: str, format_type: str) -> set
                         if "direct_link" in entry:
                             urls.add(entry["direct_link"])
 
-        elif format_type == "server_c_eccentric":
+        elif format_type == "server_c":
             # Server C search format: "warehouse_catalog" -> items -> "catalog_reference" -> "storefront_link"
             if "warehouse_catalog" in response_data:
                 catalog = response_data["warehouse_catalog"]
@@ -235,12 +237,12 @@ def extract_urls_from_hybrid_response(tool_output: str, format_type: str) -> set
                         for ref in catalog["catalog_references"]:
                             if "storefront_link" in ref:
                                 urls.add(ref["storefront_link"])
-            
-            # Server C checkout format: "order_documentation" 
+
+            # Server C checkout format: "order_documentation"
             if "order_documentation" in response_data:
                 print(f"  🏪 Server C: Found order_documentation")
                 order_doc = response_data["order_documentation"]
-                
+
                 # Look for URLs in various fields within order_documentation
                 if isinstance(order_doc, dict):
                     # Check for direct URLs in order doc
@@ -253,26 +255,30 @@ def extract_urls_from_hybrid_response(tool_output: str, format_type: str) -> set
                             for item in value:
                                 if isinstance(item, str) and item.startswith("http"):
                                     urls.add(item)
-                                    print(f"    ✅ Added URL from {key} list: {item}")
+                                    print(
+                                        f"    ✅ Added URL from {key} list: {item}")
                                 elif isinstance(item, dict):
                                     # Look for storefront_link in nested objects
                                     if "storefront_link" in item:
                                         urls.add(item["storefront_link"])
-                                        print(f"    ✅ Added URL from {key} object: {item['storefront_link']}")
+                                        print(
+                                            f"    ✅ Added URL from {key} object: {item['storefront_link']}")
                         elif isinstance(value, dict):
                             # Check nested objects for storefront_link
                             if "storefront_link" in value:
                                 urls.add(value["storefront_link"])
-                                print(f"    ✅ Added URL from {key} object: {value['storefront_link']}")
-                
+                                print(
+                                    f"    ✅ Added URL from {key} object: {value['storefront_link']}")
+
                     # Also check if there are product references that might contain URLs
                     if "product_references" in order_doc:
                         print(f"    Found product_references in order_documentation")
                         for ref in order_doc["product_references"]:
                             if isinstance(ref, dict) and "storefront_link" in ref:
                                 urls.add(ref["storefront_link"])
-                                print(f"      ✅ Added URL: {ref['storefront_link']}")
-                    
+                                print(
+                                    f"      ✅ Added URL: {ref['storefront_link']}")
+
                     if "items" in order_doc:
                         print(f"    Found items in order_documentation")
                         for item in order_doc["items"]:
@@ -282,14 +288,17 @@ def extract_urls_from_hybrid_response(tool_output: str, format_type: str) -> set
                                     print(f"      ✅ Added URL: {item['url']}")
                                 elif "storefront_link" in item:
                                     urls.add(item["storefront_link"])
-                                    print(f"      ✅ Added URL: {item['storefront_link']}")
+                                    print(
+                                        f"      ✅ Added URL: {item['storefront_link']}")
                                 elif "catalog_reference" in item:
                                     catalog_ref = item["catalog_reference"]
                                     if isinstance(catalog_ref, dict) and "storefront_link" in catalog_ref:
-                                        urls.add(catalog_ref["storefront_link"])
-                                        print(f"      ✅ Added URL: {catalog_ref['storefront_link']}")
+                                        urls.add(
+                                            catalog_ref["storefront_link"])
+                                        print(
+                                            f"      ✅ Added URL: {catalog_ref['storefront_link']}")
 
-        elif format_type == "server_d_unconventional":
+        elif format_type == "server_d":
             # Server D search format: "marketplace_inventory" -> "storefront_reference"
             if "marketplace_inventory" in response_data:
                 inventory = response_data["marketplace_inventory"]
@@ -325,12 +334,12 @@ async def reset_all_hybrid_carts(tools):
         # Different hybrid servers use different cart reset tool names
         if any(keyword in tool_name for keyword in [
             'reset_cart',           # Server A uses this
-            'clear_shopping_cart',  # Server B uses this  
-            'empty_warehouse_cart', # Server C uses this
-            'clear_marketplace_cart' # Server D uses this
+            'clear_shopping_cart',  # Server B uses this
+            'empty_warehouse_cart',  # Server C uses this
+            'clear_marketplace_cart'  # Server D uses this
         ]):
             reset_tools.append(tool)
-    
+
     print(f"Found {len(reset_tools)} cart reset tools for hybrid servers")
     for tool in reset_tools:
         try:
@@ -464,7 +473,7 @@ def get_hybrid_mcp_tools_dict(tools):
             'checkout',
             'lookup_product_by_url_estore'
         ]):
-            tools_dict[tool_name] = "E-Store Athletes (Hybrid - Weird Format)"
+            tools_dict[tool_name] = "E-Store Athletes"
         # TechTalk tools
         elif any(keyword in tool_name.lower() for keyword in [
             'find_items_techtalk',
@@ -476,7 +485,7 @@ def get_hybrid_mcp_tools_dict(tools):
             'checkout_cart_techtalk',
             'lookup_item_by_url_techtalk'
         ]):
-            tools_dict[tool_name] = "TechTalk (Hybrid - Bizarre Format)"
+            tools_dict[tool_name] = "TechTalk"
         # CamelCases tools
         elif any(keyword in tool_name.lower() for keyword in [
             'query_stock',
@@ -488,7 +497,7 @@ def get_hybrid_mcp_tools_dict(tools):
             'process_warehouse_cart_checkout',
             'lookup_product_by_url_camelcases'
         ]):
-            tools_dict[tool_name] = "CamelCases (Hybrid - Eccentric Format)"
+            tools_dict[tool_name] = "CamelCases"
         # Hardware Cafe tools
         elif any(keyword in tool_name.lower() for keyword in [
             'get_items_by_keyword',
@@ -501,7 +510,7 @@ def get_hybrid_mcp_tools_dict(tools):
             'checkout_marketplace_cart',
             'lookup_item_by_url_hardware_cafe'
         ]):
-            tools_dict[tool_name] = "Hardware Cafe (Hybrid - Unconventional Format)"
+            tools_dict[tool_name] = "Hardware Cafe"
         else:
             # Fallback for any unrecognized hybrid tools
             tools_dict[tool_name] = "Hybrid MCP Server"
@@ -512,13 +521,13 @@ def get_hybrid_mcp_tools_dict(tools):
 def get_format_type_from_server_name(server_name: str) -> str:
     """Get format type from server name."""
     if "E-Store Athletes" in server_name:
-        return "server_a_weird"
+        return "server_a"
     elif "TechTalk" in server_name:
-        return "server_b_bizarre"
+        return "server_b"
     elif "CamelCases" in server_name:
-        return "server_c_eccentric"
+        return "server_c"
     elif "Hardware Cafe" in server_name:
-        return "server_d_unconventional"
+        return "server_d"
     else:
         return "unknown"
 
@@ -601,16 +610,20 @@ def create_enhanced_hybrid_tool_call_log(messages: List[Any], tools_dict: Dict[s
                         # Category tools
                         elif any(keyword in tool_name.lower() for keyword in ['categories', 'types', 'get_all_categories']):
                             tool_type = "categories"
-                        
+
                         # Debug logging for tool detection
                         if tool_type == "checkout":
-                            print(f"🔧 TOOL DEBUG - Detected CHECKOUT tool: {tool_name}")
+                            print(
+                                f"🔧 TOOL DEBUG - Detected CHECKOUT tool: {tool_name}")
                         elif tool_type == "cart":
-                            print(f"🛒 TOOL DEBUG - Detected CART tool: {tool_name}")
+                            print(
+                                f"🛒 TOOL DEBUG - Detected CART tool: {tool_name}")
                         elif tool_type == "search":
-                            print(f"🔍 TOOL DEBUG - Detected SEARCH tool: {tool_name}")
+                            print(
+                                f"🔍 TOOL DEBUG - Detected SEARCH tool: {tool_name}")
                         else:
-                            print(f"❓ TOOL DEBUG - Unknown tool type for: {tool_name}")
+                            print(
+                                f"❓ TOOL DEBUG - Unknown tool type for: {tool_name}")
 
                         # Get server info and format type
                         server_name = tools_dict.get(tool_name, "Unknown")
@@ -645,7 +658,8 @@ def create_enhanced_hybrid_tool_call_log(messages: List[Any], tools_dict: Dict[s
                                 checkout_successful = True
                                 print(f"  ✅ CHECKOUT SUCCESSFUL!")
                             else:
-                                print(f"  ❌ CHECKOUT FAILED - Error: {has_error_field}, Empty cart: {has_cart_empty_error}, Success: {has_order_success}")
+                                print(
+                                    f"  ❌ CHECKOUT FAILED - Error: {has_error_field}, Empty cart: {has_cart_empty_error}, Success: {has_order_success}")
 
                         # Create comprehensive tool call entry
                         tool_call_entry = {
@@ -687,11 +701,11 @@ def run_benchmark(benchmark_path, chat_model=None):
     total_search_tools = 0
     total_cart_tools = 0
     total_checkout_tools = 0
-    
+
     # Token tracking
     total_prompt_tokens = 0
     total_completion_tokens = 0
-    
+
     # Task success tracking
     successful_tasks = 0
     failed_tasks = 0
@@ -738,7 +752,7 @@ def run_benchmark(benchmark_path, chat_model=None):
         tools_for_reset = asyncio.run(reset_carts_initial())
 
         for task_set in benchmark:
-            #if task_set["id"] != "WEBMALL_CHECKOUT_V1" and task_set["id"] != "WEBMALL_END_TO_END_V1" and task_set["id"] != "WEBMALL_SINGLE_PRODUCT_SEARCH_V1" and task_set["id"] != "WEBMALL_ADD_TO_CART_V1":
+            # if task_set["id"] != "WEBMALL_CHECKOUT_V1" and task_set["id"] != "WEBMALL_END_TO_END_V1" and task_set["id"] != "WEBMALL_SINGLE_PRODUCT_SEARCH_V1" and task_set["id"] != "WEBMALL_ADD_TO_CART_V1":
             #    continue
             # Restart servers for each task set
             print("\n=== Restarting servers for new task set ===")
@@ -766,14 +780,17 @@ def run_benchmark(benchmark_path, chat_model=None):
                             print("Reset carts for new task")
                         return task_client
                     except Exception as e:
-                        print(f"Warning: Failed to create task client or reset carts: {e}")
+                        print(
+                            f"Warning: Failed to create task client or reset carts: {e}")
                         # Create a fresh client if the previous attempt failed
                         if task_client is None:
                             try:
-                                task_client = MultiServerMCPClient(HYBRID_MCP_SERVERS)
+                                task_client = MultiServerMCPClient(
+                                    HYBRID_MCP_SERVERS)
                                 return task_client
                             except Exception as client_error:
-                                print(f"Failed to create task client: {client_error}")
+                                print(
+                                    f"Failed to create task client: {client_error}")
                                 return None
                         return task_client
 
@@ -802,15 +819,18 @@ def run_benchmark(benchmark_path, chat_model=None):
 
                     # Replace user details placeholders
                     user_details = task["user_details"]
-                    user_task = user_task.replace("{{name}}", user_details["name"])
+                    user_task = user_task.replace(
+                        "{{name}}", user_details["name"])
                     user_task = user_task.replace(
                         "{{email}}", user_details["email"])
                     user_task = user_task.replace(
                         "{{street}}", user_details["street"])
                     user_task = user_task.replace(
                         "{{house_number}}", user_details["house_number"])
-                    user_task = user_task.replace("{{zip}}", user_details["zip"])
-                    user_task = user_task.replace("{{city}}", user_details["city"])
+                    user_task = user_task.replace(
+                        "{{zip}}", user_details["zip"])
+                    user_task = user_task.replace(
+                        "{{city}}", user_details["city"])
                     user_task = user_task.replace(
                         "{{state}}", user_details["state"])
                     user_task = user_task.replace(
@@ -818,14 +838,15 @@ def run_benchmark(benchmark_path, chat_model=None):
 
                     # Replace payment info placeholders
                     payment_info = task["payment_info"]
-                    user_task = user_task.replace("{{card}}", payment_info["card"])
-                    user_task = user_task.replace("{{cvv}}", payment_info["cvv"])
+                    user_task = user_task.replace(
+                        "{{card}}", payment_info["card"])
+                    user_task = user_task.replace(
+                        "{{cvv}}", payment_info["cvv"])
                     user_task = user_task.replace(
                         "{{expiry_date}}", payment_info["expiry_date"])
 
                 # Handle different task categories
                 task_category = task.get("category", "")
-
 
                 # Extract URLs from the answers dictionary and print them as a list
                 correct_answer = task.get(
@@ -930,7 +951,8 @@ def run_benchmark(benchmark_path, chat_model=None):
 
                 # Normalize both got and expected URLs
                 got_normalized = [normalize_url(url) for url in got]
-                expected_normalized = [normalize_url(url) for url in expected_flat]
+                expected_normalized = [normalize_url(
+                    url) for url in expected_flat]
 
                 # Determine task category and evaluation strategy
                 task_category = task.get("category", "search")
@@ -944,21 +966,24 @@ def run_benchmark(benchmark_path, chat_model=None):
                     evaluation_urls = [normalize_url(url)
                                        for url in cart_only_urls]
                     evaluation_strategy = "cart_only"
-                    print(f"  ✅ Using CART strategy: {len(evaluation_urls)} URLs")
+                    print(
+                        f"  ✅ Using CART strategy: {len(evaluation_urls)} URLs")
                 elif task_category in ["Checkout", "FindAndOrder"]:
                     # For checkout tasks, only give credit if checkout was successful
                     if checkout_successful:
                         evaluation_urls = [normalize_url(
                             url) for url in checkout_only_urls]
                         evaluation_strategy = "checkout_successful"
-                        print(f"  ✅ Using CHECKOUT SUCCESSFUL strategy: {len(evaluation_urls)} URLs")
-                        
+                        print(
+                            f"  ✅ Using CHECKOUT SUCCESSFUL strategy: {len(evaluation_urls)} URLs")
+
                         # FALLBACK: If checkout was successful but no URLs extracted from checkout response,
                         # use final answer URLs as fallback (this handles parsing issues)
                         if not evaluation_urls and got_normalized:
                             evaluation_urls = got_normalized
                             evaluation_strategy = "checkout_successful_fallback"
-                            print(f"  🔄 FALLBACK: Checkout successful but no URLs extracted, using final answer: {len(evaluation_urls)} URLs")
+                            print(
+                                f"  🔄 FALLBACK: Checkout successful but no URLs extracted, using final answer: {len(evaluation_urls)} URLs")
                     else:
                         evaluation_urls = []  # No credit for failed checkout
                         evaluation_strategy = "checkout_failed"
@@ -967,7 +992,8 @@ def run_benchmark(benchmark_path, chat_model=None):
                     # For search tasks, use final response URLs
                     evaluation_urls = got_normalized
                     evaluation_strategy = "search_only"
-                    print(f"  🔍 Using SEARCH strategy: {len(evaluation_urls)} URLs")
+                    print(
+                        f"  🔍 Using SEARCH strategy: {len(evaluation_urls)} URLs")
 
                 # Calculate metrics using the utils function
                 task_metrics = calculation_results(
@@ -1070,10 +1096,11 @@ def run_benchmark(benchmark_path, chat_model=None):
                                 task_client.cleanup()
                         else:
                             # No cleanup method available, just delete reference
-                            print(f"No cleanup method available for task client, skipping cleanup")
+                            print(
+                                f"No cleanup method available for task client, skipping cleanup")
                     except Exception as cleanup_error:
-                        print(f"Warning: Failed to close task client: {cleanup_error}")
-                
+                        print(
+                            f"Warning: Failed to close task client: {cleanup_error}")
 
     finally:
         # Always stop servers on exit
@@ -1124,19 +1151,22 @@ def generate_csv_metrics(enhanced_summary, output_dir: Path):
         return
 
     current_timestamp = enhanced_summary["benchmark_metadata"]["timestamp"]
-    csv_path = output_dir / f"hybrid_mcp_enhanced_metrics_{current_timestamp}.csv"
+    csv_path = output_dir / \
+        f"hybrid_mcp_enhanced_metrics_{current_timestamp}.csv"
 
     # Prepare CSV data
     csv_data = []
     for result in enhanced_summary["results"]:
 
         error_occurred = result.get("error_occurred", False)
-        completion_rate = 0 if error_occurred else result.get("task_completion_rate", 0)
+        completion_rate = 0 if error_occurred else result.get(
+            "task_completion_rate", 0)
         precision = 0.0 if error_occurred else result.get("precision", 0)
         recall = 0.0 if error_occurred else result.get("recall", 0)
         f1_score = 0.0 if error_occurred else result.get("f1_score", 0)
         prompt_tokens = 0 if error_occurred else result.get("prompt_tokens", 0)
-        completion_tokens = 0 if error_occurred else result.get("completion_tokens", 0)
+        completion_tokens = 0 if error_occurred else result.get(
+            "completion_tokens", 0)
         execution_time = result.get("execution_time_seconds", 0)
 
         csv_row = {
@@ -1177,7 +1207,8 @@ if __name__ == "__main__":
     enhanced_summary = {}
 
     try:
-        enhanced_summary = run_benchmark(BENCHMARK_JSON_PATH, chat_model=chat_model)
+        enhanced_summary = run_benchmark(
+            BENCHMARK_JSON_PATH, chat_model=chat_model)
     except Exception as e:
         print(f"Benchmark run failed with error: {e}")
         print(f"Full traceback: {traceback.format_exc()}")
@@ -1208,7 +1239,8 @@ if __name__ == "__main__":
         # Always save results, even if there were errors
         current_timestamp = metadata.get(
             "timestamp", datetime.now().strftime("%Y%m%d_%H%M%S"))
-        output_file = results_dir / f"hybrid_execution_history_{current_timestamp}.json"
+        output_file = results_dir / \
+            f"hybrid_execution_history_{current_timestamp}.json"
 
         try:
             with output_file.open("w", encoding='utf-8') as f:

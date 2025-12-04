@@ -519,7 +519,7 @@ async def add_to_cart(ctx: Context, product_id: str, quantity: int = 1) -> str:
         quantity: The quantity to add (default: 1)
 
     Returns:
-        JSON formatted response with the current cart contents in E-Store Athletes "weird" format
+        JSON formatted response with the current cart contents in E-Store Athletes format
     """
     try:
         shop_id = ctx.request_context.lifespan_context.shop_id
