@@ -630,7 +630,7 @@ RESPONSE FORMAT:
 
 
 # Load benchmark JSON file
-BENCHMARK_JSON_PATH = "task_sets.json"
+BENCHMARK_JSON_PATH = "task_sets/task_sets.json"
 
 with open(BENCHMARK_JSON_PATH, "r", encoding="utf-8") as f:
     benchmark = json.load(f)
@@ -1247,7 +1247,7 @@ async def main():
         # Uncomment to use SAIA API with openai-gpt-oss-120b or other models
         # Requires GOAI_API_KEY environment variable
 
-        model_name = "openai-gpt-oss-120b"
+        model_name = "codestral-22b"
         chat_model = create_saia_model(model_name=model_name, temperature=0.0)
 
         # Other SAIA models you can try:
@@ -1256,8 +1256,8 @@ async def main():
         # model_name = "qwen3-32b"
 
         # === OpenAI Models ===
-        # model_name = "gpt-5-mini"
-        # chat_model = ChatOpenAI(model=model_name, reasoning_effort="medium")
+        #model_name = "gpt-5-mini"
+        #chat_model = ChatOpenAI(model=model_name, reasoning_effort="medium")
 
         await process_benchmark(model_name=model_name, chat_model=chat_model)
     finally:
