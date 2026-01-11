@@ -1,0 +1,602 @@
+{
+    "summary": {
+        "model": "gpt-5-mini",
+        "average_f1": 0.7069865319865319,
+        "completion_rate_percentage": 63.63636363636363
+    },
+    "details": [
+        {
+            "task_id": "Webmall_Single_Product_Search_Task1",
+            "metrics": {
+                "task_completion_rate": 1,
+                "avg_precision": 1.0,
+                "avg_recall": 1.0,
+                "f1_score": 1.0
+            },
+            "prediction": [
+                "https://webmall-1.informatik.uni-mannheim.de/product/amd-ryzen-9-5900x-3-7-ghz-12-cores-24-threads",
+                "https://webmall-2.informatik.uni-mannheim.de/product/amd-ryzen-9-5900x-3-7-ghz-12-core"
+            ],
+            "ground_truth": [
+                "https://webmall-2.informatik.uni-mannheim.de/product/amd-ryzen-9-5900x-3-7-ghz-12-core",
+                "https://webmall-1.informatik.uni-mannheim.de/product/amd-ryzen-9-5900x-3-7-ghz-12-cores-24-threads"
+            ],
+            "completion": 1
+        },
+        {
+            "task_id": "Webmall_Single_Product_Search_Task2",
+            "metrics": {
+                "task_completion_rate": 1,
+                "avg_precision": 1.0,
+                "avg_recall": 1.0,
+                "f1_score": 1.0
+            },
+            "prediction": [
+                "https://webmall-1.informatik.uni-mannheim.de/product/eos-r5-mark-ii-body",
+                "https://webmall-2.informatik.uni-mannheim.de/product/canon-eos-r5-ii",
+                "https://webmall-3.informatik.uni-mannheim.de/product/canon-eos-r5-mark-ii-full-frame-sans-miroir-camera",
+                "https://webmall-4.informatik.uni-mannheim.de/product/canon-eos-r5-mark-ii-mirrorless-digital-camera-body-only"
+            ],
+            "ground_truth": [
+                "https://webmall-1.informatik.uni-mannheim.de/product/eos-r5-mark-ii-body",
+                "https://webmall-3.informatik.uni-mannheim.de/product/canon-eos-r5-mark-ii-full-frame-sans-miroir-camera",
+                "https://webmall-2.informatik.uni-mannheim.de/product/canon-eos-r5-ii",
+                "https://webmall-4.informatik.uni-mannheim.de/product/canon-eos-r5-mark-ii-mirrorless-digital-camera-body-only"
+            ],
+            "completion": 1
+        },
+        {
+            "task_id": "Webmall_Single_Product_Search_Task3",
+            "metrics": {
+                "task_completion_rate": 1,
+                "avg_precision": 1.0,
+                "avg_recall": 1.0,
+                "f1_score": 1.0
+            },
+            "prediction": [
+                "https://webmall-1.informatik.uni-mannheim.de/product/smartphone-samsung-galaxy-a25-5g-6-128gb-yellow-sm-a256bzydeue",
+                "https://webmall-2.informatik.uni-mannheim.de/product/samsung-galaxy-a25-5g-a256b-dual-sim-128gb-blue-android-14-0-smartphone",
+                "https://webmall-2.informatik.uni-mannheim.de/product/samsung-galaxy-a25-5g-a256b-dual-sim-128gb-blue-black-android-14-0-smartphone",
+                "https://webmall-2.informatik.uni-mannheim.de/product/samsung-galaxy-a35-5g-a356b-dual-sim-256gb-awesome-iceblue-android-14-smartphone"
+            ],
+            "ground_truth": [
+                "https://webmall-1.informatik.uni-mannheim.de/product/smartphone-samsung-galaxy-a25-5g-6-128gb-yellow-sm-a256bzydeue",
+                "https://webmall-2.informatik.uni-mannheim.de/product/samsung-galaxy-a25-5g-a256b-dual-sim-128gb-blue-black-android-14-0-smartphone",
+                "https://webmall-2.informatik.uni-mannheim.de/product/samsung-galaxy-a35-5g-a356b-dual-sim-256gb-awesome-iceblue-android-14-smartphone",
+                "https://webmall-2.informatik.uni-mannheim.de/product/samsung-galaxy-a25-5g-a256b-dual-sim-128gb-blue-android-14-0-smartphone"
+            ],
+            "completion": 1
+        },
+        {
+            "task_id": "Webmall_Cheapest_Product_Search_Task1",
+            "metrics": {
+                "task_completion_rate": 1,
+                "avg_precision": 1.0,
+                "avg_recall": 1.0,
+                "f1_score": 1.0
+            },
+            "prediction": [
+                "https://webmall-3.informatik.uni-mannheim.de/product/bose-quietcomfort-ultra-headphone",
+                "https://webmall-4.informatik.uni-mannheim.de/product/bose-quietcomfort-ultra-headphones-black"
+            ],
+            "ground_truth": [
+                "https://webmall-4.informatik.uni-mannheim.de/product/bose-quietcomfort-ultra-headphones-black",
+                "https://webmall-3.informatik.uni-mannheim.de/product/bose-quietcomfort-ultra-headphone"
+            ],
+            "completion": 1
+        },
+        {
+            "task_id": "Webmall_Cheapest_Product_Search_Task2",
+            "metrics": {
+                "task_completion_rate": 1,
+                "avg_precision": 1.0,
+                "avg_recall": 1.0,
+                "f1_score": 1.0
+            },
+            "prediction": [
+                "https://webmall-1.informatik.uni-mannheim.de/product/samsung-870-evo-2-5-250-gb-sata-iii-v-nand",
+                "https://webmall-1.informatik.uni-mannheim.de/product/samsung-1tb-870-evo-ssd-2-5-sata3-v-nand-r-w-560-530-mb-s-98k-88k-iops-7mm",
+                "https://webmall-2.informatik.uni-mannheim.de/product/samsung-870-evo-2tb-2-5-sata-iii-6gb-s-ssd-560r-530w-mb-s-mz-77e2t0bw",
+                "https://webmall-3.informatik.uni-mannheim.de/product/samsung-4tb-870-evo-ssd-2-5-sata3-v-nand-r-w-560-530-mb-s-98k-88k-iops-7mm"
+            ],
+            "ground_truth": [
+                "https://webmall-3.informatik.uni-mannheim.de/product/samsung-4tb-870-evo-ssd-2-5-sata3-v-nand-r-w-560-530-mb-s-98k-88k-iops-7mm",
+                "https://webmall-2.informatik.uni-mannheim.de/product/samsung-870-evo-2tb-2-5-sata-iii-6gb-s-ssd-560r-530w-mb-s-mz-77e2t0bw",
+                "https://webmall-1.informatik.uni-mannheim.de/product/samsung-870-evo-2-5-250-gb-sata-iii-v-nand",
+                "https://webmall-1.informatik.uni-mannheim.de/product/samsung-1tb-870-evo-ssd-2-5-sata3-v-nand-r-w-560-530-mb-s-98k-88k-iops-7mm"
+            ],
+            "completion": 1
+        },
+        {
+            "task_id": "Webmall_Cheapest_Product_Search_Task3",
+            "metrics": {
+                "task_completion_rate": 1,
+                "avg_precision": 1.0,
+                "avg_recall": 1.0,
+                "f1_score": 1.0
+            },
+            "prediction": [
+                "https://webmall-4.informatik.uni-mannheim.de/product/smartphone-samsung-galaxy-s24-5g-12-256gb-purple-cobalt-violet-sm-s926bzvdeue",
+                "https://webmall-4.informatik.uni-mannheim.de/product/smartphone-samsung-galaxy-s24-5g-12-256gb-yellow-amber-yellow-sm-s926bzydeue"
+            ],
+            "ground_truth": [
+                "https://webmall-4.informatik.uni-mannheim.de/product/smartphone-samsung-galaxy-s24-5g-12-256gb-purple-cobalt-violet-sm-s926bzvdeue",
+                "https://webmall-4.informatik.uni-mannheim.de/product/smartphone-samsung-galaxy-s24-5g-12-256gb-yellow-amber-yellow-sm-s926bzydeue"
+            ],
+            "completion": 1
+        },
+        {
+            "task_id": "Webmall_Best_Fit_Specific_Task1",
+            "metrics": {
+                "task_completion_rate": 0,
+                "avg_precision": 1.0,
+                "avg_recall": 0.5,
+                "f1_score": 0.6666666666666666
+            },
+            "prediction": [
+                "https://webmall-3.informatik.uni-mannheim.de/product/uag-civilian-strap-for-apple-watch-series-7-se-6-5-4-3-2-1-45mm-42mm-44mm-slate-orange-barcode-812451034912"
+            ],
+            "ground_truth": [
+                "https://webmall-3.informatik.uni-mannheim.de/product/uag-civilian-strap-for-apple-watch-series-7-se-6-5-4-3-2-1-45mm-42mm-44mm-slate-orange-barcode-812451034912",
+                "https://webmall-1.informatik.uni-mannheim.de/product/uag-apple-watch-44mm-42mm-civilian-strap-slate-orange"
+            ],
+            "completion": 0
+        },
+        {
+            "task_id": "Webmall_Best_Fit_Specific_Task2",
+            "metrics": {
+                "task_completion_rate": 0,
+                "avg_precision": 1.0,
+                "avg_recall": 0.8,
+                "f1_score": 0.888888888888889
+            },
+            "prediction": [
+                "https://webmall-1.informatik.uni-mannheim.de/product/apple-watch-series-7-gps-41mm-green-with-trefoil-sport-strap",
+                "https://webmall-3.informatik.uni-mannheim.de/product/apple-watch-series-8-gps-41mm-silver-aluminium-case-with-white-sport-band-regular",
+                "https://webmall-4.informatik.uni-mannheim.de/product/apple-watch-series-8-gps-41mm-smart-watch-w-starlight-aluminum-case-with-starlight-sport-band-s-m",
+                "https://webmall-4.informatik.uni-mannheim.de/product/refurbished-apple-watch-series-8-gps-cellular-41mm-graphite-stainless-steel-case-with-s-m-midnight-sport-band"
+            ],
+            "ground_truth": [
+                "https://webmall-3.informatik.uni-mannheim.de/product/apple-watch-series-8-gps-41mm-silver-aluminium-case-with-white-sport-band-regular",
+                "https://webmall-4.informatik.uni-mannheim.de/product/refurbished-apple-watch-series-8-gps-cellular-41mm-graphite-stainless-steel-case-with-s-m-midnight-sport-band",
+                "https://webmall-1.informatik.uni-mannheim.de/product/apple-watch-series-7-gps-41mm-green-with-trefoil-sport-strap",
+                "https://webmall-2.informatik.uni-mannheim.de/product/apple-watch-series-8-gps-cellular-45mm-graphite-stainless-steel-case-with-midnight-sport-band-regular",
+                "https://webmall-4.informatik.uni-mannheim.de/product/apple-watch-series-8-gps-41mm-smart-watch-w-starlight-aluminum-case-with-starlight-sport-band-s-m"
+            ],
+            "completion": 0
+        },
+        {
+            "task_id": "Webmall_Best_Fit_Specific_Task3",
+            "metrics": {
+                "task_completion_rate": 1,
+                "avg_precision": 1.0,
+                "avg_recall": 1.0,
+                "f1_score": 1.0
+            },
+            "prediction": [
+                "https://webmall-4.informatik.uni-mannheim.de/product/tablet-samsung-galaxy-tab-s9-11-5g-12gb-256gb-gray-sm-x716bzaeeue-s-pen-stylus",
+                "https://webmall-4.informatik.uni-mannheim.de/product/tablet-samsung-galaxy-tab-s9-ultra-14-6-5g-12gb-256gb-gray-sm-x916bzaaeue-s-pen-stylus"
+            ],
+            "ground_truth": [
+                "https://webmall-4.informatik.uni-mannheim.de/product/tablet-samsung-galaxy-tab-s9-ultra-14-6-5g-12gb-256gb-gray-sm-x916bzaaeue-s-pen-stylus",
+                "https://webmall-4.informatik.uni-mannheim.de/product/tablet-samsung-galaxy-tab-s9-11-5g-12gb-256gb-gray-sm-x716bzaeeue-s-pen-stylus"
+            ],
+            "completion": 1
+        },
+        {
+            "task_id": "Webmall_Best_Fit_Vague_Task1",
+            "metrics": {
+                "task_completion_rate": 1,
+                "avg_precision": 1.0,
+                "avg_recall": 1.0,
+                "f1_score": 1.0
+            },
+            "prediction": [
+                "https://webmall-1.informatik.uni-mannheim.de/product/4tb-crucial-mx500-ssd-with-cloning-kit",
+                "https://webmall-2.informatik.uni-mannheim.de/product/crucial-mx500-4-tb-2-5-sata-ssd-560-510-mb-s-90-95-k-iops-1000-tbw-aes-256bit-encryption-acronis-true-image-cloning-5yr-wty",
+                "https://webmall-3.informatik.uni-mannheim.de/product/crucial-mx500-4tb-2-5-inch-sata-3d-nand-ssd",
+                "https://webmall-4.informatik.uni-mannheim.de/product/crucial-mx500-2-5-4-tb-sata-iii-3d-nand-internal-solid-state-drive-ssd-ct4000mx500ssd1"
+            ],
+            "ground_truth": [
+                "https://webmall-1.informatik.uni-mannheim.de/product/4tb-crucial-mx500-ssd-with-cloning-kit",
+                "https://webmall-3.informatik.uni-mannheim.de/product/crucial-mx500-4tb-2-5-inch-sata-3d-nand-ssd",
+                "https://webmall-4.informatik.uni-mannheim.de/product/crucial-mx500-2-5-4-tb-sata-iii-3d-nand-internal-solid-state-drive-ssd-ct4000mx500ssd1",
+                "https://webmall-2.informatik.uni-mannheim.de/product/crucial-mx500-4-tb-2-5-sata-ssd-560-510-mb-s-90-95-k-iops-1000-tbw-aes-256bit-encryption-acronis-true-image-cloning-5yr-wty"
+            ],
+            "completion": 1
+        },
+        {
+            "task_id": "Webmall_Best_Fit_Vague_Task2",
+            "metrics": {
+                "task_completion_rate": 0,
+                "avg_precision": 0.375,
+                "avg_recall": 0.375,
+                "f1_score": 0.375
+            },
+            "prediction": [
+                "https://webmall-1.informatik.uni-mannheim.de/product/smartphone-samsung-galaxy-s23-8-256gb-green-sm-s916bzgdeue",
+                "https://webmall-2.informatik.uni-mannheim.de/product/samsung-galaxy-a25-5g-a256b-dual-sim-128gb-blue-android-14-0-smartphone",
+                "https://webmall-2.informatik.uni-mannheim.de/product/samsung-galaxy-a15-5g-a156b-dual-sim-128gb-blue-black-android-14-0-smartphone",
+                "https://webmall-3.informatik.uni-mannheim.de/product/samsung-galaxy-s24-5g-s921b-ds-128gb-cobalt-violet-android-14-0-smartphone",
+                "https://webmall-3.informatik.uni-mannheim.de/product/samsung-galaxy-s24-5g-s921b-ds-256gb-amber-yellow-android-14-0-smartphone",
+                "https://webmall-4.informatik.uni-mannheim.de/product/smartphone-samsung-galaxy-z-flip6-5g-12-256gb-mint",
+                "https://webmall-4.informatik.uni-mannheim.de/product/smartphone-samsung-galaxy-z-fold5-5g-12-256gb-blue-sm-f946blbbeue",
+                "https://webmall-4.informatik.uni-mannheim.de/product/smartphone-samsung-galaxy-s24-5g-12-256gb-purple-cobalt-violet-sm-s926bzvdeue"
+            ],
+            "ground_truth": [
+                "https://webmall-3.informatik.uni-mannheim.de/product/samsung-galaxy-s24-5g-s926b-ds-256gb-amber-yellow-android-14-0-smartphone",
+                "https://webmall-2.informatik.uni-mannheim.de/product/samsung-galaxy-s24-ultra-5g-s928b-ds-256gb-titanium-yellow-android-14-smartphone",
+                "https://webmall-3.informatik.uni-mannheim.de/product/samsung-galaxy-s24-5g-s926b-ds-256gb-cobalt-violet-android-14-0-smartphone",
+                "https://webmall-4.informatik.uni-mannheim.de/product/smartphone-samsung-galaxy-s24-5g-12-256gb-purple-cobalt-violet-sm-s926bzvdeue",
+                "https://webmall-4.informatik.uni-mannheim.de/product/smartphone-samsung-galaxy-s24-5g-12-256gb-yellow-amber-yellow-sm-s926bzydeue",
+                "https://webmall-3.informatik.uni-mannheim.de/product/samsung-galaxy-s24-5g-s921b-ds-256gb-amber-yellow-android-14-0-smartphone",
+                "https://webmall-1.informatik.uni-mannheim.de/product/smartphone-samsung-galaxy-a25-5g-6-128gb-yellow-sm-a256bzydeue",
+                "https://webmall-3.informatik.uni-mannheim.de/product/samsung-galaxy-s24-5g-s921b-ds-128gb-cobalt-violet-android-14-0-smartphone"
+            ],
+            "completion": 0
+        },
+        {
+            "task_id": "Webmall_Best_Fit_Vague_Task3",
+            "metrics": {
+                "task_completion_rate": 0,
+                "avg_precision": 0.0,
+                "avg_recall": 0.0,
+                "f1_score": 0.0
+            },
+            "prediction": [],
+            "ground_truth": [
+                "https://webmall-3.informatik.uni-mannheim.de/product/adata-512gb-xpg-gammix-s70-blade-m-2-nvme-ssd-m-2-2280-pcie-4-0-3d-nand-r-w-7400-2600-mb-s-425k-510k-iops-ps5-compatible-no-heatsink",
+                "https://webmall-1.informatik.uni-mannheim.de/product/team-1tb-mp44-m-2-nvme-gen4-ssd-m-2-2280-pcie4-r-w-7400-6500-mb-s-heat-dissipating-graphene-label",
+                "https://webmall-4.informatik.uni-mannheim.de/product/team-1tb-mp44-m-2-nvme-gen4-ssd-m-2-2280-pcie4-r-w-7400-6500-mb-s-heat-dissipating-graphene-label"
+            ],
+            "completion": 0
+        },
+        {
+            "task_id": "Webmall_Cheapest_Best_Fit_Specific_Task1",
+            "metrics": {
+                "task_completion_rate": 0,
+                "avg_precision": 0.0,
+                "avg_recall": 0.0,
+                "f1_score": 0.0
+            },
+            "prediction": [
+                "https://webmall-2.informatik.uni-mannheim.de/product/microsoft-xbox-one-s-1tb-all-digital-edition-white"
+            ],
+            "ground_truth": [
+                "https://webmall-3.informatik.uni-mannheim.de/product/microsoft-xbox-series-s-starter-bundle-xbox-series-s-hvit-10240-mb-gddr6-amd-amd-ryzen-zen-2"
+            ],
+            "completion": 0
+        },
+        {
+            "task_id": "Webmall_Cheapest_Best_Fit_Specific_Task2",
+            "metrics": {
+                "task_completion_rate": 1,
+                "avg_precision": 1.0,
+                "avg_recall": 1.0,
+                "f1_score": 1.0
+            },
+            "prediction": [
+                "https://webmall-4.informatik.uni-mannheim.de/product/smartphone-samsung-galaxy-s24-ultra-5g-12-256gb-black-titanium-black-sm-s928bzkgeue"
+            ],
+            "ground_truth": [
+                "https://webmall-4.informatik.uni-mannheim.de/product/smartphone-samsung-galaxy-s24-ultra-5g-12-256gb-black-titanium-black-sm-s928bzkgeue"
+            ],
+            "completion": 1
+        },
+        {
+            "task_id": "Webmall_Cheapest_Best_Fit_Specific_Task3",
+            "metrics": {
+                "task_completion_rate": 0,
+                "avg_precision": 0.0,
+                "avg_recall": 0.0,
+                "f1_score": 0.0
+            },
+            "prediction": [
+                "https://webmall-3.informatik.uni-mannheim.de/product/arctic-liquid-freezer-iii-a-rgb-420mm-liquid-cpu-cooler-p14-pwm-pst-argb-fans-argb-pwm-controlled-pump-black"
+            ],
+            "ground_truth": [
+                "https://webmall-2.informatik.uni-mannheim.de/product/arctic-liquid-freezer-iii-a-rgb-420mm-liquid-cpu-cooler-p14-pwm-pst-argb-fans-amp-argb-pwm-controlled-pump-black"
+            ],
+            "completion": 0
+        },
+        {
+            "task_id": "Webmall_Cheapest_Best_Fit_Vague_Task1",
+            "metrics": {
+                "task_completion_rate": 0,
+                "avg_precision": 1.0,
+                "avg_recall": 0.25,
+                "f1_score": 0.4
+            },
+            "prediction": [
+                "https://webmall-1.informatik.uni-mannheim.de/product/smartphone-samsung-galaxy-a15-4-128gb-black-sm-a155fzkdeue"
+            ],
+            "ground_truth": [
+                "https://webmall-2.informatik.uni-mannheim.de/product/samsung-galaxy-a55-5g-a556b-dual-sim-128gb-ee-navy-android-14-0-smartphone",
+                "https://webmall-1.informatik.uni-mannheim.de/product/smartphone-samsung-galaxy-a15-4-128gb-black-sm-a155fzkdeue",
+                "https://webmall-2.informatik.uni-mannheim.de/product/samsung-galaxy-a35-5g-a356b-dual-sim-256gb-awesome-iceblue-android-14-smartphone",
+                "https://webmall-2.informatik.uni-mannheim.de/product/samsung-galaxy-a25-5g-a256b-dual-sim-128gb-blue-android-14-0-smartphone"
+            ],
+            "completion": 0
+        },
+        {
+            "task_id": "Webmall_Cheapest_Best_Fit_Vague_Task2",
+            "metrics": {
+                "task_completion_rate": 0,
+                "avg_precision": 0.0,
+                "avg_recall": 0.0,
+                "f1_score": 0.0
+            },
+            "prediction": [
+                "https://webmall-3.informatik.uni-mannheim.de/product/adata-sc610-1tb-pocket-size-external-ssd-usb-3-2-gen2-type-a-capless-retractable-design-key-ring"
+            ],
+            "ground_truth": [
+                "https://webmall-2.informatik.uni-mannheim.de/product/adata-se880-1tb-pocket-size-external-ssd-usb-3-2-gen2-type-c-type-a-blue"
+            ],
+            "completion": 0
+        },
+        {
+            "task_id": "Webmall_Cheapest_Best_Fit_Vague_Task3",
+            "metrics": {
+                "task_completion_rate": 0,
+                "avg_precision": 0.0,
+                "avg_recall": 0.0,
+                "f1_score": 0.0
+            },
+            "prediction": [
+                "https://webmall-3.informatik.uni-mannheim.de/product/arktek-amd-b450m-socket-am4-motherboard"
+            ],
+            "ground_truth": [
+                "https://webmall-3.informatik.uni-mannheim.de/product/asrock-b550m-phantom-gaming-4-amd-b550-am4-micro-atx-4-ddr4-hdmi-dp-xfire-pcie4-m-2",
+                "https://webmall-3.informatik.uni-mannheim.de/product/aorus-am4-a520-aorus-elite"
+            ],
+            "completion": 0
+        },
+        {
+            "task_id": "Webmall_Add_To_Cart_Task1",
+            "metrics": {
+                "task_completion_rate": 1,
+                "avg_precision": 1.0,
+                "avg_recall": 1.0,
+                "f1_score": 1.0
+            },
+            "prediction": [
+                "https://webmall-2.informatik.uni-mannheim.de/product/gamemax-iceburg-360mm-argb-liquid-cpu-cooler-12cm-argb-pwm-fans-infinity-mirror-rgb-rotatable-pump-head",
+                "https://webmall-3.informatik.uni-mannheim.de/product/gamemax-iceburg-360mm-argb-liquid-cpu-cooler-12cm-argb-pwm-fans-infinity-mirror-rgb-rotatable-pump-head"
+            ],
+            "ground_truth": [
+                "https://webmall-2.informatik.uni-mannheim.de/product/gamemax-iceburg-360mm-argb-liquid-cpu-cooler-12cm-argb-pwm-fans-infinity-mirror-rgb-rotatable-pump-head",
+                "https://webmall-3.informatik.uni-mannheim.de/product/gamemax-iceburg-360mm-argb-liquid-cpu-cooler-12cm-argb-pwm-fans-infinity-mirror-rgb-rotatable-pump-head"
+            ],
+            "completion": 1
+        },
+        {
+            "task_id": "Webmall_Add_To_Cart_Task2",
+            "metrics": {
+                "task_completion_rate": 1,
+                "avg_precision": 1.0,
+                "avg_recall": 1.0,
+                "f1_score": 1.0
+            },
+            "prediction": [
+                "https://webmall-2.informatik.uni-mannheim.de/product/asus-rog-strix-arion-lite-m-2-nvme-ssd-caddy-usb-3-2-gen2-type-c-aluminium-thermal-pads-rgb-lighting",
+                "https://webmall-4.informatik.uni-mannheim.de/product/asus-rog-strix-arion-lite-m-2-nvme-ssd-caddy-usb-3-2-gen2-type-c-aluminium-thermal-pads-rgb-lighting"
+            ],
+            "ground_truth": [
+                "https://webmall-2.informatik.uni-mannheim.de/product/asus-rog-strix-arion-lite-m-2-nvme-ssd-caddy-usb-3-2-gen2-type-c-aluminium-thermal-pads-rgb-lighting",
+                "https://webmall-4.informatik.uni-mannheim.de/product/asus-rog-strix-arion-lite-m-2-nvme-ssd-caddy-usb-3-2-gen2-type-c-aluminium-thermal-pads-rgb-lighting"
+            ],
+            "completion": 1
+        },
+        {
+            "task_id": "Webmall_Add_To_Cart_Task3",
+            "metrics": {
+                "task_completion_rate": 1,
+                "avg_precision": 1.0,
+                "avg_recall": 1.0,
+                "f1_score": 1.0
+            },
+            "prediction": [
+                "https://webmall-1.informatik.uni-mannheim.de/product/kingston-fury-beast-16gb-ddr5-5600mhz-pc5-44800-cl40-1-25v-ecc-xmp-3-0-pmic-dimm-memory",
+                "https://webmall-3.informatik.uni-mannheim.de/product/kingston-fury-beast-16gb-ddr5-4800mhz-pc5-38400-cl38-1-1v-ecc-xmp-3-0-amd-expo-pmic-dimm-memory"
+            ],
+            "ground_truth": [
+                "https://webmall-1.informatik.uni-mannheim.de/product/kingston-fury-beast-16gb-ddr5-5600mhz-pc5-44800-cl40-1-25v-ecc-xmp-3-0-pmic-dimm-memory",
+                "https://webmall-3.informatik.uni-mannheim.de/product/kingston-fury-beast-16gb-ddr5-4800mhz-pc5-38400-cl38-1-1v-ecc-xmp-3-0-amd-expo-pmic-dimm-memory"
+            ],
+            "completion": 1
+        },
+        {
+            "task_id": "Webmall_Find_Compatible_Products_Task1",
+            "metrics": {
+                "task_completion_rate": 0,
+                "avg_precision": 0.0,
+                "avg_recall": 0.0,
+                "f1_score": 0.0
+            },
+            "prediction": [],
+            "ground_truth": [
+                "https://webmall-1.informatik.uni-mannheim.de/product/asus-rog-falchion-rx-low-profile-compact-65-mechanical-rgb-gaming-keyboard-wireless-usb-rog-rx-red-switches-per-key-rgb-lighting-touch-panel-430-hour-battery-life",
+                "https://webmall-1.informatik.uni-mannheim.de/product/asus-rog-falchion-ace-compact-65-mechanical-rgb-gaming-keyboard-wired-dual-usb-c-rog-nx-red-switches-per-key-rgb-lighting-touch-panel-white-edition",
+                "https://webmall-4.informatik.uni-mannheim.de/product/asus-rog-falchion-rx-low-profile-compact-65-mechanical-rgb-gaming-keyboard-wireless-usb-rog-rx-red-switches-per-key-rgb-lighting-touch-panel-430-hour-battery-life"
+            ],
+            "completion": 0
+        },
+        {
+            "task_id": "Webmall_Find_Compatible_Products_Task2",
+            "metrics": {
+                "task_completion_rate": 0,
+                "avg_precision": 0.0,
+                "avg_recall": 0.0,
+                "f1_score": 0.0
+            },
+            "prediction": [],
+            "ground_truth": [
+                "https://webmall-4.informatik.uni-mannheim.de/product/amd-ryzen-threadripper-pro-5965wx-wrx8-3-8ghz-4-5-turbo-24-core-280w-140mb-cache-7nm-5th-gen-no-graphics-no-heatsink-fan",
+                "https://webmall-3.informatik.uni-mannheim.de/product/amd-ryzen-threadripper-pro-5975wx-wrx8-3-6ghz-4-5-turbo-32-core-280w-146mb-cache-7nm-5th-gen-no-graphics-no-heatsink-fan",
+                "https://webmall-4.informatik.uni-mannheim.de/product/amd-ryzen-threadripper-pro-5975wx-wrx8-3-6ghz-4-5-turbo-32-core-280w-146mb-cache-7nm-5th-gen-no-graphics-no-heatsink-fan"
+            ],
+            "completion": 0
+        },
+        {
+            "task_id": "Webmall_Find_Compatible_Products_Task3",
+            "metrics": {
+                "task_completion_rate": 0,
+                "avg_precision": 0.0,
+                "avg_recall": 0.0,
+                "f1_score": 0.0
+            },
+            "prediction": [],
+            "ground_truth": [
+                "https://webmall-2.informatik.uni-mannheim.de/product/adata-se880-4tb-pocket-size-external-ssd-usb-3-2-gen2-type-c-type-a-titanium-grey",
+                "https://webmall-2.informatik.uni-mannheim.de/product/adata-se880-4tb-pocket-size-external-ssd-usb-3-2-gen2-type-c-type-a-blue",
+                "https://webmall-1.informatik.uni-mannheim.de/product/adata-se880-4tb-pocket-size-external-ssd-usb-3-2-gen2-type-c-type-a-titanium-grey",
+                "https://webmall-1.informatik.uni-mannheim.de/product/adata-se880-4tb-pocket-size-external-ssd-usb-3-2-gen2-type-c-type-a-blue"
+            ],
+            "completion": 0
+        },
+        {
+            "task_id": "Webmall_Substitutes_Task1",
+            "metrics": {
+                "task_completion_rate": 1,
+                "avg_precision": 1.0,
+                "avg_recall": 1.0,
+                "f1_score": 1.0
+            },
+            "prediction": [
+                "https://webmall-2.informatik.uni-mannheim.de/product/arctic-liquid-freezer-iii-360mm-liquid-cpu-cooler-p12-pwm-pst-fans-amp-pwm-controlled-pump"
+            ],
+            "ground_truth": [
+                "https://webmall-2.informatik.uni-mannheim.de/product/arctic-liquid-freezer-iii-360mm-liquid-cpu-cooler-p12-pwm-pst-fans-amp-pwm-controlled-pump"
+            ],
+            "completion": 1
+        },
+        {
+            "task_id": "Webmall_Substitutes_Task2",
+            "metrics": {
+                "task_completion_rate": 1,
+                "avg_precision": 1.0,
+                "avg_recall": 1.0,
+                "f1_score": 1.0
+            },
+            "prediction": [
+                "https://webmall-2.informatik.uni-mannheim.de/product/amd-ryzen-3-3200g-cpu-with-wraith-stealth-cooler-quad-core-am4-3-6ghz-4-0-turbo-65w-12nm-3rd-gen-vega-8-graphics-picasso"
+            ],
+            "ground_truth": [
+                "https://webmall-2.informatik.uni-mannheim.de/product/amd-ryzen-3-3200g-cpu-with-wraith-stealth-cooler-quad-core-am4-3-6ghz-4-0-turbo-65w-12nm-3rd-gen-vega-8-graphics-picasso"
+            ],
+            "completion": 1
+        },
+        {
+            "task_id": "Webmall_Substitutes_Task3",
+            "metrics": {
+                "task_completion_rate": 1,
+                "avg_precision": 1.0,
+                "avg_recall": 1.0,
+                "f1_score": 1.0
+            },
+            "prediction": [
+                "https://webmall-4.informatik.uni-mannheim.de/product/team-1tb-mp44-m-2-nvme-gen4-ssd-m-2-2280-pcie4-r-w-7400-6500-mb-s-heat-dissipating-graphene-label"
+            ],
+            "ground_truth": [
+                "https://webmall-4.informatik.uni-mannheim.de/product/team-1tb-mp44-m-2-nvme-gen4-ssd-m-2-2280-pcie4-r-w-7400-6500-mb-s-heat-dissipating-graphene-label"
+            ],
+            "completion": 1
+        },
+        {
+            "task_id": "Webmall_Checkout_Task1",
+            "metrics": {
+                "task_completion_rate": 1,
+                "avg_precision": 1.0,
+                "avg_recall": 1.0,
+                "f1_score": 1.0
+            },
+            "prediction": [
+                "https://webmall-3.informatik.uni-mannheim.de/product/trust-tk-350-wireless-membrane-keyboard-spill-proof-silent-keys-media-keys-black"
+            ],
+            "ground_truth": [
+                "https://webmall-3.informatik.uni-mannheim.de/product/trust-tk-350-wireless-membrane-keyboard-spill-proof-silent-keys-media-keys-black"
+            ],
+            "completion": 1
+        },
+        {
+            "task_id": "Webmall_Checkout_Task2",
+            "metrics": {
+                "task_completion_rate": 1,
+                "avg_precision": 1.0,
+                "avg_recall": 1.0,
+                "f1_score": 1.0
+            },
+            "prediction": [
+                "https://webmall-1.informatik.uni-mannheim.de/product/palit-rtx3050-dual-v2-pcie4-8gb-ddr6-dvi-hdmi-dp-1777mhz-clock-rgb-lighting"
+            ],
+            "ground_truth": [
+                "https://webmall-1.informatik.uni-mannheim.de/product/palit-rtx3050-dual-v2-pcie4-8gb-ddr6-dvi-hdmi-dp-1777mhz-clock-rgb-lighting"
+            ],
+            "completion": 1
+        },
+        {
+            "task_id": "Webmall_Checkout_Task3",
+            "metrics": {
+                "task_completion_rate": 1,
+                "avg_precision": 1.0,
+                "avg_recall": 1.0,
+                "f1_score": 1.0
+            },
+            "prediction": [
+                "https://webmall-2.informatik.uni-mannheim.de/product/adata-1tb-hv620s-slim-external-hard-drive-2-5-usb-3-2-11-5mm-thick-black"
+            ],
+            "ground_truth": [
+                "https://webmall-2.informatik.uni-mannheim.de/product/adata-1tb-hv620s-slim-external-hard-drive-2-5-usb-3-2-11-5mm-thick-black"
+            ],
+            "completion": 1
+        },
+        {
+            "task_id": "Webmall_EndToEnd_Task1",
+            "metrics": {
+                "task_completion_rate": 1,
+                "avg_precision": 1.0,
+                "avg_recall": 1.0,
+                "f1_score": 1.0
+            },
+            "prediction": [
+                "https://webmall-3.informatik.uni-mannheim.de/product/asrock-b550-phantom-gaming-4-amd-b550-am4-atx-4-ddr4-hdmi-xfire-pcie4-m-2"
+            ],
+            "ground_truth": [
+                "https://webmall-3.informatik.uni-mannheim.de/product/asrock-b550-phantom-gaming-4-amd-b550-am4-atx-4-ddr4-hdmi-xfire-pcie4-m-2"
+            ],
+            "completion": 1
+        },
+        {
+            "task_id": "Webmall_EndToEnd_Task2",
+            "metrics": {
+                "task_completion_rate": 1,
+                "avg_precision": 1.0,
+                "avg_recall": 1.0,
+                "f1_score": 1.0
+            },
+            "prediction": [
+                "https://webmall-3.informatik.uni-mannheim.de/product/asus-43-rog-strix-4k-uhd-dsc-gaming-monitor-xg43uq-3840-x-2160-1ms-4-hdmi-dp-usb-speakers-displayhdr-1000-remote-control-rgb-vesa"
+            ],
+            "ground_truth": [
+                "https://webmall-3.informatik.uni-mannheim.de/product/asus-43-rog-strix-4k-uhd-dsc-gaming-monitor-xg43uq-3840-x-2160-1ms-4-hdmi-dp-usb-speakers-displayhdr-1000-remote-control-rgb-vesa"
+            ],
+            "completion": 1
+        },
+        {
+            "task_id": "Webmall_EndToEnd_Task3",
+            "metrics": {
+                "task_completion_rate": 1,
+                "avg_precision": 1.0,
+                "avg_recall": 1.0,
+                "f1_score": 1.0
+            },
+            "prediction": [
+                "https://webmall-1.informatik.uni-mannheim.de/product/corsair-vengeance-lpx-32gb-kit-2-x-16gb-ddr4-3000mhz-pc4-24000-cl16-xmp-2-0-dimm-memory"
+            ],
+            "ground_truth": [
+                "https://webmall-1.informatik.uni-mannheim.de/product/corsair-vengeance-lpx-32gb-kit-2-x-16gb-ddr4-3000mhz-pc4-24000-cl16-xmp-2-0-dimm-memory"
+            ],
+            "completion": 1
+        }
+    ]
+}
