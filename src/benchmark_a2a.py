@@ -1,135 +1,142 @@
 import json
 import logging
 import time
+import datetime
 from pathlib import Path
-from typing import List, Dict, Any
-
 from utils import calculation_results, interface_results_dir
 from a2a.main import initialize_system
 from a2a.config import TASK_SET_PATH, WEBMALL_SHOPS
 
-# Basic logging configuration
+# Logging configuration
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger("a2a_benchmark")
 
 TARGET_MODEL = "gpt-5-mini"
 
 def count_tokens(text: str) -> int:
-    """Character-based token estimation to avoid tiktoken issues."""
-    return len(text) // 4
+    """
+    Estimate tokens based on character length (1 token approx 4 chars).
+    """
+    return len(text) // 4 if text else 0
 
 class A2ABenchmark:
     def __init__(self, interface_name: str = "a2a-interface"):
+        # Load task sets
         with open(TASK_SET_PATH, 'r', encoding='utf-8') as f:
             categories = json.load(f)
         
-        # URL mapping to resolve placeholders (e.g., {{URL_1}})
-        url_map = {
-            "{{URL_1}}": WEBMALL_SHOPS["webmall_1"]["url"],
-            "{{URL_2}}": WEBMALL_SHOPS["webmall_2"]["url"],
-            "{{URL_3}}": WEBMALL_SHOPS["webmall_3"]["url"],
-            "{{URL_4}}": WEBMALL_SHOPS["webmall_4"]["url"]
-        }
-
+        # Mapping for URL placeholders
+        url_map = {"{{URL_"+str(i)+"}}": WEBMALL_SHOPS[f"webmall_{i}"]["url"] for i in range(1, 5)}
         self.all_tasks = []
         for cat in categories:
             for t in cat.get("tasks", []):
-                # Resolve ground truth URLs
-                raw_answers = t.get("correct_answer", {}).get("answers", [])
-                resolved_answers = []
-                for ans in raw_answers:
-                    new_ans = ans
-                    for placeholder, actual_url in url_map.items():
-                        new_ans = new_ans.replace(placeholder, actual_url)
-                    resolved_answers.append(new_ans)
-                
-                t["resolved_answers"] = list(set(resolved_answers))
+                raw_ans = t.get("correct_answer", {}).get("answers", [])
+                resolved = [ans.replace(k, v) for ans in raw_ans for k, v in url_map.items() if k in ans]
+                t["resolved_answers"] = list(set(resolved if resolved else raw_ans))
                 self.all_tasks.append(t)
         
+        # System initialization
         self.buyer_agent = initialize_system()
         self.results_dir = interface_results_dir(__file__, interface_name, TARGET_MODEL)
-        self.metrics_summary = {"total_f1": 0.0, "total_cr": 0.0}
+        
+        # Metrics summary with corrected keys
+        self.metrics_summary = {
+            "total_f1": 0.0, 
+            "total_cr": 0.0, 
+            "total_input_tokens": 0, 
+            "total_output_tokens": 0
+        }
         self.task_logs = []
 
     def run_all_tasks(self):
         total_tasks = len(self.all_tasks)
-        print(f"\n{'='*60}")
-        print(f"Starting A2A Benchmark: {total_tasks} tasks | Model: {TARGET_MODEL}")
-        print(f"{'='*60}\n")
+        print(f"\n{'='*80}")
+        print(f"STARTING BENCHMARK: {total_tasks} TASKS | MODEL: {TARGET_MODEL}")
+        print(f"{'='*80}\n")
 
-        for i, task_entry in enumerate(self.all_tasks):
-            task_id = task_entry.get("id")
-            instruction = task_entry.get("task", "")
-            ground_truth = task_entry.get("resolved_answers", [])
-
-            print(f"--- Task [{i+1}/{total_tasks}]: {task_id} ---")
+        for i, task in enumerate(self.all_tasks):
+            task_id = task.get("id")
+            instruction = task.get("task", "")
+            gt_urls = [url.rstrip('/') for url in task["resolved_answers"]]
+            
+            # 1. External Input Token tracking
+            ext_in = count_tokens(instruction)
+            
+            print(f"[{i+1}/{total_tasks}] Processing Task: {task_id}")
             start_time = time.time()
             
             try:
-                # 1. Execute via BuyerAgent (which now performs LLM filtering)
+                # 2. Agent execution
                 agent_output = self.buyer_agent.execute_procurement_task(instruction)
                 results = agent_output.get("results", [])
+                internal = agent_output.get("internal_usage", {"in": 0, "out": 0})
                 
-                # 2. NORMALIZATION: Strip trailing slashes to ensure exact string matching
-                predictions = [res["url"].rstrip('/') for res in results if "url" in res]
-                normalized_gt = [gt.rstrip('/') for gt in ground_truth]
+                # Normalize predictions
+                preds = [res["url"].rstrip('/') for res in results if "url" in res]
                 
-                # 3. CR Calculation: Binary Metric (1 if sets are identical, 0 otherwise)
-                task_completion = 1 if set(predictions) == set(normalized_gt) and len(predictions) > 0 else 0
+                # 3. Aggregate all tokens
+                t_in = ext_in + internal["in"]
+                t_out = internal["out"] + count_tokens(json.dumps(results))
                 
-                # 4. F1 Calculation: Based on Precision and Recall
-                metrics = calculation_results(normalized_gt, predictions)
+                # 4. Indicators calculation
+                t_cr = 1 if set(preds) == set(gt_urls) and len(preds) > 0 else 0
+                calc = calculation_results(gt_urls, preds)
                 
-                self.metrics_summary["total_f1"] += metrics['f1_score']
-                self.metrics_summary["total_cr"] += task_completion
+                # Accumulate summary
+                self.metrics_summary["total_f1"] += calc['f1_score']
+                self.metrics_summary["total_cr"] += t_cr
+                self.metrics_summary["total_input_tokens"] += t_in
+                self.metrics_summary["total_output_tokens"] += t_out
                 
-                # Real-time Terminal Feedback
-                print(f"  > Search Results Found: {len(predictions)}")
-                if predictions:
-                    for idx, p_url in enumerate(predictions[:2]):
-                        print(f"    - Pred {idx+1}: {p_url}")
-                
-                print(f"  > F1 Score: {metrics['f1_score']:.4f} | CR: {task_completion}")
-                print(f"  > Latency: {time.time() - start_time:.2f}s\n")
+                # 5. Terminal Feedback
+                print(f"    - F1 Score: {calc['f1_score']:.4f}")
+                print(f"    - CR:       {t_cr}")
+                print(f"    - Tokens:   In {t_in} / Out {t_out}")
+                print(f"    - Latency:  {time.time() - start_time:.2f}s\n")
 
                 self.task_logs.append({
                     "task_id": task_id,
-                    "metrics": metrics,
-                    "prediction": predictions,
-                    "ground_truth": normalized_gt,
-                    "completion": task_completion
+                    "f1": calc['f1_score'],
+                    "cr": t_cr,
+                    "tokens": {"input": t_in, "output": t_out},
+                    "prediction": preds,
+                    "ground_truth": gt_urls
                 })
-
+                
             except Exception as e:
-                print(f"  [X] Task Failed: {str(e)}\n")
-                logger.error(f"Execution failed on {task_id}: {e}")
+                print(f"    [!] Error: {str(e)}\n")
 
         self._finalize_report(total_tasks)
 
     def _finalize_report(self, total: int):
-        avg_f1 = self.metrics_summary["total_f1"] / total if total > 0 else 0
-        final_cr = (self.metrics_summary["total_cr"] / total * 100) if total > 0 else 0
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        report_file = self.results_dir / f"a2a_full_report_{timestamp}.json"
         
-        report = {
+        avg_f1 = self.metrics_summary["total_f1"] / total
+        cr_pct = (self.metrics_summary["total_cr"] / total) * 100
+        
+        final_results = {
             "summary": {
                 "model": TARGET_MODEL,
-                "average_f1": avg_f1,
-                "completion_rate_percentage": final_cr
+                "avg_f1": avg_f1,
+                "cr_percentage": cr_pct,
+                "total_input_tokens": self.metrics_summary["total_input_tokens"],
+                "total_output_tokens": self.metrics_summary["total_output_tokens"]
             },
             "details": self.task_logs
         }
-
-        output_file = self.results_dir / "a2a_benchmark_report.json"
-        with open(output_file, "w", encoding="utf-8") as f:
-            json.dump(report, f, indent=4)
-
-        print(f"{'='*60}")
-        print(f"FINAL RESULTS - {TARGET_MODEL}")
+        
+        with open(report_file, "w", encoding="utf-8") as f:
+            json.dump(final_results, f, indent=4)
+            
+        print(f"{'='*80}")
+        print(f"FINAL SUMMARY - {TARGET_MODEL}")
         print(f"Average F1: {avg_f1:.4f}")
-        print(f"Final CR:   {final_cr:.2f}%")
-        print(f"Report:     {output_file}")
-        print(f"{'='*60}")
+        print(f"Final CR:   {cr_pct:.2f}%")
+        print(f"Total In Tokens:  {self.metrics_summary['total_input_tokens']}")
+        print(f"Total Out Tokens: {self.metrics_summary['total_output_tokens']}")
+        print(f"Report: {report_file}")
+        print(f"{'='*80}\n")
 
 if __name__ == "__main__":
-    benchmark = A2ABenchmark()
-    benchmark.run_all_tasks()
+    A2ABenchmark().run_all_tasks()
