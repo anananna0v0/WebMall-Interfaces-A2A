@@ -36,7 +36,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 load_dotenv()
 
-DEFAULT_CHAT_MODEL_NAME = os.getenv("HYBRID_MCP_MODEL", "openai:gpt-4o-mini")
+DEFAULT_CHAT_MODEL_NAME = os.getenv("HYBRID_MCP_MODEL", "openai:gpt-5-mini")
 
 URLS = {
     "URL_1": "https://webmall-1.informatik.uni-mannheim.de",
@@ -555,7 +555,7 @@ def create_enhanced_hybrid_tool_call_log(messages: List[Any], tools_dict: Dict[s
                         tool_call_dict = dict(tool_call)
                         tool_output = get_tool_call_results(
                             messages, tool_call_dict.get("id"))
-
+                        
                         # Extract tool name and arguments - handle both OpenAI and Claude formats
                         tool_name = None
                         tool_args = None
@@ -583,7 +583,7 @@ def create_enhanced_hybrid_tool_call_log(messages: List[Any], tools_dict: Dict[s
                                 parsed_args = tool_args if tool_args else {}
                         except (json.JSONDecodeError, TypeError):
                             parsed_args = {"raw_arguments": str(tool_args)}
-
+                        
                         # Determine tool type for hybrid servers
                         tool_type = "unknown"
                         # Search tools
@@ -1200,8 +1200,8 @@ def generate_csv_metrics(enhanced_summary, output_dir: Path):
 
 
 if __name__ == "__main__":
-    BENCHMARK_JSON_PATH = "../add_to_cart.json"  # adjust as needed
-    model_name = "gpt-5-2025-08-07"
+    BENCHMARK_JSON_PATH = "task_sets/task_sets_35.json"  # adjust as needed
+    model_name = "gpt-5-mini"
 
     chat_model = ChatOpenAI(model=model_name,  reasoning_effort="medium")
     enhanced_summary = {}

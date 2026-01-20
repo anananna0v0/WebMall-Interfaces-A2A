@@ -1,0 +1,73 @@
+{
+  "took" : 9,
+  "timed_out" : false,
+  "_shards" : {
+    "total" : 1,
+    "successful" : 1,
+    "skipped" : 0,
+    "failed" : 0
+  },
+  "hits" : {
+    "total" : {
+      "value" : 1152,
+      "relation" : "eq"
+    },
+    "max_score" : 1.0,
+    "hits" : [
+      {
+        "_index" : "webmall_1_nlweb",
+        "_id" : "4093",
+        "_score" : 1.0,
+        "_ignored" : [
+          "schema_org.description.keyword"
+        ],
+        "_source" : {
+          "updated_at" : "2026-01-09T16:05:10.567178",
+          "price" : 40.19,
+          "product_id" : "4093",
+          "description" : "<p>No controllers included. Console, power adapter, sensor bar and audio-video cables included. Console and accessories in good used working condition. All accessories are original genuine Nintendo product. Console has a couple of scuffs but overall is in good cosmetic condition. We have tested and verified that this item functions as it should. Please see all provided photographs for a visual representation of the item you will receive.<br />\nCONDITION: Used<br />\nBRAND: Nintendo<br />\nMPN: RVL-201 (USA)</p>\n",
+          "created_at" : "2026-01-09T16:05:10.567173",
+          "title" : "Nintendo Wii Mini Console and Cables",
+          "category" : "Consoles",
+          "url" : "https://webmall-1.informatik.uni-mannheim.de/product/nintendo-wii-mini-console-and-cables/",
+          "related_products" : [
+            "4075",
+            "4089",
+            "4055",
+            "4071",
+            "4067"
+          ],
+          "schema_org" : {
+            "offers" : {
+              "priceValidUntil" : "",
+              "priceCurrency" : "EUR",
+              "@type" : "Offer",
+              "price" : "40.19",
+              "availability" : "https://schema.org/InStock",
+              "url" : "https://webmall-1.informatik.uni-mannheim.de/product/nintendo-wii-mini-console-and-cables/",
+              "itemCondition" : "https://schema.org/NewCondition"
+            },
+            "image" : [
+              "https://webmall-1.informatik.uni-mannheim.de/wp-content/uploads/2025/07/miltonwares.com_239.png"
+            ],
+            "identifier" : {
+              "@type" : "PropertyValue",
+              "name" : "WooCommerce ID",
+              "value" : "4093"
+            },
+            "@type" : "Product",
+            "name" : "Nintendo Wii Mini Console and Cables",
+            "description" : "<p>No controllers included. Console, power adapter, sensor bar and audio-video cables included. Console and accessories in good used working condition. All accessories are original genuine Nintendo product. Console has a couple of scuffs but overall is in good cosmetic condition. We have tested and verified that this item functions as it should. Please see all provided photographs for a visual representation of the item you will receive.<br />\nCONDITION: Used<br />\nBRAND: Nintendo<br />\nMPN: RVL-201 (USA)</p>",
+            "category" : "Consoles",
+            "@context" : "https://schema.org/",
+            "brand" : {
+              "@type" : "Brand",
+              "name" : "Nintendo"
+            },
+            "url" : "https://webmall-1.informatik.uni-mannheim.de/product/nintendo-wii-mini-console-and-cables/"
+          }
+        }
+      }
+    ]
+  }
+}

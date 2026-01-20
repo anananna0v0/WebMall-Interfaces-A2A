@@ -1,0 +1,74 @@
+{
+  "version": "2.1",
+  "registry_name": "Static Shop Agent Registry",
+  "agents": [
+    {
+      "agent_id": "webmall-1",
+      "name": "WebMall-1 Electronics Store",
+      "endpoint": "http://localhost:8001/rpc",
+      "protocol": "JSON-RPC 2.0",
+      "capabilities": [
+        {
+          "method": "semantic_search",
+          "description": "Perform semantic search for products and return the best single match in schema.org format.",
+          "parameters": {
+            "search_query": "string",
+            "top_k": "integer"
+          }
+        },
+        {
+          "method": "add_to_cart",
+          "description": "Add product to store-side session cart.",
+          "parameters": {
+            "product_url": "string"
+          }
+        },
+        {
+          "method": "checkout",
+          "description": "Execute checkout process.",
+          "parameters": {}
+        }
+      ],
+      "metadata": {
+        "data_model": "http://schema.org/Product",
+        "domain": "electronics"
+      }
+    },
+    {
+      "agent_id": "webmall-2",
+      "name": "WebMall-2 Tech Outlet",
+      "endpoint": "http://localhost:8002/rpc",
+      "protocol": "JSON-RPC 2.0",
+      "capabilities": [
+        { "method": "semantic_search", "parameters": { "search_query": "string", "top_k": "integer" } },
+        { "method": "add_to_cart", "parameters": { "product_url": "string" } },
+        { "method": "checkout", "parameters": {} }
+      ],
+      "metadata": { "data_model": "http://schema.org/Product", "domain": "electronics" }
+    },
+    {
+      "agent_id": "webmall-3",
+      "name": "WebMall-3 Gadget Hub",
+      "endpoint": "http://localhost:8003/rpc",
+      "protocol": "JSON-RPC 2.0",
+      "capabilities": [
+        { "method": "semantic_search", "parameters": { "search_query": "string", "top_k": "integer" } },
+        { "method": "add_to_cart", "parameters": { "product_url": "string" } },
+        { "method": "checkout", "parameters": {} }
+      ],
+      "metadata": { "data_model": "http://schema.org/Product", "domain": "electronics" }
+    },
+    {
+      "agent_id": "webmall-4",
+      "name": "WebMall-4 Digital World",
+      "endpoint": "http://localhost:8004/rpc",
+      "protocol": "JSON-RPC 2.0",
+      "capabilities": [
+        { "method": "semantic_search", "parameters": { "search_query": "string", "top_k": "integer" } },
+        { "method": "add_to_cart", "parameters": { "product_url": "string" } },
+        { "method": "checkout", "parameters": {} }
+      ],
+      "metadata": { "data_model": "http://schema.org/Product", "domain": "electronics" }
+    }
+  ]
+}

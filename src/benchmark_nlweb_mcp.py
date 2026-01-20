@@ -29,7 +29,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 load_dotenv()
 
-DEFAULT_CHAT_MODEL = os.getenv("NLWEB_MCP_MODEL", "openai:gpt-4o-mini")
+DEFAULT_CHAT_MODEL = os.getenv("NLWEB_MCP_MODEL", "openai:gpt-5-mini")
 
 # Disable HTTP request logging
 logging.getLogger("httpx").setLevel(logging.WARNING)
@@ -1068,9 +1068,9 @@ def generate_csv_metrics(enhanced_summary, output_dir: Path):
 
 
 if __name__ == "__main__":
-    BENCHMARK_JSON_PATH = "../checkout_tasks.json"  # adjust as needed
+    BENCHMARK_JSON_PATH = "task_sets/task_sets_35.json"  # adjust as needed
     
-    model_name = "gpt-5"
+    model_name = "gpt-5-mini"
 
     chat_model = ChatOpenAI(model=model_name,  reasoning_effort="medium")
     enhanced_summary = {}
