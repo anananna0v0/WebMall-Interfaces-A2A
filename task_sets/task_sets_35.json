@@ -451,6 +451,101 @@
     ]
   },
   {
+    "id": "WEBMALL_CHEAPEST_BEST_FIT_VAGUE_V1",
+    "name": "Web Mall Agent Benchmark: Cheapest Offer for Best Fit (Vague Requirements)",
+    "date": "2025-02-21",
+    "description": "Evaluate the agent's ability to identify the cheapest suitable product when given loosely defined requirements.",
+    "authors": [
+      "",
+      "",
+      ""
+    ],
+    "license": "Apache 2.0",
+    "tasks": [
+      {
+        "id": "Webmall_Cheapest_Best_Fit_Vague_Task1",
+        "category": "Cheapest_Best_Fit_Vague",
+        "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
+        "task": "<task>\\nFind the cheapest offer for each Smartphone model of Samsungs budget-friendly smartphone series. If multiple offers share the lowest price, return all of them.\\n</task>",
+        "motivation": "Test the agent’s capability to interpret ambiguous requirements while optimizing for cost.",
+        "correct_answer": {
+          "type": "string",
+          "answers": [
+            "{{URL_2}}/product/samsung-galaxy-a25-5g-a256b-dual-sim-128gb-blue-android-14-0-smartphone",
+            "{{URL_2}}/product/samsung-galaxy-a35-5g-a356b-dual-sim-256gb-awesome-iceblue-android-14-smartphone",
+            "{{URL_2}}/product/samsung-galaxy-a55-5g-a556b-dual-sim-128gb-ee-navy-android-14-0-smartphone",
+            "{{URL_1}}/product/smartphone-samsung-galaxy-a15-4-128gb-black-sm-a155fzkdeue"
+          ]
+        }
+      },
+      {
+        "id": "Webmall_Cheapest_Best_Fit_Vague_Task2",
+        "category": "Cheapest_Best_Fit_Vague",
+        "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
+        "task": "<task>\\nFind the cheapest offer for an external SSD that is not colored black, white or metallic. If multiple offers share the lowest price, return all of them.\\n</task>",
+        "motivation": "Test the agent’s capability to interpret ambiguous requirements while optimizing for cost.",
+        "correct_answer": {
+          "type": "string",
+          "answers": [
+            "{{URL_2}}/product/adata-se880-1tb-pocket-size-external-ssd-usb-3-2-gen2-type-c-type-a-blue"
+          ]
+        }
+      },
+      {
+        "id": "Webmall_Cheapest_Best_Fit_Vague_Task3",
+        "category": "Cheapest_Best_Fit_Vague",
+        "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
+        "task": "<task>\\nFind the cheapest offer for a motherboard designed for gamers with AM4 CPU socket. If multiple offers share the lowest price, return all of them.\\n</task>",
+        "motivation": "Test the agent’s capability to interpret ambiguous requirements while optimizing for cost.",
+        "correct_answer": {
+          "type": "string",
+          "answers": [
+            "{{URL_3}}/product/asrock-b550m-phantom-gaming-4-amd-b550-am4-micro-atx-4-ddr4-hdmi-dp-xfire-pcie4-m-2",
+            "{{URL_3}}/product/aorus-am4-a520-aorus-elite"
+          ]
+        }
+      },
+      {
+        "id": "Webmall_Cheapest_Best_Fit_Vague_Task4",
+        "category": "Cheapest_Best_Fit_Vague",
+        "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
+        "task": "<task>\\nFind the cheapest offers for each model of mid-tier nVidia gaming GPUs in the 4000 series. If multiple offers share the lowest price, return all of them.\\n</task>",
+        "motivation": "Test the agent’s capability to interpret ambiguous requirements while optimizing for cost.",
+        "correct_answer": {
+          "type": "string",
+          "answers": [
+            "{{URL_4}}/product/asus-dual-rtx4060-evo-oc-pcie4-8gb-ddr6-hdmi-3-dp-2535mhz-clock-overclocked",
+            "{{URL_3}}/product/palit-rtx4070-super-dual-oc-12gb-ddr6x-hdmi-3-dp-2550mhz-clock-overclocked-rgb-lighting",
+            "{{URL_1}}/product/palit-rtx4070-super-dual-oc-12gb-ddr6x-hdmi-3-dp-2550mhz-clock-overclocked-rgb-lighting",
+            "{{URL_3}}/product/palit-rtx4070-gamingpro-pcie4-12gb-ddr6x-hdmi-3-dp-2475mhz-clock-rgb-lighting",
+            "{{URL_3}}/product/asus-dual-rtx4070-super-oc-white-pcie4-12gb-ddr6x-hdmi-3-dp-2550mhz-clock-overclocked",
+            "{{URL_3}}/product/asus-dual-rtx4070-super-pcie4-12gb-ddr6x-hdmi-3-dp-2505mhz-clock",
+            "{{URL_3}}/product/asus-proart-rtx4070-super-oc-pcie4-12gb-ddr6x-hdmi-3-dp-2565mhz-clock-overclocked-compact-2-5-slot-design",
+            "{{URL_3}}/product/palit-rtx4070-super-dual-12gb-ddr6x-hdmi-3-dp-2475mhz-clock-rgb-lighting",
+            "{{URL_1}}/product/asus-proart-rtx4070-super-oc-12gb-ddr6x-hdmi-3-dp-2565mhz-clock-overclocked-compact-2-5-slot-design",
+            "{{URL_4}}/product/palit-rtx4070-super-jetstream-oc-12gb-ddr6x-hdmi-3-dp-2640mhz-clock-overclocked"
+          ]
+        }
+      },
+      {
+        "id": "Webmall_Cheapest_Best_Fit_Vague_Task5",
+        "category": "Cheapest_Best_Fit_Vague",
+        "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
+        "task": "<task>\\nFind the cheapest offer for a gaming monitor which is suitable for competitive reaction-based e-sports gaming. If multiple offers share the lowest price, return all of them.\\n</task>",
+        "motivation": "Test the agent’s capability to interpret ambiguous requirements while optimizing for cost.",
+        "correct_answer": {
+          "type": "string",
+          "answers": [
+            "{{URL_3}}/product/asus-27-tuf-gaming-monitor-vg279q3a-1920-x-1080-fast-ips-1ms-elmb-180hz-variable-overdrive-99-srgb-vesa",
+            "{{URL_1}}/product/asus-27-tuf-gaming-monitor-vg279q3a-1920-x-1080-fast-ips-1ms-elmb-180hz-variable-overdrive-99-srgb-vesa",
+            "{{URL_4}}/product/asrock-27-gaming-monitor-pg27fft1b-ips-1920-x-1080-1ms-2-hdmi-dp-180hz-srgb-123-freesync-vesa",
+            "{{URL_1}}/product/asrock-27-gaming-monitor-pg27fft1b-ips-1920-x-1080-1ms-2-hdmi-dp-180hz-srgb-123-freesync-vesa"
+          ]
+        }
+      }
+    ]
+  },
+  {
     "id": "WEBMALL_FIND_COMPATIBLE_PRODUCTS_V1",
     "name": "Web Mall Agent Benchmark: Find most fitting Products for a given Product (compatible products)",
     "date": "2025-02-21",
@@ -539,159 +634,6 @@
             "{{URL_2}}/product/spire-mini-displayport-male-to-hdmi-male-converter-1-metre"
           ],
           "product_in_cart": "{{URL_1}}/product/pny-t1000-professional-graphics-card-4gb-ddr6-896-cores-4-minidp-1-4-low-profile-bracket-included-oem-brown-box"
-        }
-      }
-    ]
-  },
-  {
-    "id": "WEBMALL_END_TO_END_V1",
-    "name": "Web Mall Agent Benchmark: Find and Order (End-to-End Webshopping process)",
-    "date": "2025-07-09",
-    "description": "Evaluate the agent’s ability to complete the whole webshopping process, including searching a product between multiple shops and finally making an order.",
-    "authors": [
-      "j-yuya",
-      "LucaLuca1124"
-    ],
-    "license": "Apache 2.0",
-    "tasks": [
-      {
-        "id": "Webmall_EndToEnd_Task1",
-        "category": "FindAndOrder",
-        "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
-        "task": "<task>\\nFind the cheapest offer for the Asrock B550 PHANTOM GAMING 4, add it to the shopping cart and complete the checkout process. Pay via credit card using the following information: Address: {{name}}, {{email}}, {{street}}, {{house_number}}, {{zip}}, {{city}}, {{state}}, {{country}}, Credit card number: {{card}}, CVV: {{cvv}}, expiry date: {{expiry_date}}.\\n</task>",
-        "motivation": "Assess the agent's ability to handle the complexity of a whole end-to-end webshopping process.",
-        "correct_answer": {
-          "type": "checkout",
-          "answers": [
-            "{{URL_3}}/product/asrock-b550-phantom-gaming-4-amd-b550-am4-atx-4-ddr4-hdmi-xfire-pcie4-m-2"
-          ]
-        },
-        "user_details": {
-          "name": "Jessica Morgan",
-          "street": "Maple Avenue",
-          "house_number": "742",
-          "zip": "60614",
-          "city": "Chicago",
-          "state": "IL",
-          "country": "USA",
-          "email": "jessica.morgan@yahoo.com"
-        },
-        "payment_info": {
-          "card": "4242424242424242",
-          "cvv": "123",
-          "expiry_date": "12/28"
-        }
-      },
-      {
-        "id": "Webmall_EndToEnd_Task2",
-        "category": "FindAndOrder",
-        "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
-        "task": "<task>\\nFind the cheapest offer for the ROG STRIX 4K UHD DSC Gaming Monitor (XG43UQ), add it to the shopping cart and complete the checkout process. Pay via credit card using the following information: Address: {{name}}, {{email}}, {{street}}, {{house_number}}, {{zip}}, {{city}}, {{state}}, {{country}}, Credit card number: {{card}}, CVV: {{cvv}}, expiry date: {{expiry_date}}.\\n</task>",
-        "motivation": "Assess the agent's ability to handle the complexity of a whole end-to-end webshopping process.",
-        "correct_answer": {
-          "type": "checkout",
-          "answers": [
-            "{{URL_3}}/product/asus-43-rog-strix-4k-uhd-dsc-gaming-monitor-xg43uq-3840-x-2160-1ms-4-hdmi-dp-usb-speakers-displayhdr-1000-remote-control-rgb-vesa"
-          ]
-        },
-        "user_details": {
-          "name": "Jessica Morgan",
-          "street": "Maple Avenue",
-          "house_number": "742",
-          "zip": "60614",
-          "city": "Chicago",
-          "state": "IL",
-          "country": "USA",
-          "email": "jessica.morgan@yahoo.com"
-        },
-        "payment_info": {
-          "card": "4242424242424242",
-          "cvv": "123",
-          "expiry_date": "12/28"
-        }
-      },
-      {
-        "id": "Webmall_EndToEnd_Task3",
-        "category": "FindAndOrder",
-        "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
-        "task": "<task>\\nFind the cheapest offer for a DDR4 2x16 GB RAM Kit with exactly 3000MHz, add it to the shopping cart and complete the checkout process. Pay via credit card using the following information: Address: {{name}}, {{email}}, {{street}}, {{house_number}}, {{zip}}, {{city}}, {{state}}, {{country}}, Credit card number: {{card}}, CVV: {{cvv}}, expiry date: {{expiry_date}}.\\n</task>",
-        "motivation": "Assess the agent's ability to handle the complexity of a whole end-to-end webshopping process.",
-        "correct_answer": {
-          "type": "checkout",
-          "answers": [
-            "{{URL_1}}/product/corsair-vengeance-lpx-32gb-kit-2-x-16gb-ddr4-3000mhz-pc4-24000-cl16-xmp-2-0-dimm-memory"
-          ]
-        },
-        "user_details": {
-          "name": "Jessica Morgan",
-          "street": "Maple Avenue",
-          "house_number": "742",
-          "zip": "60614",
-          "city": "Chicago",
-          "state": "IL",
-          "country": "USA",
-          "email": "jessica.morgan@yahoo.com"
-        },
-        "payment_info": {
-          "card": "4242424242424242",
-          "cvv": "123",
-          "expiry_date": "12/28"
-        }
-      },
-      {
-        "id": "Webmall_EndToEnd_Task4",
-        "category": "FindAndOrder",
-        "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
-        "task": "<task>\\nFind the cheapest offer for the Asus DUAL RTX4070 SUPER OC White, add it to the shopping cart and complete the checkout process. Pay via credit card using the following information: Address: {{name}}, {{email}}, {{street}}, {{house_number}}, {{zip}}, {{city}}, {{state}}, {{country}}, Credit card number: {{card}}, CVV: {{cvv}}, expiry date: {{expiry_date}}.\\n</task>",
-        "motivation": "Assess the agent's ability to handle the complexity of a whole end-to-end webshopping process.",
-        "correct_answer": {
-          "type": "checkout",
-          "answers": [
-            "{{URL_3}}/product/asus-dual-rtx4070-super-oc-white-pcie4-12gb-ddr6x-hdmi-3-dp-2550mhz-clock-overclocked"
-          ]
-        },
-        "user_details": {
-          "name": "Jessica Morgan",
-          "street": "Maple Avenue",
-          "house_number": "742",
-          "zip": "60614",
-          "city": "Chicago",
-          "state": "IL",
-          "country": "USA",
-          "email": "jessica.morgan@yahoo.com"
-        },
-        "payment_info": {
-          "card": "4242424242424242",
-          "cvv": "123",
-          "expiry_date": "12/28"
-        }
-      },
-      {
-        "id": "Webmall_EndToEnd_Task5",
-        "category": "FindAndOrder",
-        "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
-        "task": "<task>\\nFind the cheapest offer for the Asus ROG Ryuo III 360 ARGB 360mm Liquid CPU Cooler, add it to the shopping cart and complete the checkout process. Pay via credit card using the following information: Address: {{name}}, {{email}}, {{street}}, {{house_number}}, {{zip}}, {{city}}, {{state}}, {{country}}, Credit card number: {{card}}, CVV: {{cvv}}, expiry date: {{expiry_date}}.\\n</task>",
-        "motivation": "Assess the agent's ability to handle the complexity of a whole end-to-end webshopping process.",
-        "correct_answer": {
-          "type": "checkout",
-          "answers": [
-            "{{URL_3}}/product/asus-rog-ryuo-iii-360-argb-360mm-liquid-cpu-cooler-8th-gen-asetek-pump-3-x-argb-fans-anime-matrix-led-display-white-edition"
-          ]
-        },
-        "user_details": {
-          "name": "Jessica Morgan",
-          "street": "Maple Avenue",
-          "house_number": "742",
-          "zip": "60614",
-          "city": "Chicago",
-          "state": "IL",
-          "country": "USA",
-          "email": "jessica.morgan@yahoo.com"
-        },
-        "payment_info": {
-          "card": "4242424242424242",
-          "cvv": "123",
-          "expiry_date": "12/28"
         }
       }
     ]
