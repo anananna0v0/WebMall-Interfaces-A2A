@@ -121,23 +121,49 @@ async def run_task(payload: Dict[str, Any]) -> Dict[str, Any]:
                         "error": "shop_timeout",
                     })
 
-        # ---------- SELECT BEST SHOP ----------
+        # ---------- UNION ALL SHOP final_urls ----------
+        # Keep best_shop only for debug / checkout metadata
         best_shop = select_best_shop(shop_results)
 
-        final_urls: List[str] = []
-        final_answer_text = "No suitable product found."
+        # Union and deduplicate URLs across all shop agents
+        union_urls: List[str] = []
+        seen: set[str] = set()
+
+        for shop_result in shop_results:
+            urls = shop_result.get("final_urls", []) or []
+            if not isinstance(urls, list):
+                continue
+
+            for url in urls:
+                if isinstance(url, str) and url not in seen:
+                    seen.add(url)
+                    union_urls.append(url)
+
+        final_urls: List[str] = union_urls
+
+        # Provide a traceable answer payload (not used for evaluation)
+        if final_urls:
+            final_answer_text = json.dumps(
+                {
+                    "aggregation": "union",
+                    "n_union": len(final_urls),
+                    "final_urls": final_urls,
+                },
+                ensure_ascii=False,
+            )
+        else:
+            final_answer_text = "No suitable product found."
+
+        # Preserve existing checkout-related metadata (unchanged behavior)
         cart_only_urls: List[str] = []
         checkout_only_urls: List[str] = []
         checkout_successful = False
 
         if best_shop:
-            candidate = best_shop["candidates"][0]
-            final_urls = extract_urls_from_candidate(candidate)
-            final_answer_text = json.dumps(candidate, ensure_ascii=False)
-
             cart_only_urls = best_shop.get("cart_only_urls", []) or []
             checkout_only_urls = best_shop.get("checkout_only_urls", []) or []
             checkout_successful = bool(best_shop.get("checkout_successful", False))
+
 
         buyer_usage = {
             "prompt_tokens": 0,

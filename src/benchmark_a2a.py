@@ -405,6 +405,8 @@ def run_benchmark_a2a(
         task_error = None
         buyer_result: Dict[str, Any] = {}
         final_answer_text = ""
+
+        evaluation_urls = []
         try:
             buyer_result = call_buyer(
                 buyer_endpoint=buyer_endpoint,
@@ -416,6 +418,14 @@ def run_benchmark_a2a(
                 timeout_sec=timeout_sec,
                 extra_payload=extra_payload,
             )
+
+            # === USE BUYER final_urls FOR EVALUATION ===
+            evaluation_urls = []
+
+            if isinstance(buyer_result, dict):
+                urls = buyer_result.get("final_urls", [])
+                if isinstance(urls, list):
+                    evaluation_urls = [normalize_url(u) for u in urls]
 
             # final answer text (may be string or dict)
             fa = buyer_result.get("final_answer", "")
@@ -442,13 +452,12 @@ def run_benchmark_a2a(
         total_prompt_tokens += prompt_tokens
         total_completion_tokens += completion_tokens
 
-        # evaluation urls selection
+        # evaluation urls selection (A2A: always use buyer final_urls)
+        evaluation_strategy = "buyer_final_urls"
+
         if task_error:
-            evaluation_urls, evaluation_strategy = [], "error"
-        else:
-            evaluation_urls, evaluation_strategy = pick_evaluation_urls(
-                buyer_result, task_category, final_answer_text
-            )
+            evaluation_urls = []
+
 
         # metrics
         task_metrics = calculation_results(
@@ -543,7 +552,7 @@ def run_benchmark_a2a(
 def main():
     parser = argparse.ArgumentParser(description="Run A2A benchmark for WebMall task set.")
     parser.add_argument("--benchmark", default="task_sets/task_sets_35.json", help="Path to task set JSON.")
-    parser.add_argument("--buyer", default=os.getenv("A2A_BUYER_ENDPOINT", "http://localhost:8001"), help="Buyer server base URL.")
+    parser.add_argument("--buyer", default=os.getenv("A2A_BUYER_ENDPOINT", "http://localhost:8005"), help="Buyer server base URL.")
     parser.add_argument("--model", default=os.getenv("A2A_MODEL", "gpt-5-mini"), help="Model name label for results dir.")
     parser.add_argument("--clarify", default=os.getenv("A2A_CLARIFY_POLICY", "on_once"), choices=["off", "on_once"], help="Clarification policy.")
     parser.add_argument("--timeout", type=int, default=int(os.getenv("A2A_TIMEOUT_SEC", "180")), help="HTTP timeout seconds per task.")
