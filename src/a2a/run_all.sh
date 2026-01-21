@@ -53,8 +53,11 @@ sleep 2
 echo "▶ Starting Buyer agent on port $BUYER_PORT"
 (
   export BUYER_PORT="$BUYER_PORT"
+  export BUYER_USE_LLM=1
+  export BUYER_LLM_MODEL=gpt-5-mini
   PYTHONPATH=src python "$A2A_DIR/buyer_server.py"
 ) &
+
 
 echo ""
 echo "✅ All servers started."
