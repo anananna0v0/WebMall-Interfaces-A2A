@@ -1,0 +1,143 @@
+[
+  {
+    "id": "WEBMALL_SINGLE_PRODUCT_SEARCH_V1",
+    "name": "Web Mall Agent Benchmark: Single Product Search",
+    "date": "2025-02-21",
+    "description": "The goal of the single product search task is to test the agents capabilities to find relevant product offers in a set of 4 e-shops and to choose the offers that best fulfills provided requirements.",
+    "authors": [
+      "",
+      "",
+      ""
+    ],
+    "license": "Apache 2.0",
+    "tasks": [
+      {
+        "id": "Webmall_Single_Product_Search_Task1",
+        "category": "Specific_Product",
+        "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
+        "task": "<task>\\nFind all offers for the AMD Ryzen 9 5900X.\\n</task>",
+        "motivation": "Evaluate the ability of the agent to navigate to different shops until it has found an offer for a specific product. The product is offered by half of the shops.",
+        "correct_answer": {
+          "type": "string",
+          "answers": [
+            "{{URL_2}}/product/amd-ryzen-9-5900x-3-7-ghz-12-core",
+            "{{URL_1}}/product/amd-ryzen-9-5900x-3-7-ghz-12-cores-24-threads"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "WEBMALL_CHEAPEST_PRODUCT_SEARCH_V1",
+    "name": "Web Mall Agent Benchmark: Cheapest Offer Search",
+    "date": "2025-02-21",
+    "description": "Test the agent’s ability to find the cheapest offer for a specific product by comparing prices across multiple e-shops.",
+    "authors": [
+      "",
+      "",
+      ""
+    ],
+    "license": "Apache 2.0",
+    "tasks": [
+      {
+        "id": "Webmall_Cheapest_Product_Search_Task1",
+        "category": "Cheapest_Product",
+        "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
+        "task": "<task>\\nFind the cheapest offer for the Bose Quietcomfort Ultra Headphones. If multiple offers share the lowest price, return all of them.\\n</task>",
+        "motivation": "Evaluate how well the agent can identify price differences and avoid misleadingly similar but incorrect products.",
+        "correct_answer": {
+          "type": "string",
+          "answers": [
+            "{{URL_3}}/product/bose-quietcomfort-ultra-headphone",
+            "{{URL_4}}/product/bose-quietcomfort-ultra-headphones-black"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "WEBMALL_BEST_FIT_SPECIFIC_V1",
+    "name": "Web Mall Agent Benchmark: Best Fit Product Selection (Specific Requirements)",
+    "date": "2025-02-21",
+    "description": "Test the agent’s ability to select the most suitable product based on precise, structured requirements.",
+    "authors": [
+      "",
+      "",
+      ""
+    ],
+    "license": "Apache 2.0",
+    "tasks": [
+      {
+        "id": "Webmall_Best_Fit_Specific_Task1",
+        "category": "Best_Fit_Specific",
+        "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
+        "task": "<task>\\nFind all offers for orange straps that fit with the Apple Watch Series 6.\\n</task>",
+        "motivation": "Measure the agent's ability to correctly interpret structured requirements and differentiate between highly similar products.",
+        "correct_answer": {
+          "type": "string",
+          "answers": [
+            "{{URL_1}}/product/uag-apple-watch-44mm-42mm-civilian-strap-slate-orange",
+            "{{URL_3}}/product/uag-civilian-strap-for-apple-watch-series-7-se-6-5-4-3-2-1-45mm-42mm-44mm-slate-orange-barcode-812451034912"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "WEBMALL_BEST_FIT_VAGUE_V1",
+    "name": "Web Mall Agent Benchmark: Best Fit Product Selection (Vague Requirements)",
+    "date": "2025-02-21",
+    "description": "Test the agent’s ability to select the best product when requirements are ambiguous or subjective.",
+    "authors": [
+      "",
+      "",
+      ""
+    ],
+    "license": "Apache 2.0",
+    "tasks": [
+      {
+        "id": "Webmall_Best_Fit_Vague_Task1",
+        "category": "Best_Fit_Vague",
+        "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
+        "task": "<task>\\nFind all offers for the largest available MX500 model by Crucial.\\n</task>",
+        "motivation": "Assess the agent's capability to interpret loosely defined requirements and make appropriate selections.",
+        "correct_answer": {
+          "type": "string",
+          "answers": [
+            "{{URL_1}}/product/4tb-crucial-mx500-ssd-with-cloning-kit",
+            "{{URL_2}}/product/crucial-mx500-4-tb-2-5-sata-ssd-560-510-mb-s-90-95-k-iops-1000-tbw-aes-256bit-encryption-acronis-true-image-cloning-5yr-wty",
+            "{{URL_3}}/product/crucial-mx500-4tb-2-5-inch-sata-3d-nand-ssd",
+            "{{URL_4}}/product/crucial-mx500-2-5-4-tb-sata-iii-3d-nand-internal-solid-state-drive-ssd-ct4000mx500ssd1"
+          ]
+        }
+      }
+    ]
+  },
+  {
+    "id": "WEBMALL_CHEAPEST_BEST_FIT_SPECIFIC_V1",
+    "name": "Web Mall Agent Benchmark: Cheapest Offer for Best Fit (Specific Requirements)",
+    "date": "2025-02-21",
+    "description": "Evaluate the agent's ability to find the lowest-priced option among products that meet specific requirements.",
+    "authors": [
+      "",
+      "",
+      ""
+    ],
+    "license": "Apache 2.0",
+    "tasks": [
+      {
+        "id": "Webmall_Cheapest_Best_Fit_Specific_Task1",
+        "category": "Cheapest_Best_Fit_Specific",
+        "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
+        "task": "<task>\\nFind the cheapest offer for a new Xbox gaming console with at least 512gb disk space in white. If multiple offers share the lowest price, return all of them.\\n</task>",
+        "motivation": "Test the agent's ability to balance feature requirements and price considerations.",
+        "correct_answer": {
+          "type": "string",
+          "answers": [
+            "{{URL_3}}/product/microsoft-xbox-series-s-starter-bundle-xbox-series-s-hvit-10240-mb-gddr6-amd-amd-ryzen-zen-2"
+          ]
+        }
+      }
+    ]
+  }
+]

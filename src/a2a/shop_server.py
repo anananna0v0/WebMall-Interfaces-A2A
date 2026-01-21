@@ -163,18 +163,216 @@ async def _run_agent(task_text: str, top_k: int) -> Tuple[str, Dict[str, int]]:
         except Exception:
             pass
 
+async def run_tool_only_search(task_text: str, top_k: int):
+    """
+    Tool-only MCP search (no LLM, no ReAct).
+    Returns: (urls, usage) where usage is always zero.
+    """
+    import re
+    from urllib.parse import urlparse
 
+    debug = (os.getenv("SHOP_DEBUG_MCP", "0").strip() == "1")
+
+    # ---- helper: parse target model token from task text ----
+    # Example: "AMD Ryzen 9 5900X" -> target_token="5900x"
+    m = re.search(r"\b(\d{4}x)\b", task_text.lower())
+    target_token = m.group(1) if m else None  # e.g., "5900x"
+
+    def _is_product_page(u: str) -> bool:
+        try:
+            p = urlparse(u)
+            return "/product/" in p.path
+        except Exception:
+            return False
+
+    def _is_image_or_asset(u: str) -> bool:
+        u2 = u.lower()
+        return any(u2.endswith(ext) for ext in (".jpg", ".jpeg", ".png", ".webp", ".gif")) or "/wp-content/" in u2
+
+    def _is_schema_org(u: str) -> bool:
+        return "schema.org" in u.lower()
+
+    def _match_target(u: str) -> bool:
+        if not target_token:
+            return True
+        return target_token in u.lower()
+
+    def _filter_urls(urls):
+        """Keep only product pages; drop schema.org and assets; enforce target token if available."""
+        kept = []
+        seen = set()
+        for u in urls:
+            if not isinstance(u, str) or not u.startswith("http"):
+                continue
+            if _is_schema_org(u) or _is_image_or_asset(u):
+                continue
+            if not _is_product_page(u):
+                continue
+            if not _match_target(u):
+                continue
+            u = u.rstrip("/")
+            if u not in seen:
+                seen.add(u)
+                kept.append(u)
+        return kept
+
+    # ---- tool call ----
+    client, tools = await _get_tools()
+    try:
+        if not tools:
+            if debug:
+                print(f"[{SHOP_ID}] No MCP tools available.")
+            return [], {"prompt_tokens": 0, "completion_tokens": 0}
+
+        # Pick a likely search tool
+        tool = None
+        for t in tools:
+            name = str(getattr(t, "name", "")).lower()
+            if any(k in name for k in ("ask", "search", "query", "find", "lookup")):
+                tool = t
+                break
+        if tool is None:
+            tool = tools[0]
+
+        attempts = [
+            {"query": task_text, "top_k": top_k},
+            {"query": task_text, "k": top_k},
+            {"q": task_text, "top_k": top_k},
+            {"q": task_text, "k": top_k},
+            {"query": task_text},
+            {"q": task_text},
+            {"input": task_text},
+            {"text": task_text},
+        ]
+
+        def _to_str(x):
+            try:
+                return json.dumps(x, ensure_ascii=False)
+            except Exception:
+                return str(x)
+
+        def _extract_urls_any(obj):
+            urls = []
+
+            def add(u):
+                if isinstance(u, str) and u.startswith("http"):
+                    urls.append(u)
+
+            if isinstance(obj, dict):
+                for k in ("urls", "final_urls"):
+                    v = obj.get(k)
+                    if isinstance(v, list):
+                        for it in v:
+                            add(it)
+
+                for k in ("results", "items", "products", "offers", "candidates", "data"):
+                    v = obj.get(k)
+                    if isinstance(v, list):
+                        for it in v:
+                            if isinstance(it, dict):
+                                add(it.get("url"))
+                                add(it.get("product_url"))
+                                add(it.get("offer_url"))
+
+                # MCP content wrapper: {"content":[{"type":"text","text":"..."}]}
+                content = obj.get("content")
+                if isinstance(content, list):
+                    for part in content:
+                        if isinstance(part, dict) and isinstance(part.get("text"), str):
+                            txt = part["text"]
+                            # Try parse JSON embedded in text
+                            try:
+                                j = json.loads(txt)
+                                urls.extend(_extract_urls_any(j))
+                            except Exception:
+                                # Fallback: regex
+                                for u in re.findall(r"https?://\S+", txt):
+                                    urls.append(u.strip(')>."\','))
+
+                # Fallback: regex on whole dict string
+                s = _to_str(obj)
+                for u in re.findall(r"https?://\S+", s):
+                    urls.append(u.strip(')>."\','))
+
+            elif isinstance(obj, list):
+                for it in obj:
+                    urls.extend(_extract_urls_any(it))
+
+            elif isinstance(obj, str):
+                for u in re.findall(r"https?://\S+", obj):
+                    urls.append(u.strip(')>."\','))
+
+            return urls
+
+        last_err = None
+
+        for args in attempts:
+            try:
+                out = await tool.ainvoke(args) if hasattr(tool, "ainvoke") else tool.invoke(args)
+
+                out_str = _to_str(out)
+                if debug:
+                    print(f"[{SHOP_ID}] tool={getattr(tool,'name','?')} args={args} out_chars={len(out_str)} target={target_token}")
+                    print(out_str[:1200])
+
+                raw_urls = _extract_urls_any(out)
+                filtered = _filter_urls(raw_urls)
+
+                # If filtering removes everything but we have raw product pages, relax target match as fallback
+                if not filtered:
+                    # keep product pages only, no target token constraint
+                    def _filter_relaxed(urls2):
+                        kept = []
+                        seen2 = set()
+                        for u in urls2:
+                            if not isinstance(u, str) or not u.startswith("http"):
+                                continue
+                            if _is_schema_org(u) or _is_image_or_asset(u):
+                                continue
+                            if not _is_product_page(u):
+                                continue
+                            u = u.rstrip("/")
+                            if u not in seen2:
+                                seen2.add(u)
+                                kept.append(u)
+                        return kept
+
+                    filtered = _filter_relaxed(raw_urls)
+
+                return filtered[:top_k], {"prompt_tokens": 0, "completion_tokens": 0}
+
+            except Exception as e:
+                last_err = e
+                if debug:
+                    print(f"[{SHOP_ID}] tool call failed args={args}: {type(e).__name__}: {e}")
+                continue
+
+        if debug and last_err:
+            print(f"[{SHOP_ID}] All tool attempts failed. Last error: {type(last_err).__name__}: {last_err}")
+
+        return [], {"prompt_tokens": 0, "completion_tokens": 0}
+
+    finally:
+        try:
+            if hasattr(client, "close"):
+                if asyncio.iscoroutinefunction(client.close):
+                    await client.close()
+                else:
+                    client.close()
+        except Exception:
+            pass
+
+            
 @app.post("/run_task")
 async def run_task(payload: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Search-only shop agent:
-    - Only handles Search-like tasks (default: Specific_Product).
-    - For all other categories, returns empty results immediately.
+    Shop agent /run_task.
+    - Search-only gate for Specific_Product.
+    - Tool-only execution (no LLM/ReAct) to avoid token blow-up.
     """
-
     task_id = payload.get("task_id")
     task_text = payload.get("task")
-    task_category = payload.get("task_category", "") or ""
+    task_category = (payload.get("task_category") or payload.get("category") or "").strip()
     top_k = int(payload.get("top_k", TOP_K_DEFAULT) or TOP_K_DEFAULT)
 
     if not task_id or not isinstance(task_text, str) or not task_text.strip():
@@ -182,7 +380,7 @@ async def run_task(payload: Dict[str, Any]) -> Dict[str, Any]:
 
     SEARCH_CATEGORIES = {"Specific_Product"}
 
-    # --------- IMPORTANT: Search-only gate ----------
+    # Search-only gate
     if task_category not in SEARCH_CATEGORIES:
         return {
             "shop_id": SHOP_ID,
@@ -195,25 +393,34 @@ async def run_task(payload: Dict[str, Any]) -> Dict[str, Any]:
             "skipped": True,
         }
 
-    # --------- Normal path for Search categories ----------
+    # Tool-only path
     try:
-        final_text, usage = await asyncio.wait_for(
-            _run_agent(task_text.strip(), top_k),
+        urls, usage = await asyncio.wait_for(
+            run_tool_only_search(task_text.strip(), top_k),
             timeout=TIMEOUT_SEC,
         )
-        obj = _extract_json_obj(final_text)
 
-        urls = obj.get("urls", []) if isinstance(obj.get("urls", []), list) else []
+        # Normalize: list[str], de-dup, trim
+        if not isinstance(urls, list):
+            urls = []
 
-        # Search-only: ignore cart/checkout fields even if model returns them
+        seen = set()
+        clean: List[str] = []
+        for u in urls:
+            if isinstance(u, str) and u.startswith("http") and u not in seen:
+                seen.add(u)
+                clean.append(u)
+
+        clean = clean[:top_k]
+
         return {
             "shop_id": SHOP_ID,
             "backend": BACKEND,
             "task_category": task_category,
-            "candidates": _to_candidates([u for u in urls if isinstance(u, str)], top_k),
-            "final_urls": [u for u in urls if isinstance(u, str)],
-            "raw_model_output": final_text,
-            "usage": usage,
+            "candidates": [{"url": u} for u in clean],
+            "final_urls": clean,
+            "raw_model_output": json.dumps({"urls": clean}, ensure_ascii=False),
+            "usage": usage if isinstance(usage, dict) else {"prompt_tokens": 0, "completion_tokens": 0},
         }
 
     except asyncio.TimeoutError:
@@ -225,7 +432,7 @@ async def run_task(payload: Dict[str, Any]) -> Dict[str, Any]:
             "final_urls": [],
             "raw_model_output": "TIMEOUT",
             "usage": {"prompt_tokens": 0, "completion_tokens": 0},
-            "error": "timeout",
+            "timeout": True,
         }
     except Exception as e:
         return {
@@ -234,9 +441,9 @@ async def run_task(payload: Dict[str, Any]) -> Dict[str, Any]:
             "task_category": task_category,
             "candidates": [],
             "final_urls": [],
-            "raw_model_output": "",
+            "raw_model_output": f"ERROR: {type(e).__name__}: {str(e)}",
             "usage": {"prompt_tokens": 0, "completion_tokens": 0},
-            "error": str(e),
+            "error": True,
         }
 
 

@@ -80,7 +80,7 @@ async def run_task(payload: Dict[str, Any]) -> Dict[str, Any]:
     try:
         task_id = payload.get("task_id")
         task_text = payload.get("task")
-        task_category = payload.get("task_category", "")
+        task_category = (payload.get("task_category") or payload.get("category") or "").strip()
 
         if not task_id or not isinstance(task_text, str) or not task_text.strip():
             raise HTTPException(status_code=400, detail="Missing task_id or non-empty task")
@@ -89,6 +89,7 @@ async def run_task(payload: Dict[str, Any]) -> Dict[str, Any]:
             "task_id": task_id,
             "task": task_text,
             "task_category": task_category,
+            "category": task_category,   
         }
 
         # ---------- SAFE PARALLEL SHOP CALLS ----------
@@ -134,6 +135,43 @@ async def run_task(payload: Dict[str, Any]) -> Dict[str, Any]:
                     union_urls.append(url)
 
         final_urls: List[str] = union_urls
+
+        # --- Specific_Product: buyer-side exact decision (post-filter) ---
+        if task_category == "Specific_Product":
+            import re
+
+            # Extract a model token like "5900x", "4060", etc. from the task text.
+            # This is a simple heuristic to enforce exactness at the buyer (decision point).
+            q = (task_text or "").lower()
+
+            # Prefer patterns like 4 digits + optional suffix (x/ti/super/ultra)
+            # Examples: 5900x, 5950x, 4070, 4060ti, s24, s24 ultra
+            token = None
+
+            m = re.search(r"\b(\d{4}x)\b", q)  # e.g., 5900x
+            if m:
+                token = m.group(1)
+            else:
+                m = re.search(r"\b(rtx\s*)?(\d{4})(\s*(ti|super|ultra))?\b", q)  # e.g., rtx 4070 super
+                if m:
+                    token = m.group(2)  # just "4070"
+                else:
+                    m = re.search(r"\b(s\d{2})\b", q)  # e.g., s24
+                    if m:
+                        token = m.group(1)
+
+            if token:
+                # Keep only product pages that contain the token in the URL slug.
+                # Assumes final_urls are product URLs like ".../product/<slug>"
+                kept = []
+                for u in final_urls:
+                    if isinstance(u, str) and "/product/" in u and token in u.lower():
+                        kept.append(u)
+
+                # If the strict filter removes everything, keep original (avoid false negatives).
+                if kept:
+                    final_urls = kept
+
 
         # Provide a traceable answer payload (not used for evaluation)
         if final_urls:
