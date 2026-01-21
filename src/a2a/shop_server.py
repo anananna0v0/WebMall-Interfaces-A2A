@@ -378,7 +378,13 @@ async def run_task(payload: Dict[str, Any]) -> Dict[str, Any]:
     if not task_id or not isinstance(task_text, str) or not task_text.strip():
         raise HTTPException(status_code=400, detail="Missing task_id or non-empty task")
 
-    SEARCH_CATEGORIES = {"Specific_Product"}
+    SEARCH_CATEGORIES = {
+        "Specific_Product",
+        "Cheapest_Product",
+        "Best_Fit_Specific",
+        "Best_Fit_Vague",
+        "Cheapest_Best_Fit_Specific",
+        }
 
     # Search-only gate
     if task_category not in SEARCH_CATEGORIES:

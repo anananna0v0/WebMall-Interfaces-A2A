@@ -534,7 +534,7 @@ def run_benchmark_a2a(
 
 def main():
     parser = argparse.ArgumentParser(description="Run A2A benchmark for WebMall task set.")
-    parser.add_argument("--benchmark", default="task_sets/task_sets_35.json", help="Path to task set JSON.")
+    parser.add_argument("--benchmark", default="task_sets/task_sets_5.json", help="Path to task set JSON.")
     parser.add_argument("--buyer", default=os.getenv("A2A_BUYER_ENDPOINT", "http://localhost:8005"), help="Buyer server base URL.")
     parser.add_argument("--model", default=os.getenv("A2A_MODEL", "gpt-5-mini"), help="Model name label for results dir.")
     parser.add_argument("--clarify", default=os.getenv("A2A_CLARIFY_POLICY", "on_once"), choices=["off", "on_once"], help="Clarification policy.")

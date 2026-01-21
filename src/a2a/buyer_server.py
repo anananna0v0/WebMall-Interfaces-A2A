@@ -156,7 +156,7 @@ async def run_task(payload: Dict[str, Any]) -> Dict[str, Any]:
                 if m:
                     token = m.group(2)  # just "4070"
                 else:
-                    m = re.search(r"\b(s\d{2})\b", q)  # e.g., s24
+                    m = re.search(r"\b(s\d{2})\b", q)  # e.g., s24 
                     if m:
                         token = m.group(1)
 
