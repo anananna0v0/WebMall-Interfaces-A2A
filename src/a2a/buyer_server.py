@@ -43,9 +43,6 @@ async def call_shop(
             "shop_id": shop_url,
             "candidates": [],
             "final_urls": [],
-            "cart_only_urls": [],
-            "checkout_only_urls": [],
-            "checkout_successful": False,
             "usage": {"prompt_tokens": 0, "completion_tokens": 0},
             "error": str(e),
         }
@@ -114,9 +111,6 @@ async def run_task(payload: Dict[str, Any]) -> Dict[str, Any]:
                         "shop_id": "unknown",
                         "candidates": [],
                         "final_urls": [],
-                        "cart_only_urls": [],
-                        "checkout_only_urls": [],
-                        "checkout_successful": False,
                         "usage": {"prompt_tokens": 0, "completion_tokens": 0},
                         "error": "shop_timeout",
                     })
@@ -174,9 +168,6 @@ async def run_task(payload: Dict[str, Any]) -> Dict[str, Any]:
             "task_id": task_id,
             "final_answer": final_answer_text,
             "final_urls": final_urls,
-            "cart_only_urls": cart_only_urls,
-            "checkout_only_urls": checkout_only_urls,
-            "checkout_successful": checkout_successful,
             "buyer_usage": buyer_usage,
             "shop_results": shop_results,
         }

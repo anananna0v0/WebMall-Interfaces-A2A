@@ -272,9 +272,6 @@ def call_buyer(
     {
       "final_answer": "... or {\"urls\": [...]} ...",
       "final_urls": [...],                 # optional shortcut
-      "cart_only_urls": [...],             # optional
-      "checkout_only_urls": [...],         # optional
-      "checkout_successful": true/false,   # optional
       "buyer_usage": {...},                # optional
       "shop_results": [...],               # optional
     }
@@ -304,29 +301,15 @@ def pick_evaluation_urls(
     final_answer_text: str
 ) -> Tuple[List[str], str]:
     """
-    Mirrors benchmark_nlweb_mcp.py evaluation strategy:
-    - Add_To_Cart: use cart_only_urls
-    - Checkout/FindAndOrder: only if checkout_successful use checkout_only_urls else []
-    - Else: final answer urls
+    Evaluation strategy for A2A (Specific_Product only):
+
+    - The buyer returns final_urls as the final answer.
+    - Add_To_Cart, Checkout, and FindAndOrder tasks are not evaluated.
+    - cart_only_urls and checkout_only_urls are ignored and kept only for schema compatibility.
     """
+
     # Prefer explicit urls fields if buyer returns them
     final_urls = a2a_result.get("final_urls")
-    cart_only_urls = a2a_result.get("cart_only_urls")
-    checkout_only_urls = a2a_result.get("checkout_only_urls")
-    checkout_successful = a2a_result.get("checkout_successful")
-
-    if task_category == "Add_To_Cart":
-        if isinstance(cart_only_urls, list):
-            return [normalize_url(u) for u in cart_only_urls if isinstance(u, str)], "cart_only"
-        # fallback: if buyer provided final_urls specifically for cart
-        if isinstance(final_urls, list):
-            return [normalize_url(u) for u in final_urls if isinstance(u, str)], "final_urls_fallback"
-        return [], "cart_only_missing"
-
-    if task_category in ("Checkout", "FindAndOrder"):
-        if checkout_successful is True and isinstance(checkout_only_urls, list):
-            return [normalize_url(u) for u in checkout_only_urls if isinstance(u, str)], "checkout_successful"
-        return [], "checkout_failed_or_missing"
 
     # Search / others
     if isinstance(final_urls, list):

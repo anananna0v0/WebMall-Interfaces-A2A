@@ -109,16 +109,28 @@ async def _run_agent(task_text: str, top_k: int) -> Tuple[str, Dict[str, int]]:
 
     system = SystemMessage(
         content=(
-            f"You are the Shop agent for shop_id={SHOP_ID} using backend={BACKEND}. "
-            "You can call tools to search, add to cart, or checkout if needed.\n\n"
-            "Return ONLY a JSON object with these keys:\n"
-            '  "urls": list of product/offer URLs (ranked, best first)\n'
-            '  "cart_only_urls": URLs of products added to cart (if task is Add_To_Cart)\n'
-            '  "checkout_only_urls": URLs of products successfully checked out (if task is Checkout/FindAndOrder)\n'
-            '  "checkout_successful": true/false\n\n'
-            "Do not include any other text besides the JSON."
+            f"You are the Shop agent for shop_id={SHOP_ID} using backend={BACKEND}.\n\n"
+            "You are solving ONLY tasks of category: Specific_Product.\n\n"
+            "Task definition:\n"
+            "- The user query refers to a specific, concrete product or clearly identifiable item.\n"
+            "- Your job is to find ALL product or offer pages in THIS shop that match the product exactly.\n\n"
+            "Rules:\n"
+            "- Use the available search tools to find matching offers.\n"
+            "- Return ALL matching offer URLs from this shop.\n"
+            "- Do NOT rank, filter by price, or choose a best option.\n"
+            "- Do NOT infer alternatives, substitutes, or similar products.\n"
+            "- If the product does not exist in this shop, return an empty list.\n"
+            "- Do NOT add to cart.\n"
+            "- Do NOT checkout.\n\n"
+            "Output format (STRICT):\n"
+            "Return ONLY a JSON object with exactly this schema:\n"
+            '{ "urls": ["<full offer url>", "..."] }\n\n'
+            "If no matching product is found, return:\n"
+            '{ "urls": [] }\n\n'
+            "Do not include any other text, explanations, or keys."
         )
     )
+
 
     human = HumanMessage(
         content=(
@@ -178,9 +190,6 @@ async def run_task(payload: Dict[str, Any]) -> Dict[str, Any]:
             "task_category": task_category,
             "candidates": [],
             "final_urls": [],
-            "cart_only_urls": [],
-            "checkout_only_urls": [],
-            "checkout_successful": False,
             "raw_model_output": "SKIPPED_NON_SEARCH_CATEGORY",
             "usage": {"prompt_tokens": 0, "completion_tokens": 0},
             "skipped": True,
@@ -203,9 +212,6 @@ async def run_task(payload: Dict[str, Any]) -> Dict[str, Any]:
             "task_category": task_category,
             "candidates": _to_candidates([u for u in urls if isinstance(u, str)], top_k),
             "final_urls": [u for u in urls if isinstance(u, str)],
-            "cart_only_urls": [],
-            "checkout_only_urls": [],
-            "checkout_successful": False,
             "raw_model_output": final_text,
             "usage": usage,
         }
@@ -217,9 +223,6 @@ async def run_task(payload: Dict[str, Any]) -> Dict[str, Any]:
             "task_category": task_category,
             "candidates": [],
             "final_urls": [],
-            "cart_only_urls": [],
-            "checkout_only_urls": [],
-            "checkout_successful": False,
             "raw_model_output": "TIMEOUT",
             "usage": {"prompt_tokens": 0, "completion_tokens": 0},
             "error": "timeout",
@@ -231,9 +234,6 @@ async def run_task(payload: Dict[str, Any]) -> Dict[str, Any]:
             "task_category": task_category,
             "candidates": [],
             "final_urls": [],
-            "cart_only_urls": [],
-            "checkout_only_urls": [],
-            "checkout_successful": False,
             "raw_model_output": "",
             "usage": {"prompt_tokens": 0, "completion_tokens": 0},
             "error": str(e),
