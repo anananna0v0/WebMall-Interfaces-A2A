@@ -9,6 +9,10 @@ from typing import List, Dict
 from datetime import datetime
 from openai import AsyncOpenAI
 from dotenv import load_dotenv
+from typing import Tuple, Dict, List, Any, Optional 
+
+from langchain_openai import ChatOpenAI
+from langchain_community.callbacks import get_openai_callback
 
 # Path setup and dependency loading
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -30,6 +34,57 @@ URLS = {
     "URL_4": "https://webmall-4.informatik.uni-mannheim.de",
     "URL_5": "https://webmall-solution.informatik.uni-mannheim.de"
 }
+
+import re
+
+def normalize_url(url: str) -> str:
+    """
+    Normalize URL for comparison by removing trailing slashes and converting to lowercase.
+    Ported from nlweb_mcp benchmark logic.
+    """
+    if not url or not isinstance(url, str):
+        return ""
+    return url.rstrip('/').lower()
+
+def extract_urls_from_response(response_text: str) -> set[str]:
+    """
+    Extracts URLs from the agent's response using a multi-layered fallback strategy.
+    Ported from nlweb_mcp benchmark for high-resilience extraction.
+    """
+    if not isinstance(response_text, str):
+        return set()
+    
+    # 1. Strategy: Parse the entire response as JSON
+    try:
+        data = json.loads(response_text.strip())
+        if isinstance(data, dict) and "urls" in data:
+            # Expected format: {"urls": ["url1", "url2"]}
+            urls = data["urls"]
+            if isinstance(urls, list):
+                return set(u for u in urls if isinstance(u, str))
+        elif isinstance(data, list):
+            # Fallback format: ["url1", "url2"]
+            return set(u for u in data if isinstance(u, str))
+    except (json.JSONDecodeError, TypeError):
+        pass
+    
+    # 2. Strategy: Find JSON patterns within mixed text content
+    # Useful when LLM adds explanatory text around the JSON block
+    json_pattern = r'\{"urls":\s*\[.*?\]\}'
+    json_matches = re.findall(json_pattern, response_text, re.DOTALL)
+    for match in json_matches:
+        try:
+            data = json.loads(match)
+            if isinstance(data, dict) and "urls" in data and isinstance(data["urls"], list):
+                return set(u for u in data["urls"] if isinstance(u, str))
+        except (json.JSONDecodeError, TypeError):
+            continue
+            
+    # 3. Strategy: Final fallback to raw regex search
+    # Extracts anything that looks like a webmall URL
+    urls_found = re.findall(r'https?://\S+', response_text)
+    # Strip common trailing punctuation characters often included by LLMs
+    return set([url.strip(')>."\',') for url in urls_found])
 
 def fill_urls(text: str, urls: Dict[str, str]) -> str:
     """Replace URL placeholders like {{URL_3}} with actual Mannheim webmall URLs."""
@@ -53,6 +108,7 @@ class A2ABenchmark:
         # Mapping for Ground Truth resolution, compatible with the URLS dictionary
         self.url_mapping = URLS
         self.results = []
+        self.buyer_llm = ChatOpenAI(model="gpt-5-mini")
 
     def _load_registry(self) -> List[str]:
         """
@@ -97,56 +153,62 @@ class A2ABenchmark:
         except Exception:
             return {"status": "error", "usage": {"prompt_tokens": 0, "completion_tokens": 0}}
 
-    async def get_buyer_decision(self, query: str, context: str):
-        """Final decision making with token usage tracking."""
-        # System prompt for the Buyer Agent to perform cross-shop decision making
-        system_prompt = """
-            You are a strategic buyer agent. 
-            You will receive a user's WISH and product data (JSON-LD) from multiple shops.
-
-            Your task:
-            1. Compare the offers based on the WISH (e.g., finding the absolute lowest price).
-            2. Return ONLY the exact URL(s) of the matching products.
-            3. Use ' ### ' to separate multiple URLs if they share the exact same lowest price.
-            4. If NO product in the context matches the wish, return 'NONE'.
-
-            Do not explain. Return ONLY the URL(s) or 'NONE'.
-            """
-        user_content = f"Wish: {query}\nContext: {context}"
-        
-        response = await self.client.chat.completions.create(
-            model=MODEL_NAME,
-            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_content}]
+    async def get_buyer_decision(self, wish: str, shop_context: str) -> Tuple[str, Dict]:
+        """
+        Refined Buyer Decision Phase with strict filtering and price comparison.
+        Ported from the reference implementation's logic.
+        """
+        system_prompt = (
+            "You are an expert E-commerce Decision Agent. Your goal is to help a user find "
+            "the EXACT products they want from multiple shop results.\n\n"
+            "EVALUATION RULES:\n"
+            "1. **Strict Matching**: Only select products that match the specifications (e.g., storage, color, model) in the user's wish.\n"
+            "2. **Cheapest Only**: If the user asks for the 'cheapest' or 'best price', you MUST only return the URL(s) of the product(s) with the absolute lowest price. Ignore more expensive alternatives.\n"
+            "3. **Multiple Matches**: If multiple shops offer the same lowest price for the same item, include all of their URLs.\n"
+            "4. **No Hallucinations**: Only use the URLs provided in the shop context. Never invent URLs.\n\n"
+            "OUTPUT FORMAT:\n"
+            "- Your final response must be a JSON object: {\"urls\": [\"url1\", \"url2\", ...]}\n"
+            "- If no products fulfill the criteria, return: {\"urls\": []}\n"
+            "- Do not add any explanatory text."
         )
-        output = response.choices[0].message.content.strip()
-        usage = {
-            "prompt_tokens": response.usage.prompt_tokens,
-            "completion_tokens": response.usage.completion_tokens
-        }
-        return output, usage
+
+        user_message = f"User Wish: {wish}\n\nShop Results:\n{shop_context}"
+
+        with get_openai_callback() as cb:
+            # Using GPT-4o-mini as the buyer for cost-effective but smart filtering
+            response = await self.buyer_llm.ainvoke([
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message}
+            ])
+            
+            usage = {
+                "prompt_tokens": cb.prompt_tokens,
+                "completion_tokens": cb.completion_tokens
+            }
+            return response.content, usage
 
 
     async def run_single_task(self, task: Dict):
         """
-        Executes a single benchmark task.
+        Executes a single benchmark task with robust URL processing and normalization.
         Pre-processes URLs, broadcasts to shop agents, and aggregates results for buyer decision.
         """
         task_id = task['id']
         
         # 1. URL Pre-processing: Resolve {{URL_X}} placeholders
-        # This ensures Shop Agents receive a query with context they can understand.
         query = fill_urls(task['task'], URLS)
         
-        # Resolve Ground Truth URLs for metric calculation
-        gt_urls = self.resolve_gt_urls(task.get('correct_answer', {}).get('answers', []))
+        # Resolve Ground Truth URLs and apply normalization for accurate comparison
+        raw_gt_urls = self.resolve_gt_urls(task.get('correct_answer', {}).get('answers', []))
+        gt_urls_normalized = [normalize_url(u) for u in raw_gt_urls]
+        
         start_time = time.time()
         
-        async with httpx.AsyncClient() as client:
-            # 2. Broadcast the resolved wish to all shop agents defined in self.endpoints
-            # Using asyncio.gather for parallel execution across all shops
+        # Increased timeout to 60s for multi-step agent reasoning
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            # 2. Broadcast the resolved wish to all shop agents
             shop_responses = await asyncio.gather(*[self.call_shop_agent(client, url, query) for url in self.endpoints])
             
-            # Initialization for data collection
             debug_shops = []
             shop_context = ""
             total_shop_prompt = 0
@@ -154,50 +216,41 @@ class A2ABenchmark:
             
             # 3. Process Shop Responses (JSON-RPC 2.0)
             for i, res in enumerate(shop_responses):
-                # Check for standard A2A JSON-RPC result structure
                 if res.get("jsonrpc") == "2.0" and "result" in res:
                     data = res['result']
                     usage = data.get("tokens", {})
-                    offers = data.get("offers", [])
+                    # Normalize offers received from shops
+                    offers = [normalize_url(u) for u in data.get("offers", [])]
                     
-                    # Accumulate actual usage from LangGraph agents
                     total_shop_prompt += usage.get("prompt_tokens", 0)
                     total_shop_completion += usage.get("completion_tokens", 0)
                     
-                    # Store detailed output for transparency and debugging
                     debug_shops.append({
                         "shop_id": f"webmall_{i+1}",
                         "offers_returned": offers,
                         "tokens": usage
                     })
-                    
-                    # Build context for the Buyer Agent to perform cross-shop comparison
-                    shop_context += f"\nShop {i+1} (WebMall-{i+1}) offers: {json.dumps(offers)}\n"
+                    shop_context += f"\nShop {i+1} offers: {json.dumps(offers)}\n"
                 else:
-                    # Log failed shop communications for debugging
                     debug_shops.append({
                         "shop_id": f"webmall_{i+1}",
-                        "error": "Invalid JSON-RPC response or timeout"
+                        "error": res.get("error", "Invalid JSON-RPC response or timeout")
                     })
         
-        # 4. Buyer Decision Phase: Send all shop results to the Buyer LLM
-        # The buyer decides which offers actually fulfill the user wish.
+        # 4. Buyer Decision Phase
         decision_str, buyer_usage = await self.get_buyer_decision(query, shop_context)
         
-        # Parse final URLs from the buyer's reasoning output
-        predicted_urls = [
-            u.strip() for u in decision_str.split(' ### ') 
-            if u.strip() and u.strip().upper() != 'NONE'
-        ]
+        # Robust URL extraction from buyer output
+        extracted_urls = extract_urls_from_response(decision_str)
+        predicted_urls = [normalize_url(u) for u in extracted_urls]
         
-        # 5. Metric Calculation
-        metrics = calculation_results(gt_urls, predicted_urls)
+        # 5. Metric Calculation using normalized lists
+        metrics = calculation_results(gt_urls_normalized, predicted_urls)
         
-        # Store full task trace for a2a_results_DEBUG.json
         task_detail = {
             "task_id": task_id,
             "wish": query,
-            "ground_truth": gt_urls,
+            "ground_truth": raw_gt_urls, # Keep raw for debug view
             "predicted_urls": predicted_urls,
             "metrics": metrics,
             "buyer_raw_output": decision_str,
@@ -209,10 +262,10 @@ class A2ABenchmark:
                 "task_id": task_id,
                 "task_completion_rate": metrics["task_completion_rate"],
                 "f1_score": metrics["f1_score"],
-                # Grouping tokens for the final summary output
                 "shop_tokens": total_shop_prompt + total_shop_completion,
                 "buyer_tokens": buyer_usage["prompt_tokens"] + buyer_usage["completion_tokens"],
-                "total_tokens": total_shop_prompt + total_shop_completion + buyer_usage["prompt_tokens"] + buyer_usage["completion_tokens"],
+                "total_tokens": (total_shop_prompt + total_shop_completion + 
+                                buyer_usage["prompt_tokens"] + buyer_usage["completion_tokens"]),
                 "execution_time_seconds": time.time() - start_time
             },
             "detail": task_detail

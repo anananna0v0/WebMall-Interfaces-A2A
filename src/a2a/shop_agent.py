@@ -43,7 +43,39 @@ logger = logging.getLogger(__name__)
 # --- 1. Ensure you have these imports at the top ---
 from nlweb_mcp.elasticsearch_client import ElasticsearchClient
 from nlweb_mcp.embedding_service import EmbeddingService
-# Keep your existing imports...
+
+import re
+
+def normalize_url(url: str) -> str:
+    """Normalize URL for comparison."""
+    if not url or not isinstance(url, str):
+        return ""
+    return url.rstrip('/').lower()
+
+def extract_urls_from_response(response_text: str) -> set[str]:
+    """Robust URL extraction ported from nlweb_mcp."""
+    if not isinstance(response_text, str):
+        return set()
+    try:
+        data = json.loads(response_text.strip())
+        if isinstance(data, dict) and "urls" in data:
+            return set(u for u in data["urls"] if isinstance(u, str))
+        elif isinstance(data, list):
+            return set(u for u in data if isinstance(u, str))
+    except (json.JSONDecodeError, TypeError):
+        pass
+    
+    json_pattern = r'\{"urls":\s*\[.*?\]\}'
+    json_matches = re.findall(json_pattern, response_text, re.DOTALL)
+    for match in json_matches:
+        try:
+            data = json.loads(match)
+            if isinstance(data, dict) and "urls" in data:
+                return set(u for u in data["urls"] if isinstance(u, str))
+        except: continue
+            
+    urls_found = re.findall(r'https?://\S+', response_text)
+    return set([url.strip(')>."\',') for url in urls_found])
 
 class ShopAgentInstance:
     def __init__(self, shop_id: str, index_name: str):
@@ -65,6 +97,7 @@ class ShopAgentInstance:
             embedding_service=self.embedding_service,
             index_name=index_name
         )
+
         
         # WooCommerce and LLM setup
         # Note: Ensure woocommerce_client.py matches the filename we discussed
@@ -72,7 +105,7 @@ class ShopAgentInstance:
         shop_url = f"https://{shop_id.replace('_', '-')}.informatik.uni-mannheim.de"
         self.woo_client = WooCommerceClient(base_url=shop_url)
         
-        self.llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+        self.llm = ChatOpenAI(model="gpt-5-mini")
         self.agent_executor = self._setup_agent()
 
     def _setup_agent(self):
@@ -100,11 +133,18 @@ class ShopAgentInstance:
             ])
 
         system_message = (
-            f"You are the Shop Agent for {self.shop_id}. "
-            "1. Extract keywords. 2. Search inventory. "
-            "3. If no results found, try ONCE with simpler keywords. " # Limit retries
-            "4. If still no results, state 'No products found' and stop. " # Define a terminal state
-            "5. Return a JSON list of product URLs."
+            f"You are an advanced e-commerce Shop Agent for {self.shop_id}.\n\n"
+            "TASK-SPECIFIC INSTRUCTIONS:\n"
+            "- Extract precise keywords from the user wish and use the 'search_inventory' tool.\n"
+            "- If no products are found, you may try ONLY ONCE with simpler or broader keywords.\n"
+            "- After one retry, if still no results are found, you MUST STOP and return an empty list.\n"
+            "- If the user asks for 'cheapest', only return the product(s) with the absolute lowest price.\n"
+            "- Ensure the products strictly align with the user's requirements (color, model, specs).\n\n"
+            "RESPONSE FORMAT REQUIREMENTS:\n"
+            "- Your final response MUST be a valid JSON object ONLY.\n"
+            "- Required format: {{\"urls\": [\"url1\", \"url2\", ...]}}\n"
+            "- Do NOT include any explanatory text, conversational filler, or Markdown code blocks (e.g., ```json).\n"
+            "- If no matches exist, return: {{\"urls\": []}}"
         )
 
         # Change 'state_modifier' to 'prompt' to fix the TypeError
@@ -115,24 +155,29 @@ class ShopAgentInstance:
         )
 
     async def process_message(self, wish: str):
-        """Processes the buyer wish using the LangGraph agent."""
-        inputs = {"messages": [("user", wish)]}
+        """Processes the buyer wish with robust URL extraction."""
+        # Force the model to think about JSON structure
+        inputs = {"messages": [("user", f"{wish}\n\nIMPORTANT: Your final response must be a JSON object: {{\"urls\": [\"URL_HERE\"]}}")]}
         
         try:
-            # Add a config dictionary to control recursion_limit
             result = await self.agent_executor.ainvoke(
                 inputs, 
-                config={"recursion_limit": 15} # Set a hard stop at 15 steps
+                config={"recursion_limit": 25}
             )
             
-            # The last message in the state contains the agent's output
             agent_output = result["messages"][-1].content
             
-            # (Rest of your regex logic to extract URLs...)
+            # Use the ported robust extractor
+            urls_set = extract_urls_from_response(agent_output)
+            urls = list(urls_set)
+            
+            # Simple token tracking fallback
+            usage = {"prompt_tokens": 0, "completion_tokens": 0}
             return urls, usage
+            
         except Exception as e:
-            print(f"Agent failed or hit recursion limit: {e}")
-            return [], {"prompt_tokens": 0, "completion_tokens": 0}
+            print(f"⚠️ Agent failed: {e}")
+            return [], {"error": str(e)}
 
 
 app = FastAPI()
@@ -142,24 +187,30 @@ app = FastAPI()
 shop_instance: ShopAgentInstance = None
 @app.post("/messages")
 async def handle_a2a_request(request: Request):
-    """Standard A2A JSON-RPC interface."""
-    if shop_instance is None:
-        return {"jsonrpc": "2.0", "error": {"code": -32000, "message": "Agent not initialized"}, "id": None}
+    """Standard A2A JSON-RPC interface with error protection."""
+    try:
+        body = await request.json()
+        wish = body.get("params", {}).get("query", "")
         
-    body = await request.json()
-    wish = body.get("params", {}).get("query", "")
-    
-    urls, usage = await shop_instance.process_message(wish)
-    
-    return {
-        "jsonrpc": "2.0",
-        "result": {
-            "agent_name": shop_instance.shop_id,
-            "offers": urls,
-            "tokens": usage
-        },
-        "id": body.get("id")
-    }
+        # Process via LangGraph
+        urls, usage = await shop_instance.process_message(wish)
+        
+        return {
+            "jsonrpc": "2.0",
+            "result": {
+                "agent_name": shop_instance.shop_id,
+                "offers": urls,
+                "tokens": usage
+            },
+            "id": body.get("id")
+        }
+    except Exception as e:
+        # --- Change: Ensure error response follows JSON-RPC 2.0 ---
+        return {
+            "jsonrpc": "2.0",
+            "error": {"code": -32000, "message": str(e)},
+            "id": None
+        }
 
 # --- CLI Entry Point ---
 # This part allows run_a2a_exp.sh to pass --shop_id and --port
