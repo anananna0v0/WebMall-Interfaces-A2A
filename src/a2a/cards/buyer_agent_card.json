@@ -1,0 +1,8 @@
+{
+  "name": "WebMall-Buyer-Benchmark",
+  "type": "buyer",
+  "description": "An automated buyer agent for price comparison and product discovery.",
+  "capabilities": ["price_comparison", "product_filtering"],
+  "api_version": "1.0",
+  "supported_schemas": ["https://schema.org/Product"]
+}

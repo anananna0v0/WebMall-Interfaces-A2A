@@ -1,0 +1,9 @@
+{
+  "name": "WebMall-1",
+  "id": "agent-webmall-1",
+  "type": "shop",
+  "url": "http://localhost:8001/messages",
+  "description": "E-commerce Shop Agent for WebMall-1 (E-Store Athletes), providing electronics and hardware product search.",
+  "capabilities": ["product_search", "price_reporting"],
+  "supported_schemas": ["https://schema.org/Product"]
+}

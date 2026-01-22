@@ -1,570 +1,233 @@
-# src/benchmark_a2a.py
-
-import os
+import asyncio
 import json
 import time
-import re
-import csv
-import argparse
-import traceback
-from typing import Any, Dict, List, Optional, Set, Tuple
+import httpx
+import tiktoken
+import os
+import sys
+from typing import List, Dict
 from datetime import datetime
-from pathlib import Path
-
-import requests
+from openai import AsyncOpenAI
 from dotenv import load_dotenv
 
-from utils import (
-    calculation_results,
-    interface_results_dir,
-)
+# Path setup and dependency loading
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(os.path.join(BASE_DIR, "src"))
+load_dotenv(os.path.join(BASE_DIR, ".env"))
 
-load_dotenv()
+from utils import calculation_results
+from nlweb_mcp.config import WEBMALL_SHOPS
 
-# ---------- WebMall URL placeholders ----------
-URLS = {
-    "URL_1": "https://webmall-1.informatik.uni-mannheim.de",
-    "URL_2": "https://webmall-2.informatik.uni-mannheim.de",
-    "URL_3": "https://webmall-3.informatik.uni-mannheim.de",
-    "URL_4": "https://webmall-4.informatik.uni-mannheim.de",
-    "URL_5": "https://webmall-solution.informatik.uni-mannheim.de",
-}
+REGISTRY_PATH = os.path.join(BASE_DIR, "src", "a2a", "registry.json")
+TASK_FILE = os.path.join(BASE_DIR, "task_sets", "experiment_tasks_4.json")
+RESULTS_DIR = "/Users/yenanchen/Documents/Home/Mannheim/2025HWS/Seminar/WebMall-Interfaces-A2A-test/results/a2a/gpt-5-mini"
+MODEL_NAME = "gpt-5-mini"
 
+class A2ABenchmark:
+    def __init__(self):
+        os.makedirs(RESULTS_DIR, exist_ok=True)
+        self.endpoints = self._load_registry()
+        self.client = AsyncOpenAI() 
+        self.url_mapping = {f"{{{{URL_{i+1}}}}}" : WEBMALL_SHOPS[f"webmall_{i+1}"]["url"] for i in range(4)}
+        self.results = []
 
-# ---------- Helpers (kept compatible with benchmark_* scripts) ----------
-def fill_urls(text: str, urls: Dict[str, str]) -> str:
-    for key, val in urls.items():
-        text = text.replace("{{" + key + "}}", val)
-    return text
+    def _load_registry(self) -> List[str]:
+        if not os.path.exists(REGISTRY_PATH):
+            return [f"http://localhost:800{i+1}/messages" for i in range(4)]
+        with open(REGISTRY_PATH, 'r') as f:
+            data = json.load(f)
+            return [shop['url'] for shop in data.get('shops', [])]
 
+    def resolve_gt_urls(self, raw_urls: List[str]) -> List[str]:
+        """Convert placeholder URLs in dataset to real shop URLs."""
+        resolved = []
+        for url in raw_urls:
+            new_url = url
+            for placeholder, actual in self.url_mapping.items():
+                new_url = new_url.replace(placeholder, actual)
+            resolved.append(new_url)
+        return resolved
 
-def normalize_url(url: str) -> str:
-    return url.rstrip("/").lower()
-
-
-def extract_urls_from_response(response_text: Any) -> Set[str]:
-    """
-    Try JSON {"urls":[...]} first, then JSON array, then fallback regex.
-    Same spirit as benchmark_nlweb_mcp.py.
-    """
-    if not isinstance(response_text, str):
-        return set()
-
-    raw = response_text.strip()
-
-    # 1) whole JSON
-    try:
-        data = json.loads(raw)
-        if isinstance(data, dict) and "urls" in data and isinstance(data["urls"], list):
-            return set(
-                u for u in data["urls"]
-                if isinstance(u, str) and u.strip() and u.strip().lower() != "done"
-            )
-        if isinstance(data, list):
-            return set(
-                u for u in data
-                if isinstance(u, str) and u.strip() and u.strip().lower() != "done"
-            )
-    except Exception:
-        pass
-
-    # 2) embedded JSON object {"urls":[...]}
-    obj_pat = r'\{"urls":\s*\[.*?\]\}'
-    for m in re.findall(obj_pat, response_text, re.DOTALL):
+    async def call_shop_agent(self, client: httpx.AsyncClient, url: str, query: str) -> Dict:
+        """Execute JSON-RPC 2.0 call to shop agent."""
+        payload = {"jsonrpc": "2.0", "method": "ask_webmall", "params": {"query": query}, "id": "1"}
         try:
-            data = json.loads(m)
-            if isinstance(data, dict) and "urls" in data and isinstance(data["urls"], list):
-                return set(
-                    u for u in data["urls"]
-                    if isinstance(u, str) and u.strip() and u.strip().lower() != "done"
-                )
+            response = await client.post(url, json=payload, timeout=60.0)
+            res_data = response.json().get("result", {})
+            return {"status": "success", "data": res_data, "usage": res_data.get("usage", {})}
         except Exception:
-            continue
-
-    # 3) embedded JSON array [...]
-    arr_pat = r'\[(?:["\'][^"\']*["\'](?:\s*,\s*)?)+\]'
-    for m in re.findall(arr_pat, response_text):
-        try:
-            data = json.loads(m)
-            if isinstance(data, list):
-                urls = set(
-                    u for u in data
-                    if isinstance(u, str) and u.strip() and u.strip().lower() != "done"
-                )
-                if urls:
-                    return urls
-        except Exception:
-            continue
-
-    # 4) regex fallback
-    urls_found = re.findall(r"https?://\S+", response_text)
-    return set([u.strip(')>."\',') for u in urls_found])
-
-
-def safe_get(d: Any, path: List[str], default=None):
-    cur = d
-    for k in path:
-        if not isinstance(cur, dict) or k not in cur:
-            return default
-        cur = cur[k]
-    return cur
-
-
-def load_tasks(benchmark_path: str) -> List[Dict[str, Any]]:
-    """
-    task_sets_35.json format:
-    [
-      { "id": "...", "tasks": [ {...}, {...} ] },
-      { "id": "...", "tasks": [ ... ] }
-    ]
-    We flatten groups into a single list of task dicts, while carrying the group_id.
-    """
-    with open(benchmark_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    # Case 1: already a flat list of tasks
-    if isinstance(data, list) and data and isinstance(data[0], dict) and "correct_answer" in data[0]:
-        return data
-
-    # Case 2: list of groups (your file)
-    if isinstance(data, list) and data and isinstance(data[0], dict) and "tasks" in data[0]:
-        flat: List[Dict[str, Any]] = []
-        for group in data:
-            group_id = group.get("id")
-            group_tasks = group.get("tasks", [])
-            if not isinstance(group_tasks, list):
-                continue
-            for t in group_tasks:
-                if isinstance(t, dict):
-                    # keep group info for debugging/analysis if needed
-                    t = dict(t)
-                    t["_group_id"] = group_id
-                    flat.append(t)
-        return flat
-
-    # Case 3: dict wrapper
-    if isinstance(data, dict) and "tasks" in data and isinstance(data["tasks"], list):
-        return data["tasks"]
-
-    raise ValueError("Unsupported benchmark JSON format.")
-
-
-def build_user_task(task: Dict[str, Any]) -> Tuple[str, List[str], str]:
-    """
-    Re-implements the task text filling logic from benchmark_nlweb_mcp.py:
-    - Extract task text from "task" or from <task>...</task> inside "instruction"
-    - Fill placeholders for checkout tasks (user details, payment)
-    Returns: (user_task_text, expected_urls_flat, task_category)
-    """
-    user_task = task.get("task")
-    if not user_task:
-        instruction = task.get("instruction", "")
-        if isinstance(instruction, str) and "<task>" in instruction and "</task>" in instruction:
-            start = instruction.find("<task>")
-            end = instruction.find("</task>") + len("</task>")
-            user_task = instruction[start:end]
-        else:
-            user_task = str(instruction)
-
-    user_task = re.sub(r"^\s*<task>\s*", "", user_task)
-    user_task = re.sub(r"\s*</task>\s*$", "", user_task)
-
-    task_category = task.get("category", "")
-
-    correct_answer = task.get("correct_answer", {}).get("answers", [])
-    expected_flat = [fill_urls(x, URLS) for x in correct_answer]
-
-    # Checkout / FindAndOrder placeholder replacements
-    if task_category in ("Checkout", "FindAndOrder"):
-        # product url placeholder
-        product_urls = [fill_urls(x, URLS) for x in correct_answer]
-        user_task = user_task.replace("{{product_url}}", str(product_urls))
-
-        user_details = task.get("user_details", {})
-        for key in ["name", "email", "street", "house_number", "zip", "city", "state", "country"]:
-            if key in user_details:
-                user_task = user_task.replace("{{" + key + "}}", str(user_details[key]))
-
-        payment_info = task.get("payment_info", {})
-        for key in ["card", "cvv", "expiry_date"]:
-            if key in payment_info:
-                user_task = user_task.replace("{{" + key + "}}", str(payment_info[key]))
-
-    user_task = fill_urls(user_task, URLS)
-    if "{{product_url}}" in user_task:
-        user_task = user_task.replace("{{product_url}}", str(expected_flat))
-
-    return user_task, expected_flat, task_category
-
-
-# ---------- Token aggregation (paper-aligned: LLM input+output tokens only) ----------
-def aggregate_llm_tokens(a2a_result: Dict[str, Any]) -> Tuple[int, int]:
-    """
-    Returns (prompt_tokens, completion_tokens) for the whole task.
-    Supports multiple possible response shapes:
-    - top-level: prompt_tokens, completion_tokens
-    - top-level: usage: {prompt_tokens, completion_tokens}
-    - buyer_usage + shop_results[].usage
-    """
-    def read_usage(obj: Any) -> Tuple[int, int]:
-        if not isinstance(obj, dict):
-            return (0, 0)
-
-        # direct
-        if "prompt_tokens" in obj or "completion_tokens" in obj:
-            return (int(obj.get("prompt_tokens", 0)), int(obj.get("completion_tokens", 0)))
-
-        # nested usage
-        u = obj.get("usage")
-        if isinstance(u, dict):
-            return (int(u.get("prompt_tokens", 0)), int(u.get("completion_tokens", 0)))
-
-        return (0, 0)
-
-    p, c = 0, 0
-
-    # 1) top-level
-    tp, tc = read_usage(a2a_result)
-    p += tp
-    c += tc
-
-    # 2) buyer_usage
-    bu = a2a_result.get("buyer_usage")
-    bp, bc = read_usage(bu)
-    p += bp
-    c += bc
-
-    # 3) shops
-    shops = a2a_result.get("shop_results", [])
-    if isinstance(shops, list):
-        for s in shops:
-            sp, sc = read_usage(s)
-            p += sp
-            c += sc
-
-    return p, c
-
-
-# ---------- A2A call ----------
-def call_buyer(
-    buyer_endpoint: str,
-    task_id: str,
-    user_task: str,
-    task_category: str,
-    expected_urls: List[str],
-    clarify_policy: str,
-    timeout_sec: int,
-    extra_payload: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
-    """
-    Buyer server contract (recommended minimal):
-    POST {buyer_endpoint}/run_task
-    {
-      "task_id": "...",
-      "task_category": "...",
-      "task": "...",               # filled user_task text
-      "expected_urls": [...],      # optional, can help buyer for checkout placeholders; not required
-      "clarify_policy": "off" | "on_once",
-      ...extra...
-    }
-
-    Response minimal:
-    {
-      "final_answer": "... or {\"urls\": [...]} ...",
-      "final_urls": [...],                 # optional shortcut
-      "buyer_usage": {...},                # optional
-      "shop_results": [...],               # optional
-    }
-    """
-    payload = {
-        "task_id": task_id,
-        "task_category": task_category,
-        "task": user_task,
-        "expected_urls": expected_urls,
-        "clarify_policy": clarify_policy,
-    }
-    if extra_payload:
-        payload.update(extra_payload)
-
-    url = buyer_endpoint.rstrip("/") + "/run_task"
-    r = requests.post(url, json=payload, timeout=timeout_sec)
-    r.raise_for_status()
-    data = r.json()
-    if not isinstance(data, dict):
-        raise ValueError("Buyer response is not a JSON object.")
-    return data
-
-
-def pick_evaluation_urls(
-    a2a_result: Dict[str, Any],
-    task_category: str,
-    final_answer_text: str
-) -> Tuple[List[str], str]:
-    """
-    Evaluation strategy for A2A (Specific_Product only):
-
-    - The buyer returns final_urls as the final answer.
-    - Add_To_Cart, Checkout, and FindAndOrder tasks are not evaluated.
-    - cart_only_urls and checkout_only_urls are ignored and kept only for schema compatibility.
-    """
-
-    # Prefer explicit urls fields if buyer returns them
-    final_urls = a2a_result.get("final_urls")
-
-    # Search / others
-    if isinstance(final_urls, list):
-        return [normalize_url(u) for u in final_urls if isinstance(u, str)], "final_urls"
-    got = extract_urls_from_response(final_answer_text)
-    return [normalize_url(u) for u in got], "final_answer"
-
-
-def generate_csv_metrics(enhanced_summary: Dict[str, Any], output_dir: Path, prefix: str = "a2a"):
-    results = enhanced_summary.get("results") or []
-    if not results:
-        print("No results to export to CSV")
-        return None
-
-    current_timestamp = safe_get(enhanced_summary, ["benchmark_metadata", "timestamp"], datetime.now().strftime("%Y%m%d_%H%M%S"))
-    csv_path = output_dir / f"{prefix}_metrics_{current_timestamp}.csv"
-
-    rows = []
-    for r in results:
-        error = r.get("error_occurred", False)
-        rows.append({
-            "task_category": r.get("task_id", "").split("_Task")[0],
-            "task_id": r.get("task_id", ""),
-            "task_completion_rate": 0 if error else r.get("task_completion_rate", 0),
-            "precision": 0.0 if error else r.get("precision", 0.0),
-            "recall": 0.0 if error else r.get("recall", 0.0),
-            "f1_score": 0.0 if error else r.get("f1_score", 0.0),
-            "prompt_tokens": 0 if error else r.get("prompt_tokens", 0),
-            "completion_tokens": 0 if error else r.get("completion_tokens", 0),
-            "execution_time_seconds": r.get("execution_time_seconds", 0.0),
-        })
-
-    with csv_path.open("w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
-        writer.writeheader()
-        writer.writerows(rows)
-
-    print(f"📊 CSV metrics exported to: {csv_path}")
-    return str(csv_path)
-
-
-def run_benchmark_a2a(
-    benchmark_path: str,
-    buyer_endpoint: str,
-    model_name: str,
-    clarify_policy: str,
-    timeout_sec: int,
-    extra_payload: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
-    tasks = load_tasks(benchmark_path)
-
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    results_dir = interface_results_dir(__file__, "a2a", model_name, reasoning_effort=None)
-
-    execution_history: List[Dict[str, Any]] = []
-
-    total_prompt_tokens = 0
-    total_completion_tokens = 0
-    total_execution_time = 0.0
-    successful_tasks = 0
-    failed_tasks = 0
-
-    for task in tasks:
-        task_id = task.get("id", "")
-        user_task, expected_flat, task_category = build_user_task(task)
-
-        print("=" * 60)
-        print(f"Task ID: {task_id}")
-        print(f"Category: {task_category}")
-        print(f"User task: {user_task}")
-        print(f"Expected: {expected_flat}")
-
-        expected_normalized = [normalize_url(u) for u in expected_flat]
-
-        task_start = time.time()
-        task_error = None
-        buyer_result: Dict[str, Any] = {}
-        final_answer_text = ""
-
-        evaluation_urls = []
-        try:
-            buyer_result = call_buyer(
-                buyer_endpoint=buyer_endpoint,
-                task_id=task_id,
-                user_task=user_task,
-                task_category=task_category,
-                expected_urls=expected_flat,
-                clarify_policy=clarify_policy,
-                timeout_sec=timeout_sec,
-                extra_payload=extra_payload,
-            )
-
-            # === USE BUYER final_urls FOR EVALUATION ===
-            evaluation_urls = []
-
-            if isinstance(buyer_result, dict):
-                urls = buyer_result.get("final_urls", [])
-                if isinstance(urls, list):
-                    evaluation_urls = [normalize_url(u) for u in urls]
-
-            # final answer text (may be string or dict)
-            fa = buyer_result.get("final_answer", "")
-            if isinstance(fa, (dict, list)):
-                final_answer_text = json.dumps(fa, ensure_ascii=False)
-            else:
-                final_answer_text = str(fa)
-
-            successful_tasks += 1
-
-        except Exception as e:
-            task_error = str(e)
-            failed_tasks += 1
-            buyer_result = {}
-            final_answer_text = f"Error: {task_error}"
-            print(f"❌ Task failed: {task_error}")
-            print(traceback.format_exc())
-
-        exec_time = time.time() - task_start
-        total_execution_time += exec_time
-
-        # token aggregation (LLM inference only)
-        prompt_tokens, completion_tokens = aggregate_llm_tokens(buyer_result) if not task_error else (0, 0)
-        total_prompt_tokens += prompt_tokens
-        total_completion_tokens += completion_tokens
-
-        # evaluation urls selection (A2A: always use buyer final_urls)
-        evaluation_strategy = "buyer_final_urls"
-
-        if task_error:
-            evaluation_urls = []
-
-
-        # metrics
-        task_metrics = calculation_results(
-            benchmark_solutions=expected_normalized,
-            model_solution=evaluation_urls
+            return {"status": "error", "usage": {"prompt_tokens": 0, "completion_tokens": 0}}
+
+    async def get_buyer_decision(self, query: str, context: str):
+        """Final decision making with token usage tracking."""
+        # System prompt for the Buyer Agent to perform cross-shop decision making
+        system_prompt = """
+            You are a strategic buyer agent. 
+            You will receive a user's WISH and product data (JSON-LD) from multiple shops.
+
+            Your task:
+            1. Compare the offers based on the WISH (e.g., finding the absolute lowest price).
+            2. Return ONLY the exact URL(s) of the matching products.
+            3. Use ' ### ' to separate multiple URLs if they share the exact same lowest price.
+            4. If NO product in the context matches the wish, return 'NONE'.
+
+            Do not explain. Return ONLY the URL(s) or 'NONE'.
+            """
+        user_content = f"Wish: {query}\nContext: {context}"
+        
+        response = await self.client.chat.completions.create(
+            model=MODEL_NAME,
+            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_content}]
         )
-
-        correct_model_answers = [
-            u for u in expected_flat if normalize_url(u) in evaluation_urls
-        ]
-        additional_urls = [
-            u for u in evaluation_urls if u not in expected_normalized
-        ]
-        missing_urls = [
-            u for u in expected_normalized if u not in evaluation_urls
-        ]
-
-        history_entry = {
-            "task_id": task_id,
-            "task_category": task_category,
-            "task": user_task,
-            "task_completion_rate": task_metrics["task_completion_rate"],
-            "precision": task_metrics["avg_precision"],
-            "recall": task_metrics["avg_recall"],
-            "f1_score": task_metrics["f1_score"],
-            "raw_response": final_answer_text,
-            "parsed_response": evaluation_urls,
-            "correct_model_answers": correct_model_answers,
-            "additional_urls": additional_urls,
-            "missing_urls": missing_urls,
-            "metrics": task_metrics,
-            "prompt_tokens": prompt_tokens,
-            "completion_tokens": completion_tokens,
-            "execution_time_seconds": exec_time,
-            "expected_urls": expected_flat,
-            "evaluation_strategy": evaluation_strategy,
-            "buyer_result": buyer_result,  # keep for debugging
+        output = response.choices[0].message.content.strip()
+        usage = {
+            "prompt_tokens": response.usage.prompt_tokens,
+            "completion_tokens": response.usage.completion_tokens
         }
-
-        if task_error:
-            history_entry["error"] = task_error
-            history_entry["error_occurred"] = True
-        else:
-            history_entry["error_occurred"] = False
-
-        execution_history.append(history_entry)
-
-        # write per-task history entry (overwrite like other scripts)
-        with (results_dir / "history_entry.json").open("w", encoding="utf-8") as f:
-            json.dump(history_entry, f, indent=4, ensure_ascii=False)
-
-        print(f"Final Answer: {final_answer_text}")
-        print(f"Evaluation URLs ({evaluation_strategy}): {evaluation_urls}")
-        print(f"Metrics: {task_metrics}")
-        print(f"Tokens: {prompt_tokens + completion_tokens} (prompt {prompt_tokens}, completion {completion_tokens})")
-
-    # summary
-    avg_completion = sum(r["task_completion_rate"] for r in execution_history) / len(execution_history) if execution_history else 0
-    avg_precision = sum(r["precision"] for r in execution_history) / len(execution_history) if execution_history else 0
-    avg_recall = sum(r["recall"] for r in execution_history) / len(execution_history) if execution_history else 0
-    avg_f1 = sum(r["f1_score"] for r in execution_history) / len(execution_history) if execution_history else 0
-
-    enhanced_summary = {
-        "benchmark_metadata": {
-            "timestamp": timestamp,
-            "version": "a2a_benchmark",
-            "benchmark_path": benchmark_path,
-            "buyer_endpoint": buyer_endpoint,
-            "model_name": model_name,
-            "clarify_policy": clarify_policy,
-            "results_directory": str(results_dir),
-            "task_count": len(tasks),
-        },
-        "summary": {
-            "successful_tasks": successful_tasks,
-            "failed_tasks": failed_tasks,
-            "task_completion_rate": avg_completion,
-            "avg_precision": avg_precision,
-            "avg_recall": avg_recall,
-            "f1_score": avg_f1,
-            "total_prompt_tokens": total_prompt_tokens,
-            "total_completion_tokens": total_completion_tokens,
-            "total_tokens": total_prompt_tokens + total_completion_tokens,
-            "total_execution_time_seconds": total_execution_time,
-        },
-        "results": execution_history,
-    }
-
-    return enhanced_summary
+        return output, usage
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Run A2A benchmark for WebMall task set.")
-    parser.add_argument("--benchmark", default="task_sets/task_sets_5.json", help="Path to task set JSON.")
-    parser.add_argument("--buyer", default=os.getenv("A2A_BUYER_ENDPOINT", "http://localhost:8005"), help="Buyer server base URL.")
-    parser.add_argument("--model", default=os.getenv("A2A_MODEL", "gpt-5-mini"), help="Model name label for results dir.")
-    parser.add_argument("--clarify", default=os.getenv("A2A_CLARIFY_POLICY", "on_once"), choices=["off", "on_once"], help="Clarification policy.")
-    parser.add_argument("--timeout", type=int, default=int(os.getenv("A2A_TIMEOUT_SEC", "180")), help="HTTP timeout seconds per task.")
-    args = parser.parse_args()
+    async def run_single_task(self, task: Dict):
+        task_id = task['id']
+        query = task['task']
+        gt_urls = self.resolve_gt_urls(task.get('correct_answer', {}).get('answers', []))
+        start_time = time.time()
+        
+        async with httpx.AsyncClient() as client:
+            # Broadcast wish to all shops
+            shop_responses = await asyncio.gather(*[self.call_shop_agent(client, url, query) for url in self.endpoints])
+            
+            # --- NEW: Debug data collection ---
+            debug_shops = []
+            shop_context = ""
+            total_shop_prompt = 0
+            total_shop_completion = 0
+            
+            for i, res in enumerate(shop_responses):
+                if res["status"] == "success":
+                    data = res['data']
+                    usage = res.get("usage", {})
+                    
+                    # Record exactly what each shop returned (JSON-LD offers)
+                    debug_shops.append({
+                        "shop_name": data.get("agent_name"),
+                        "offers_returned": data.get("offers", []), # This is your JSON-LD data
+                        "tokens": usage
+                    })
+                    
+                    total_shop_prompt += usage.get("prompt_tokens", 0)
+                    total_shop_completion += usage.get("completion_tokens", 0)
+                    shop_context += f"\nShop {i+1}: {json.dumps(data.get('offers'))}\n"
+            
+            # Buyer decision phase
+            decision_str, buyer_usage = await self.get_buyer_decision(query, shop_context)
+            predicted_urls = [u.strip() for u in decision_str.split(' ### ') if u.strip() and u.strip().upper() != 'NONE']
+            
+            metrics = calculation_results(gt_urls, predicted_urls)
+            
+            # --- Store full details for the debug file ---
+            task_detail = {
+                "task_id": task_id,
+                "wish": query,
+                "ground_truth": gt_urls,
+                "predicted_urls": predicted_urls,
+                "metrics": metrics,
+                "buyer_raw_output": decision_str,
+                "shops_detail": debug_shops # Full transparency of shop outputs
+            }
+            
+            return {
+                "summary": {
+                    "task_id": task_id,
+                    "task_completion_rate": metrics["task_completion_rate"],
+                    "f1_score": metrics["f1_score"],
+                    "prompt_tokens": total_shop_prompt + buyer_usage["prompt_tokens"],
+                    "completion_tokens": total_shop_completion + buyer_usage["completion_tokens"],
+                    "execution_time_seconds": time.time() - start_time
+                },
+                "detail": task_detail
+            }
 
-    summary = run_benchmark_a2a(
-        benchmark_path=args.benchmark,
-        buyer_endpoint=args.buyer,
-        model_name=args.model,
-        clarify_policy=args.clarify,
-        timeout_sec=args.timeout,
-        extra_payload=None,
-    )
+    async def run_benchmark(self):
+        """
+        Main execution loop with overall metrics calculation.
+        """
+        if not os.path.exists(TASK_FILE):
+            print(f"Error: Task file not found at {TASK_FILE}")
+            return
 
-    # output files (match other scripts style)
-    results_dir_str = safe_get(summary, ["benchmark_metadata", "results_directory"])
-    results_dir = Path(results_dir_str) if results_dir_str else interface_results_dir(__file__, "a2a", args.model)
+        with open(TASK_FILE, 'r', encoding='utf-8') as f:
+            tasks = json.load(f)
 
-    ts = safe_get(summary, ["benchmark_metadata", "timestamp"], datetime.now().strftime("%Y%m%d_%H%M%S"))
-    out_json = results_dir / f"a2a_results_{ts}.json"
+        print(f"📊 Starting A2A Benchmark for {len(tasks)} tasks...")
+        
+        details_log = []
+        self.results = []
 
-    with out_json.open("w", encoding="utf-8") as f:
-        json.dump(summary, f, indent=4, ensure_ascii=False)
+        for task in tasks:
+            res = await self.run_single_task(task)
+            summary = res["summary"]
+            self.results.append(summary)
+            details_log.append(res["detail"])
+            
+            task_tokens = summary.get('prompt_tokens', 0) + summary.get('completion_tokens', 0)
+            print(f"Task: {summary['task_id']} | "
+                  f"CR: {summary['task_completion_rate']} | "
+                  f"F1: {summary['f1_score']:.2f} | "
+                  f"Tokens: {task_tokens} | "
+                  f"Time: {summary['execution_time_seconds']:.2f}s")
 
-    print(f"📁 Results saved to: {out_json}")
+        # --- Calculate Overall Metrics ---
+        total_tasks = len(self.results)
+        avg_cr = sum(r["task_completion_rate"] for r in self.results) / total_tasks
+        avg_f1 = sum(r["f1_score"] for r in self.results) / total_tasks
+        total_p_tokens = sum(r.get("prompt_tokens", 0) for r in self.results)
+        total_c_tokens = sum(r.get("completion_tokens", 0) for r in self.results)
+        total_tokens = total_p_tokens + total_c_tokens
 
-    if summary.get("results"):
-        generate_csv_metrics(summary, results_dir, prefix="a2a")
+        # Generate unique timestamp
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Define storage paths
+        summary_path = os.path.join(RESULTS_DIR, f"a2a_results_{timestamp}.json")
+        debug_path = os.path.join(RESULTS_DIR, f"a2a_results_{timestamp}_DEBUG.json")
 
+        summary_payload = {
+            "benchmark_metadata": {
+                "timestamp": timestamp,
+                "version": "a2a_enhanced_v1",
+                "total_tasks": total_tasks,
+                "model": MODEL_NAME,
+                "overall_metrics": {
+                    "average_cr": avg_cr,
+                    "average_f1": avg_f1,
+                    "total_tokens": total_tokens
+                }
+            },
+            "token_usage_summary": {
+                "total_prompt_tokens": total_p_tokens,
+                "total_completion_tokens": total_c_tokens,
+                "total_tokens": total_tokens
+            },
+            "results": self.results
+        }
+        
+        with open(summary_path, "w", encoding="utf-8") as f:
+            json.dump(summary_payload, f, indent=4)
+        with open(debug_path, "w", encoding="utf-8") as f:
+            json.dump(details_log, f, indent=4)
+
+        # --- Final Overall Output to Terminal ---
+        print("\n" + "="*40)
+        print("🏆 FINAL BENCHMARK RESULTS")
+        print("="*40)
+        print(f"📈 Average CR: {avg_cr:.4f}")
+        print(f"🎯 Average F1: {avg_f1:.4f}")
+        print(f"💰 Total Tokens Used: {total_tokens}")
+        print(f"⏱️ Total Execution Time: {sum(r['execution_time_seconds'] for r in self.results):.2f}s")
+        print("="*40)
+        print(f"📁 Summary: {summary_path}")
+        print(f"🔍 Debug: {debug_path}")
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(A2ABenchmark().run_benchmark())

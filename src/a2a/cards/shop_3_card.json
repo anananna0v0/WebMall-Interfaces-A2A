@@ -1,0 +1,9 @@
+{
+  "name": "WebMall-3",
+  "id": "agent-webmall-3",
+  "type": "shop",
+  "url": "http://localhost:8003/messages",
+  "description": "E-commerce Shop Agent for WebMall-3 (CamelCases), providing electronics and hardware product search.",
+  "capabilities": ["product_search", "price_reporting"],
+  "supported_schemas": ["https://schema.org/Product"]
+}

@@ -1,44 +1,36 @@
 import json
 
-# Define the 7 target categories aligned with the paper
-target_categories = [
-    "Specific_Product",
-    "Cheapest_Product",
-    "Best_Fit_Specific",
-    "Best_Fit_Vague",
-    "Cheapest_Best_Fit_Specific",
-    "Cheapest_Best_Fit_Vague",
-    "Compatible_Products",
-]
-
-def generate():
-    try:
-        # Read your local task_sets.json
-        with open('task_sets.json', 'r', encoding='utf-8') as f:
-            data = json.load(f)
-
-        new_task_sets = []
-
-        for category_name in target_categories:
-            for category_node in data:
-                # Check category consistency within the task set
-                if category_node['tasks'] and category_node['tasks'][0].get('category') == category_name:
-                    # Select exactly 5 tasks to reduce statistical noise
-                    limited_tasks = category_node['tasks'][:5]
-                    new_node = category_node.copy()
-                    new_node['tasks'] = limited_tasks
-                    new_task_sets.append(new_node)
-                    print(f"Added {category_name}: {len(limited_tasks)} tasks")
-                    break
-
-        # Save the optimized 35-task set
-        with open('task_sets_35.json', 'w', encoding='utf-8') as f:
-            json.dump(new_task_sets, f, indent=2, ensure_ascii=False)
+def extract_a2a_tasks(file_path):
+    with open(file_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    
+    # Mapping requested categories to JSON indices
+    # Index 8: Find Substitutes (6 tasks)
+    # Index 1: Find Cheapest Offer (10 tasks)
+    # Index 4: Cheapest Offer Specific Requirements (10 tasks)
+    # Index 5: Cheapest Offer Vague Requirements (6 tasks)
+    target_mapping = {
+        "Find Substitutes": 8,
+        "Find Cheapest Offer": 1,
+        "Cheapest Offer Specific Requirements": 4,
+        "Cheapest Offer Vague Requirements": 5
+    }
+    
+    selected_tasks = []
+    for category_name, index in target_mapping.items():
+        tasks = data[index].get('tasks', [])
+        # Add category tag to each task for later analysis
+        for t in tasks:
+            t['experiment_category'] = category_name
+        selected_tasks.extend(tasks)
+        print(f"Extracted {len(tasks)} tasks from: {category_name}")
         
-        print("\nSuccess: 'task_sets_35.json' created locally.")
+    return selected_tasks
 
-    except FileNotFoundError:
-        print("Error: 'task_sets.json' not found in current directory.")
+# Usage
+tasks = extract_a2a_tasks('task_sets.json')
+print(f"Total tasks for experiment: {len(tasks)}")
 
-if __name__ == "__main__":
-    generate()
+# Save to a new file for your experiment
+with open('experiment_tasks_32.json', 'w', encoding='utf-8') as f:
+    json.dump(tasks, f, indent=2, ensure_ascii=False)

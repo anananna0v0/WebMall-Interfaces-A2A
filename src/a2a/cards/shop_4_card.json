@@ -1,0 +1,9 @@
+{
+  "name": "WebMall-4",
+  "id": "agent-webmall-4",
+  "type": "shop",
+  "url": "http://localhost:8004/messages",
+  "description": "E-commerce Shop Agent for WebMall-4 (Hardware Cafe), providing electronics and hardware product search.",
+  "capabilities": ["product_search", "price_reporting"],
+  "supported_schemas": ["https://schema.org/Product"]
+}
