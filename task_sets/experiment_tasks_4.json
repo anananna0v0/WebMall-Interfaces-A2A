@@ -3,7 +3,7 @@
     "id": "Webmall_Substitutes_Task1",
     "category": "Substitute",
     "instruction": "<instructions>\\nSolve the task below using these four webshops:\\n\\nE-Store Athletes: {{URL_1}}\\nTechTalk: {{URL_2}}\\nCamelCases: {{URL_3}}\\nHardware Cafe: {{URL_4}}\\n\\nAfter solving the task, submit the final result by first navigating to this page:\\n\\nSolution page: {{URL_5}}\\n\\nThen fill the final results into the text field on the solution page and press the \"Submit Final Result\" button.\\n\\nIf the result is one or more product offers enter their exact full URL(s) into the text field separated by three ### characters.\\nExample submission:\\nOffer1: {{URL_1}}/product/tp-link-ha100-bluetooth-nfc-music-receiver-provides-wireless-connectivity-to-your-stereo/###Offer2: {{URL_3}}/product/spire-usb-2-0-type-a-cable-male-to-male-1-metre/###Offer3: {{URL_2}}/product/sandberg-usb-c-pd-to-lightning-cable-braided-1-meter-white/\\n\\nIf the result is any other kind of value(s), input the value(s) into the text field.\\n\\nIf there is no result to return after completion of the task, simply enter \"Done\" into the text field.\\n\\nDo not forget to press the \"Submit Final Result\" button in all cases!\\n</instructions>\\n\\n",
-    "task": "<task>\\nFind the cheapest alternative for this item: {{URL_3}}/product/arctic-liquid-freezer-iii-360mm-liquid-cpu-cooler-p12-pwm-pst-fans-pwm-controlled-pump .\\n</task>",
+    "task": "<task>\\nFind the cheapest alternative for this item: {{URL_3}}/product/arctic-liquid-freezer-iii-360mm-liquid-cpu-cooler-p12-pwm-pst-fans-pwm-controlled-pump.\\n</task>",
     "motivation": "Assess the agent's ability to to identify and gather similar alternatives for specific items.",
     "correct_answer": {
       "type": "cart",

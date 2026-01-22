@@ -2,123 +2,182 @@ import sys
 import os
 import json
 import logging
+import re
 import argparse
-import asyncio
 import uvicorn
+from typing import List, Dict, Any, Tuple
 from fastapi import FastAPI, Request
-from openai import AsyncOpenAI
-from dotenv import load_dotenv
+from pydantic import BaseModel
+from dotenv import load_dotenv 
 
-# --- Path Configuration ---
-# Current file: src/a2a/shop_agent.py (Go up 3 levels to reach project root)
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if BASE_DIR not in sys.path:
-    sys.path.append(BASE_DIR)
-if os.path.join(BASE_DIR, "src") not in sys.path:
-    sys.path.append(os.path.join(BASE_DIR, "src"))
+# --- LangChain & LangGraph Imports ---
+from langchain_openai import ChatOpenAI 
+from langchain_core.tools import tool 
+from langchain_community.callbacks import get_openai_callback 
+from langgraph.prebuilt import create_react_agent 
 
-load_dotenv(os.path.join(BASE_DIR, ".env"))
+# --- Path Injection: Must happen BEFORE importing local packages ---
+current_dir = os.path.dirname(os.path.abspath(__file__))
+src_path = os.path.dirname(current_dir)
 
-# Import required local modules
-from nlweb_mcp.config import WEBMALL_SHOPS, ELASTICSEARCH_HOST
-from nlweb_mcp.elasticsearch_client import ElasticsearchClient
-from nlweb_mcp.embedding_service import EmbeddingService
-from nlweb_mcp.search_engine import SearchEngine
-from nlweb_mcp.woocommerce_client import WooCommerceClient
+# Ensure 'src' is the first place Python looks for modules
+if src_path not in sys.path:
+    sys.path.insert(0, src_path)
 
+load_dotenv(dotenv_path=os.path.join(os.path.dirname(src_path), ".env"))
+
+# --- Local Package Imports: Clean and grouped ---
+try:
+    from nlweb_mcp.search_engine import SearchEngine
+    from nlweb_mcp.woocommerce_client import WooCommerceClient
+    print(f"✅ Successfully loaded local modules from: {src_path}")
+except ImportError as e:
+    print(f"❌ Critical Import Error: {e}")
+    print(f"Current sys.path: {sys.path}")
+    sys.exit(1)
+
+# Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# --- Core Shop Logic ---
+# --- 1. Ensure you have these imports at the top ---
+from nlweb_mcp.elasticsearch_client import ElasticsearchClient
+from nlweb_mcp.embedding_service import EmbeddingService
+# Keep your existing imports...
+
 class ShopAgentInstance:
-    def __init__(self, shop_id: str):
+    def __init__(self, shop_id: str, index_name: str):
+        """
+        Initializes the Shop Agent with necessary search and embedding services.
+        """
         self.shop_id = shop_id
-        self.config = WEBMALL_SHOPS.get(shop_id)
-        # Load identity from agent cards
-        shop_num = shop_id.split('_')[-1]
-        self.card_path = os.path.join(BASE_DIR, "src", "a2a", "cards", f"shop_{shop_num}_card.json")
-        self.agent_card = self._load_agent_card()
-        
-        # Initialize search components
-        self.es_client = ElasticsearchClient(host=ELASTICSEARCH_HOST)
+        self.index_name = index_name
+
+        # --- 2. Initialize required services for SearchEngine ---
+        # These services rely on your .env settings (ES_URL, OPENAI_API_KEY, etc.)
+        self.es_client = ElasticsearchClient()
         self.embedding_service = EmbeddingService()
-        self.search_engine = SearchEngine(self.es_client, self.embedding_service, self.config["index_name"])
-        self.woo_client = WooCommerceClient(base_url=self.config["url"])
-        self.llm_client = AsyncOpenAI()
 
-    def _load_agent_card(self):
-        try:
-            with open(self.card_path, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception:
-            return {"name": self.shop_id}
-
-    async def process_search(self, raw_wish: str):
-        """Analyze wish, optimize query, and return JSON-LD products."""
-        usage = {"prompt_tokens": 0, "completion_tokens": 0}
+        # --- 3. Correct SearchEngine initialization ---
+        # Pass the missing positional arguments as required by the library
+        self.search_engine = SearchEngine(
+            elasticsearch_client=self.es_client,
+            embedding_service=self.embedding_service,
+            index_name=index_name
+        )
         
-        reasoning_prompt = f"""
-            You are the highly experienced Head of Sales at {self.agent_card.get('name')}. 
-            A buyer agent sent a 'Wish': "{raw_wish}"
+        # WooCommerce and LLM setup
+        # Note: Ensure woocommerce_client.py matches the filename we discussed
+        from nlweb_mcp.woocommerce_client import WooCommerceClient
+        shop_url = f"https://{shop_id.replace('_', '-')}.informatik.uni-mannheim.de"
+        self.woo_client = WooCommerceClient(base_url=shop_url)
+        
+        self.llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+        self.agent_executor = self._setup_agent()
 
-            Your goal is to transform this wish into the most effective search query for our Elasticsearch semantic engine.
-
-            Your reasoning steps:
-            1. **Analyze Intent**: Determine if the buyer is looking for a specific model, comparing prices, or seeking alternatives (substitutes).
-            2. **Extract Entities**: Identify and preserve crucial technical identifiers such as brand names, model numbers (e.g., 'S24+', 'RTX4070'), and physical dimensions (e.g., '360mm', '1TB').
-            3. **Handle Specificity**: If the wish is vague, translate it into keywords that characterize our entry-level product lines.
-            4. **Keyword Optimization**: Return only core semantic keywords for maximum precision.
-
-            OUTPUT REQUIREMENT: 
-            - Return ONLY the optimized search string.
-            - Do NOT include any explanations or formatting.
+    def _setup_agent(self):
+        """Sets up the LangGraph ReAct agent with shop-specific tools."""
+        
+        @tool
+        def search_inventory(query: str) -> str:
             """
-        try:
-            response = await self.llm_client.chat.completions.create(
-                model="gpt-5-mini",
-                messages=[{"role": "user", "content": reasoning_prompt}]
-            )
-            refined_query = response.choices[0].message.content.strip()
-            usage = {"prompt_tokens": response.usage.prompt_tokens, "completion_tokens": response.usage.completion_tokens}
-            logger.info(f"[{self.shop_id}] Optimized Query: {refined_query}")
-        except Exception:
-            refined_query = raw_wish
+            Search the shop's local database for products. 
+            Returns a JSON string of found products.
+            """
+            raw_results = self.search_engine.search(query=query)
+            items = raw_results.get("marketplace_inventory", [])
+            
+            if not items:
+                return "No products found for this query. Try broader or different keywords."
+            
+            return json.dumps([
+                {
+                    "name": i.get("name"),
+                    "price": i.get("price"),
+                    "url": i.get("url"),
+                    "description": i.get("description")[:100]
+                } for i in items
+            ])
 
-        res = self.search_engine.search(query=refined_query)
-        search_results = res if isinstance(res, dict) else json.loads(res)
-        raw_items = search_results.get("marketplace_inventory", [])
-        products = [self.woo_client.get_schema_org_product(item) for item in raw_items]
+        system_message = (
+            f"You are the Shop Agent for {self.shop_id}. "
+            "1. Extract keywords. 2. Search inventory. "
+            "3. If no results found, try ONCE with simpler keywords. " # Limit retries
+            "4. If still no results, state 'No products found' and stop. " # Define a terminal state
+            "5. Return a JSON list of product URLs."
+        )
+
+        # Change 'state_modifier' to 'prompt' to fix the TypeError
+        return create_react_agent(
+            model=self.llm,
+            tools=[search_inventory],
+            prompt=system_message 
+        )
+
+    async def process_message(self, wish: str):
+        """Processes the buyer wish using the LangGraph agent."""
+        inputs = {"messages": [("user", wish)]}
         
-        logger.info(f"[{self.shop_id}] Found {len(products)} products.")
-        return products, usage
+        try:
+            # Add a config dictionary to control recursion_limit
+            result = await self.agent_executor.ainvoke(
+                inputs, 
+                config={"recursion_limit": 15} # Set a hard stop at 15 steps
+            )
+            
+            # The last message in the state contains the agent's output
+            agent_output = result["messages"][-1].content
+            
+            # (Rest of your regex logic to extract URLs...)
+            return urls, usage
+        except Exception as e:
+            print(f"Agent failed or hit recursion limit: {e}")
+            return [], {"prompt_tokens": 0, "completion_tokens": 0}
 
-# --- FastAPI Implementation ---
+
 app = FastAPI()
-shop_instance = None
 
+# Global variable to hold the agent instance
+# This will be initialized in the main block below
+shop_instance: ShopAgentInstance = None
 @app.post("/messages")
-async def handle_a2a(request: Request):
-    """JSON-RPC 2.0 Entry point for Buyer Agent."""
-    global shop_instance
-    if not shop_instance:
-        shop_instance = ShopAgentInstance(app.state.args.shop_id)
+async def handle_a2a_request(request: Request):
+    """Standard A2A JSON-RPC interface."""
+    if shop_instance is None:
+        return {"jsonrpc": "2.0", "error": {"code": -32000, "message": "Agent not initialized"}, "id": None}
         
     body = await request.json()
-    if body.get("method") == "ask_webmall":
-        query = body.get("params", {}).get("query", "")
-        products, usage = await shop_instance.process_search(query)
-        return {
-            "jsonrpc": "2.0",
-            "result": {"agent_name": shop_instance.agent_card.get("name"), "offers": products, "usage": usage},
-            "id": body.get("id")
-        }
-    return {"jsonrpc": "2.0", "error": {"code": -32601, "message": "Method not found"}}
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--shop_id", type=str, required=True)
-    parser.add_argument("--port", type=int, required=True)
-    args = parser.parse_args()
-    app.state.args = args 
+    wish = body.get("params", {}).get("query", "")
     
+    urls, usage = await shop_instance.process_message(wish)
+    
+    return {
+        "jsonrpc": "2.0",
+        "result": {
+            "agent_name": shop_instance.shop_id,
+            "offers": urls,
+            "tokens": usage
+        },
+        "id": body.get("id")
+    }
+
+# --- CLI Entry Point ---
+# This part allows run_a2a_exp.sh to pass --shop_id and --port
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="A2A Shop Agent Server")
+    parser.add_argument("--shop_id", type=str, required=True, help="ID of the shop (e.g., webmall_1)")
+    parser.add_argument("--port", type=int, required=True, help="Port to run the server on")
+    
+    args = parser.parse_args()
+
+    # Initialize the shop instance with CLI arguments
+    # The index name is automatically derived from shop_id
+    shop_instance = ShopAgentInstance(
+        shop_id=args.shop_id,
+        index_name=f"{args.shop_id}_nlweb"
+    )
+
+    print(f"🚀 Starting {args.shop_id} on port {args.port}...")
+    
+    # Run uvicorn with the parsed port
     uvicorn.run(app, host="0.0.0.0", port=args.port)

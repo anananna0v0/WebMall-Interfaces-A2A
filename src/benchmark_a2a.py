@@ -23,27 +23,66 @@ TASK_FILE = os.path.join(BASE_DIR, "task_sets", "experiment_tasks_4.json")
 RESULTS_DIR = "/Users/yenanchen/Documents/Home/Mannheim/2025HWS/Seminar/WebMall-Interfaces-A2A-test/results/a2a/gpt-5-mini"
 MODEL_NAME = "gpt-5-mini"
 
+URLS = {
+    "URL_1": "https://webmall-1.informatik.uni-mannheim.de",
+    "URL_2": "https://webmall-2.informatik.uni-mannheim.de",
+    "URL_3": "https://webmall-3.informatik.uni-mannheim.de",
+    "URL_4": "https://webmall-4.informatik.uni-mannheim.de",
+    "URL_5": "https://webmall-solution.informatik.uni-mannheim.de"
+}
+
+def fill_urls(text: str, urls: Dict[str, str]) -> str:
+    """Replace URL placeholders like {{URL_3}} with actual Mannheim webmall URLs."""
+    for key, val in urls.items():
+        text = text.replace("{{" + key + "}}", val)
+    return text
+
 class A2ABenchmark:
     def __init__(self):
+        """
+        Initializes the benchmark with dynamic discovery and URL mapping.
+        """
         os.makedirs(RESULTS_DIR, exist_ok=True)
+        
+        # Implement A2A Discovery Method 3: Load endpoints from registry.json
         self.endpoints = self._load_registry()
+        
+        # Initialize OpenAI client for the Buyer agent
         self.client = AsyncOpenAI() 
-        self.url_mapping = {f"{{{{URL_{i+1}}}}}" : WEBMALL_SHOPS[f"webmall_{i+1}"]["url"] for i in range(4)}
+        
+        # Mapping for Ground Truth resolution, compatible with the URLS dictionary
+        self.url_mapping = URLS
         self.results = []
 
     def _load_registry(self) -> List[str]:
+        """
+        A2A Discovery Method 3: Dynamically fetch shop agent URLs from the registry.
+        Falls back to local ports if registry.json is missing.
+        """
         if not os.path.exists(REGISTRY_PATH):
+            print(f"⚠️ Registry not found at {REGISTRY_PATH}, using local defaults.")
             return [f"http://localhost:800{i+1}/messages" for i in range(4)]
-        with open(REGISTRY_PATH, 'r') as f:
-            data = json.load(f)
-            return [shop['url'] for shop in data.get('shops', [])]
+            
+        try:
+            with open(REGISTRY_PATH, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                endpoints = [shop['url'] for shop in data.get('shops', [])]
+                print(f"✅ Discovered {len(endpoints)} shop agents via registry.")
+                return endpoints
+        except Exception as e:
+            print(f"❌ Discovery failed: {e}")
+            return []
 
     def resolve_gt_urls(self, raw_urls: List[str]) -> List[str]:
-        """Convert placeholder URLs in dataset to real shop URLs."""
+        """
+        Convert placeholder URLs in the dataset (e.g., {{URL_3}}) to real shop URLs.
+        Uses the shared URLS mapping for consistency.
+        """
         resolved = []
         for url in raw_urls:
             new_url = url
-            for placeholder, actual in self.url_mapping.items():
+            for key, actual in self.url_mapping.items():
+                placeholder = "{{" + key + "}}"
                 new_url = new_url.replace(placeholder, actual)
             resolved.append(new_url)
         return resolved
@@ -88,65 +127,96 @@ class A2ABenchmark:
 
 
     async def run_single_task(self, task: Dict):
+        """
+        Executes a single benchmark task.
+        Pre-processes URLs, broadcasts to shop agents, and aggregates results for buyer decision.
+        """
         task_id = task['id']
-        query = task['task']
+        
+        # 1. URL Pre-processing: Resolve {{URL_X}} placeholders
+        # This ensures Shop Agents receive a query with context they can understand.
+        query = fill_urls(task['task'], URLS)
+        
+        # Resolve Ground Truth URLs for metric calculation
         gt_urls = self.resolve_gt_urls(task.get('correct_answer', {}).get('answers', []))
         start_time = time.time()
         
         async with httpx.AsyncClient() as client:
-            # Broadcast wish to all shops
+            # 2. Broadcast the resolved wish to all shop agents defined in self.endpoints
+            # Using asyncio.gather for parallel execution across all shops
             shop_responses = await asyncio.gather(*[self.call_shop_agent(client, url, query) for url in self.endpoints])
             
-            # --- NEW: Debug data collection ---
+            # Initialization for data collection
             debug_shops = []
             shop_context = ""
             total_shop_prompt = 0
             total_shop_completion = 0
             
+            # 3. Process Shop Responses (JSON-RPC 2.0)
             for i, res in enumerate(shop_responses):
-                if res["status"] == "success":
-                    data = res['data']
-                    usage = res.get("usage", {})
+                # Check for standard A2A JSON-RPC result structure
+                if res.get("jsonrpc") == "2.0" and "result" in res:
+                    data = res['result']
+                    usage = data.get("tokens", {})
+                    offers = data.get("offers", [])
                     
-                    # Record exactly what each shop returned (JSON-LD offers)
+                    # Accumulate actual usage from LangGraph agents
+                    total_shop_prompt += usage.get("prompt_tokens", 0)
+                    total_shop_completion += usage.get("completion_tokens", 0)
+                    
+                    # Store detailed output for transparency and debugging
                     debug_shops.append({
-                        "shop_name": data.get("agent_name"),
-                        "offers_returned": data.get("offers", []), # This is your JSON-LD data
+                        "shop_id": f"webmall_{i+1}",
+                        "offers_returned": offers,
                         "tokens": usage
                     })
                     
-                    total_shop_prompt += usage.get("prompt_tokens", 0)
-                    total_shop_completion += usage.get("completion_tokens", 0)
-                    shop_context += f"\nShop {i+1}: {json.dumps(data.get('offers'))}\n"
-            
-            # Buyer decision phase
-            decision_str, buyer_usage = await self.get_buyer_decision(query, shop_context)
-            predicted_urls = [u.strip() for u in decision_str.split(' ### ') if u.strip() and u.strip().upper() != 'NONE']
-            
-            metrics = calculation_results(gt_urls, predicted_urls)
-            
-            # --- Store full details for the debug file ---
-            task_detail = {
+                    # Build context for the Buyer Agent to perform cross-shop comparison
+                    shop_context += f"\nShop {i+1} (WebMall-{i+1}) offers: {json.dumps(offers)}\n"
+                else:
+                    # Log failed shop communications for debugging
+                    debug_shops.append({
+                        "shop_id": f"webmall_{i+1}",
+                        "error": "Invalid JSON-RPC response or timeout"
+                    })
+        
+        # 4. Buyer Decision Phase: Send all shop results to the Buyer LLM
+        # The buyer decides which offers actually fulfill the user wish.
+        decision_str, buyer_usage = await self.get_buyer_decision(query, shop_context)
+        
+        # Parse final URLs from the buyer's reasoning output
+        predicted_urls = [
+            u.strip() for u in decision_str.split(' ### ') 
+            if u.strip() and u.strip().upper() != 'NONE'
+        ]
+        
+        # 5. Metric Calculation
+        metrics = calculation_results(gt_urls, predicted_urls)
+        
+        # Store full task trace for a2a_results_DEBUG.json
+        task_detail = {
+            "task_id": task_id,
+            "wish": query,
+            "ground_truth": gt_urls,
+            "predicted_urls": predicted_urls,
+            "metrics": metrics,
+            "buyer_raw_output": decision_str,
+            "shops_detail": debug_shops
+        }
+        
+        return {
+            "summary": {
                 "task_id": task_id,
-                "wish": query,
-                "ground_truth": gt_urls,
-                "predicted_urls": predicted_urls,
-                "metrics": metrics,
-                "buyer_raw_output": decision_str,
-                "shops_detail": debug_shops # Full transparency of shop outputs
-            }
-            
-            return {
-                "summary": {
-                    "task_id": task_id,
-                    "task_completion_rate": metrics["task_completion_rate"],
-                    "f1_score": metrics["f1_score"],
-                    "prompt_tokens": total_shop_prompt + buyer_usage["prompt_tokens"],
-                    "completion_tokens": total_shop_completion + buyer_usage["completion_tokens"],
-                    "execution_time_seconds": time.time() - start_time
-                },
-                "detail": task_detail
-            }
+                "task_completion_rate": metrics["task_completion_rate"],
+                "f1_score": metrics["f1_score"],
+                # Grouping tokens for the final summary output
+                "shop_tokens": total_shop_prompt + total_shop_completion,
+                "buyer_tokens": buyer_usage["prompt_tokens"] + buyer_usage["completion_tokens"],
+                "total_tokens": total_shop_prompt + total_shop_completion + buyer_usage["prompt_tokens"] + buyer_usage["completion_tokens"],
+                "execution_time_seconds": time.time() - start_time
+            },
+            "detail": task_detail
+        }
 
     async def run_benchmark(self):
         """
@@ -185,28 +255,32 @@ class A2ABenchmark:
         total_c_tokens = sum(r.get("completion_tokens", 0) for r in self.results)
         total_tokens = total_p_tokens + total_c_tokens
 
-        # Generate unique timestamp
+        # Generate unique timestamp 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         
         # Define storage paths
-        summary_path = os.path.join(RESULTS_DIR, f"a2a_results_{timestamp}.json")
-        debug_path = os.path.join(RESULTS_DIR, f"a2a_results_{timestamp}_DEBUG.json")
+        task_count = len(self.results)
+        summary_path = os.path.join(RESULTS_DIR, f"{MODEL_NAME}_{task_count}tasks_summary_{timestamp}.json")
+        debug_path = os.path.join(RESULTS_DIR, f"{MODEL_NAME}_{task_count}tasks_debug_{timestamp}.json")
+
+        total_s_tokens = sum(r.get("shop_tokens", 0) for r in self.results)
+        total_b_tokens = sum(r.get("buyer_tokens", 0) for r in self.results)
+        total_tokens = total_s_tokens + total_b_tokens
 
         summary_payload = {
             "benchmark_metadata": {
                 "timestamp": timestamp,
-                "version": "a2a_enhanced_v1",
-                "total_tasks": total_tasks,
-                "model": MODEL_NAME,
                 "overall_metrics": {
                     "average_cr": avg_cr,
                     "average_f1": avg_f1,
-                    "total_tokens": total_tokens
+                    "total_tokens": total_tokens,
+                    "shop_tokens": total_s_tokens,  
+                    "buyer_tokens": total_b_tokens  
                 }
             },
             "token_usage_summary": {
-                "total_prompt_tokens": total_p_tokens,
-                "total_completion_tokens": total_c_tokens,
+                "total_shop_tokens": total_s_tokens,     
+                "total_buyer_tokens": total_b_tokens,    
                 "total_tokens": total_tokens
             },
             "results": self.results
@@ -221,13 +295,13 @@ class A2ABenchmark:
         print("\n" + "="*40)
         print("🏆 FINAL BENCHMARK RESULTS")
         print("="*40)
-        print(f"📈 Average CR: {avg_cr:.4f}")
-        print(f"🎯 Average F1: {avg_f1:.4f}")
-        print(f"💰 Total Tokens Used: {total_tokens}")
-        print(f"⏱️ Total Execution Time: {sum(r['execution_time_seconds'] for r in self.results):.2f}s")
+        print(f"📈 Average CR:   {avg_cr:.4f}")
+        print(f"🎯 Average F1:   {avg_f1:.4f}")
+        print(f"🤖 Shop Tokens:  {total_s_tokens}")  
+        print(f"🛒 Buyer Tokens: {total_b_tokens}")  
+        print(f"💰 Total Tokens: {total_tokens}")
+        print(f"⏱️ Total Time:   {sum(r['execution_time_seconds'] for r in self.results):.2f}s")
         print("="*40)
-        print(f"📁 Summary: {summary_path}")
-        print(f"🔍 Debug: {debug_path}")
 
 if __name__ == "__main__":
     asyncio.run(A2ABenchmark().run_benchmark())

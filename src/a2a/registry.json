@@ -1,8 +1,8 @@
 {
   "shops": [
-    {"name": "WebMall-1", "url": "http://localhost:8001/messages"},
-    {"name": "WebMall-2", "url": "http://localhost:8002/messages"},
-    {"name": "WebMall-3", "url": "http://localhost:8003/messages"},
-    {"name": "WebMall-4", "url": "http://localhost:8004/messages"}
+    { "id": "webmall_1", "url": "http://localhost:8001/messages" },
+    { "id": "webmall_2", "url": "http://localhost:8002/messages" },
+    { "id": "webmall_3", "url": "http://localhost:8003/messages" },
+    { "id": "webmall_4", "url": "http://localhost:8004/messages" }
   ]
 }
