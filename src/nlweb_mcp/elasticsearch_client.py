@@ -19,25 +19,16 @@ logger = logging.getLogger(__name__)
 
 class ElasticsearchClient:
     def __init__(self, host: str = ELASTICSEARCH_HOST):
-        # Configure client for ES 8.x with connection pooling and timeouts
+        # Configure client to match your Docker ES 8.11.0 
         self.client = Elasticsearch(
             [host],
-            # Disable SSL verification for local development
+            request_timeout=30,      # Use request_timeout for 8.x 
             verify_certs=False,
             ssl_show_warn=False,
-            # Connection pool settings
             max_retries=3,
-            retry_on_timeout=True,
-            # Timeout settings
-            timeout=30,
-            # Connection pool configuration
-            maxsize=25,
-            # Refresh connections periodically
-            sniff_on_start=False,
-            sniff_on_connection_fail=False,
-            sniff_timeout=10,
+            retry_on_timeout=True
         )
-        self.test_connection()
+        self.test_connection() # This calls info() which triggered the error [cite: 2, 3]
     
     def test_connection(self):
         """Test connection to Elasticsearch"""
