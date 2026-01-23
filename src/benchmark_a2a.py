@@ -19,7 +19,7 @@ from utils import calculation_results
 
 # Configuration Constants
 REGISTRY_PATH = os.path.join(BASE_DIR, "src", "a2a", "registry.json")
-TASK_FILE = os.path.join(BASE_DIR, "task_sets", "test_tasks_1.json")
+TASK_FILE = os.path.join(BASE_DIR, "task_sets", "experiment_tasks_5.json")
 RESULTS_DIR = os.path.join(BASE_DIR, "results", "a2a", "scripted_buyer")
 MODEL_NAME = "scripted-buyer-logic"
 
@@ -133,8 +133,8 @@ class A2ABenchmark:
 
     async def run_single_task(self, task: Dict):
         """
-        Processes one task: Broadcast -> Harvest -> Relevance Filter -> Min-Selection.
-        Ensures the decision is based on both relevance and price.
+        Processes a single benchmark task: Broadcasts to shops, filters by relevance,
+        selects the cheapest product, and calculates metrics.
         """
         task_id = task['id']
         query = fill_urls(task['task'], URLS)
@@ -143,11 +143,11 @@ class A2ABenchmark:
         
         start_time = time.time()
         
-        # 1. Broadcast concurrently to all registered shop endpoints
+        # 1. Broadcast: Send the query to all shop agent endpoints concurrently
         tasks = [self._execute_shop_call(url, query) for url in self.endpoints]
         responses = await asyncio.gather(*tasks)
         
-        # 2. Token & Offer Harvesting from JSON-RPC results
+        # 2. Data Harvesting: Collect tokens and product offers
         total_shop_prompt = 0
         total_shop_completion = 0
         all_offers = []
@@ -155,54 +155,59 @@ class A2ABenchmark:
         for resp in responses:
             if "result" in resp:
                 res_obj = resp["result"]
-                # Accumulate token usage for efficiency analysis
+                # Capture real-time token usage for the shop's LLM
                 tokens = res_obj.get("tokens", {})
                 total_shop_prompt += tokens.get("prompt_tokens", 0)
                 total_shop_completion += tokens.get("completion_tokens", 0)
                 
-                # Collect full Schema.org product objects
+                # Harvest structured product objects (Schema.org)
                 offers = res_obj.get("offers", [])
                 for o in offers:
                     if isinstance(o, dict):
                         all_offers.append(o)
                     else:
-                        # Fallback for simple URL string format
+                        # Fallback for simple URL list format
                         all_offers.append({"url": str(o), "price": 999999.0})
 
-        # 3. Decision Logic: Filter by Relevance then find Cheapest
+        # 3. Decision Logic: Filter by relevance and select the cheapest item
         predicted_urls = []
         if all_offers:
-            # Step A: Basic Relevance Filtering
-            # Extract keywords (length > 3) to exclude noise like 'Bose Case' for 'Bose Headphones'
-            clean_query = re.sub(r'<.*?>', '', query).lower() # Strip <task> tags
+            # Step A: Relevance Filtering to eliminate noise (e.g., accessories or irrelevant brands)
+            clean_query = re.sub(r'<.*?>', '', query).lower()
             keywords = [word for word in clean_query.split() if len(word) > 3]
             
             relevant_offers = []
             for o in all_offers:
                 product_name = o.get('name', '').lower()
-                # Consider relevant if any keyword matches or if it's a substitution task
-                if any(k in product_name for k in keywords) or "substitute" in task_id.lower():
+                # Ensure the product name aligns with the keywords in user wish
+                if any(k in product_name for k in keywords):
+                    relevant_offers.append(o)
+                # For substitute tasks, we allow more flexibility if no exact match is found
+                elif "substitute" in task_id.lower() and len(relevant_offers) == 0:
                     relevant_offers.append(o)
             
-            # Use filtered list if not empty, otherwise fallback to all offers
+            # Use the filtered list if matches were found, otherwise fallback to prevent empty results
             target_list = relevant_offers if relevant_offers else all_offers
 
             try:
-                # Step B: Select product(s) with the minimum price among relevant options
+                # Step B: Price-based selection (Min-Price among relevant items)
+                # Robustly extract price using the _parse_price helper
                 min_price = min(self._parse_price(o.get('offers', {}).get('price', o.get('price', 999999))) 
                                for o in target_list)
                 
-                predicted_urls = [
+                # Return all URLs sharing the lowest price and ensure uniqueness
+                unique_predicted = {
                     normalize_url(o['url']) 
                     for o in target_list 
                     if self._parse_price(o.get('offers', {}).get('price', o.get('price', 999999))) == min_price
-                ]
+                }
+                predicted_urls = list(unique_predicted)
             except Exception as e:
-                # Final fallback to all URLs in case of logic error
+                # Graceful recovery for unexpected data issues
                 print(f"⚠️ Decision logic error for {task_id}: {e}")
-                predicted_urls = [normalize_url(o['url']) for o in target_list if 'url' in o]
+                predicted_urls = list({normalize_url(o['url']) for o in target_list if 'url' in o})
 
-        # 4. Metric Calculation using the standard utility
+        # 4. Metric Calculation: Compute CR and F1 scores according to research standards
         metrics = calculation_results(gt_urls_normalized, predicted_urls)
         
         return {
@@ -223,9 +228,12 @@ class A2ABenchmark:
                 "metrics": metrics
             }
         }
-
+    
     async def run_benchmark(self):
-        """Main execution loop for all task sets."""
+        """
+        Main execution loop for all task sets.
+        Executes tasks and prints a categorized summary to the terminal.
+        """
         if not os.path.exists(TASK_FILE):
             print(f"❌ Error: Task file not found at {TASK_FILE}")
             return
@@ -240,6 +248,7 @@ class A2ABenchmark:
         self.results = []
         start_wall_time = time.time()
 
+        # Iterate through each task set and execute tasks
         for task_set in task_sets:
             print(f"\n📂 Processing Task Set: {task_set.get('id', 'Unknown')}")
             for task in task_set.get('tasks', []):
@@ -253,7 +262,7 @@ class A2ABenchmark:
                       f"F1: {summary['f1_score']:.2f} | "
                       f"ShopTokens: {summary['shop_tokens']:<6}")
 
-        # --- Final Aggregation and Storage ---
+        # --- Final Aggregation and Performance Tracking ---
         total_processed = len(self.results)
         if total_processed == 0: return
 
@@ -261,6 +270,32 @@ class A2ABenchmark:
         avg_f1 = sum(r["f1_score"] for r in self.results) / total_processed
         total_s_tokens = sum(r.get("shop_tokens", 0) for r in self.results)
         
+        # --- Categorized Performance Summary Table ---
+        print("\n" + "="*70)
+        print("📊 CATEGORIZED PERFORMANCE SUMMARY")
+        print("-" * 70)
+        
+        # Group metrics by category name prefix
+        categories = {}
+        for r in self.results:
+            cat_name = r["task_id"].split("_Task")[0] if "_Task" in r["task_id"] else "General"
+            if cat_name not in categories:
+                categories[cat_name] = {"f1": [], "cr": [], "tokens": 0}
+            
+            categories[cat_name]["f1"].append(r["f1_score"])
+            categories[cat_name]["cr"].append(r["task_completion_rate"])
+            categories[cat_name]["tokens"] += r.get("shop_tokens", 0)
+
+        # Print table header for clarity
+        print(f"{'Category':<35} | {'Avg CR':<8} | {'Avg F1':<8} | {'Tokens':<10}")
+        print("-" * 70)
+        
+        for cat, data in categories.items():
+            cat_f1 = sum(data["f1"]) / len(data["f1"])
+            cat_cr = sum(data["cr"]) / len(data["cr"])
+            print(f"{cat:<35} | {cat_cr:<8.4f} | {cat_f1:<8.4f} | {data['tokens']:<10}")
+        
+        # --- Save results to disk ---
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         summary_path = os.path.join(RESULTS_DIR, f"{MODEL_NAME}_summary_{timestamp}.json")
         debug_path = os.path.join(RESULTS_DIR, f"{MODEL_NAME}_debug_{timestamp}.json")
@@ -270,13 +305,13 @@ class A2ABenchmark:
         with open(debug_path, "w", encoding="utf-8") as f:
             json.dump(details_log, f, indent=4)
 
-        print("\n" + "="*60)
-        print("🏆 FINAL BENCHMARK RESULTS")
+        print("-" * 70)
+        print("🏆 GLOBAL BENCHMARK TOTALS")
         print(f"📈 Average CR:   {avg_cr:.4f}")
         print(f"🎯 Average F1:   {avg_f1:.4f}")
         print(f"💰 Shop Tokens:  {total_s_tokens}")
         print(f"⏱️ Total Time:   {time.time() - start_wall_time:.2f}s")
-        print("="*60)
+        print("="*70 + "\n")
 
 if __name__ == "__main__":
     asyncio.run(A2ABenchmark().run_benchmark())

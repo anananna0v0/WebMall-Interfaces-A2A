@@ -74,7 +74,7 @@ class ShopAgentInstance:
         )
 
         # Configured with gpt-5-mini as requested
-        self.llm = ChatOpenAI(model="gpt-5-mini", temperature=0)
+        self.llm = ChatOpenAI(model="gpt-5-mini")
         self.agent_executor = self._setup_agent()
 
     def _setup_agent(self):
