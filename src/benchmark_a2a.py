@@ -38,7 +38,7 @@ def fill_urls(text: str, urls: Dict[str, str]) -> str:
     return text
 
 def normalize_url(url: str) -> str:
-    """Standardizes URLs."""
+    """Standardizes URLs for accurate comparison."""
     if not url or not isinstance(url, str):
         return ""
     return url.rstrip('/').lower()
@@ -46,15 +46,15 @@ def normalize_url(url: str) -> str:
 class A2ABenchmark:
     def __init__(self):
         """
-        Initializes the Scripted Buyer without LLM or LangGraph.
-        Focuses on A2A protocol compliance and efficient data aggregation.
+        Initializes the Scripted Buyer. No LLM used for decision making.
+        Focuses on A2A protocol compliance and deterministic results.
         """
         os.makedirs(RESULTS_DIR, exist_ok=True)
         self.endpoints = self._load_registry()
         self.results = []
 
     def _load_registry(self) -> List[str]:
-        """Discovery: Load shop agent URLs from registry.json"""
+        """Discovery: Load shop agent URLs from registry.json."""
         if not os.path.exists(REGISTRY_PATH):
             return [f"http://localhost:800{i+1}/messages" for i in range(4)]
         try:
@@ -64,6 +64,18 @@ class A2ABenchmark:
         except Exception as e:
             print(f"❌ Discovery failed: {e}")
             return []
+
+    def _parse_price(self, price_value: Any) -> float:
+        """Robustly extracts a float from various price formats (e.g., '$120.00', 120)."""
+        if isinstance(price_value, (int, float)):
+            return float(price_value)
+        if isinstance(price_value, str):
+            clean_price = re.sub(r'[^\d.]', '', price_value)
+            try:
+                return float(clean_price)
+            except ValueError:
+                return float('inf')
+        return float('inf')
 
     def resolve_gt_urls(self, raw_urls: List[str]) -> List[str]:
         """Convert placeholder URLs to real URLs for scoring."""
@@ -76,7 +88,7 @@ class A2ABenchmark:
         return resolved
 
     async def _execute_shop_call(self, url: str, query: str) -> Dict:
-        """Executes a JSON-RPC 2.0 call to a shop agent."""
+        """Executes a JSON-RPC 2.0 call with debug logging for each shop."""
         payload = {
             "jsonrpc": "2.0",
             "method": "ask_webmall",
@@ -91,28 +103,20 @@ class A2ABenchmark:
             try:
                 response = await client.post(url, json=payload)
                 response.raise_for_status()
-                return response.json()
+                res_json = response.json()
+                
+                # Immediate terminal debug output
+                print(f"\n--- DEBUG: RAW RESPONSE FROM {url} ---")
+                print(json.dumps(res_json, indent=2))
+                print("-" * 50)
+                
+                return res_json
             except Exception as e:
+                print(f"❌ Call failed to {url}: {e}")
                 return {"error": str(e)}
 
-    def _extract_offers(self, shop_responses: List[Dict]) -> List[Dict]:
-        """Parses Schema.org products and extracts prices for comparison."""
-        all_offers = []
-        for resp in shop_responses:
-            res_data = resp.get("result", {})
-            offers = res_data.get("offers", [])
-            # In case the shop returns a list of URLs directly (old format fallback)
-            if isinstance(offers, list):
-                for item in offers:
-                    if isinstance(item, dict):
-                        all_offers.append(item)
-                    elif isinstance(item, str):
-                        # Handle case where only URL is returned (cannot compare price)
-                        all_offers.append({"url": item, "offers": {"price": float('inf')}})
-        return all_offers
-
     async def run_single_task(self, task: Dict):
-        """Processes one task by broadcasting to all shops and selecting the cheapest."""
+        """Processes one task: Broadcase -> Harvest -> Min-Selection."""
         task_id = task['id']
         query = fill_urls(task['task'], URLS)
         raw_gt_urls = self.resolve_gt_urls(task.get('correct_answer', {}).get('answers', []))
@@ -120,7 +124,7 @@ class A2ABenchmark:
         
         start_time = time.time()
         
-        # 1. Broadcast: Call all shops concurrently
+        # 1. Broadcast concurrently
         tasks = [self._execute_shop_call(url, query) for url in self.endpoints]
         responses = await asyncio.gather(*tasks)
         
@@ -131,32 +135,36 @@ class A2ABenchmark:
         
         for resp in responses:
             if "result" in resp:
-                tokens = resp["result"].get("tokens", {})
+                res_obj = resp["result"]
+                # Track token usage from the shop's LLM
+                tokens = res_obj.get("tokens", {})
                 total_shop_prompt += tokens.get("prompt_tokens", 0)
                 total_shop_completion += tokens.get("completion_tokens", 0)
                 
-                # Extract offers (supports both list of strings or list of dicts)
-                offers = resp["result"].get("offers", [])
+                # Handle 'offers' as a list of strings (URLs) or dicts (Products)
+                offers = res_obj.get("offers", [])
                 for o in offers:
                     if isinstance(o, dict):
                         all_offers.append(o)
                     else:
-                        # Fallback for simple URL list
-                        all_offers.append({"url": o, "price": 999999})
+                        # Default high price if not specified
+                        all_offers.append({"url": str(o), "price": 999999.0})
 
-        # 3. Decision Logic: Find cheapest (Min-selection)
+        # 3. Decision Logic: Select products matching the minimum price
         predicted_urls = []
         if all_offers:
-            # Sort by price. Handle potential price type issues (string vs float)
             try:
-                min_price = min(float(o.get('offers', {}).get('price', o.get('price', 999999))) for o in all_offers)
+                # Calculate minimum price across all collected offers
+                min_price = min(self._parse_price(o.get('offers', {}).get('price', o.get('price', 999999))) 
+                               for o in all_offers)
+                
+                # Filter for all offers that share this minimum price
                 predicted_urls = [
                     normalize_url(o['url']) 
                     for o in all_offers 
-                    if float(o.get('offers', {}).get('price', o.get('price', 999999))) == min_price
+                    if self._parse_price(o.get('offers', {}).get('price', o.get('price', 999999))) == min_price
                 ]
-            except (ValueError, TypeError):
-                # If price is not a number, fallback to all returned URLs
+            except Exception:
                 predicted_urls = [normalize_url(o['url']) for o in all_offers if 'url' in o]
 
         # 4. Metric Calculation
@@ -168,7 +176,7 @@ class A2ABenchmark:
                 "task_completion_rate": metrics["task_completion_rate"],
                 "f1_score": metrics["f1_score"],
                 "shop_tokens": total_shop_prompt + total_shop_completion,
-                "buyer_tokens": 0,  # Zero tokens used by the script
+                "buyer_tokens": 0,
                 "total_tokens": total_shop_prompt + total_shop_completion,
                 "execution_time_seconds": time.time() - start_time
             },
@@ -182,10 +190,7 @@ class A2ABenchmark:
         }
 
     async def run_benchmark(self):
-        """
-        Main execution loop for task sets. 
-        Iterates through task sets, executes tasks, calculates metrics, and saves results.
-        """
+        """Main execution loop for all task sets."""
         if not os.path.exists(TASK_FILE):
             print(f"❌ Error: Task file not found at {TASK_FILE}")
             return
@@ -194,35 +199,28 @@ class A2ABenchmark:
             task_sets = json.load(f)
 
         total_tasks = sum(len(ts.get('tasks', [])) for ts in task_sets)
-        print(f"📊 Starting A2A Benchmark for {total_tasks} tasks...")
+        print(f"📊 Starting Scripted A2A Benchmark for {total_tasks} tasks...")
         
         details_log = []
         self.results = []
         start_wall_time = time.time()
 
-        # Iterate through each task set
         for task_set in task_sets:
-            set_id = task_set.get('id', 'Unknown Set')
-            print(f"\n📂 Processing Task Set: {set_id}")
-            
+            print(f"\n📂 Processing Task Set: {task_set.get('id', 'Unknown')}")
             for task in task_set.get('tasks', []):
-                # Execute single task and gather metrics
                 res = await self.run_single_task(task)
-                
                 summary = res["summary"]
                 self.results.append(summary)
                 details_log.append(res["detail"])
                 
-                # Terminal output with CR, F1, and Token data
                 print(f"Task: {summary['task_id']:<40} | "
                       f"CR: {summary['task_completion_rate']:.2f} | "
                       f"F1: {summary['f1_score']:.2f} | "
                       f"ShopTokens: {summary['shop_tokens']:<6}")
 
-        # --- Calculate Overall Metrics ---
+        # --- Final Aggregation and Storage ---
         total_processed = len(self.results)
-        if total_processed == 0:
-            return
+        if total_processed == 0: return
 
         avg_cr = sum(r["task_completion_rate"] for r in self.results) / total_processed
         avg_f1 = sum(r["f1_score"] for r in self.results) / total_processed
@@ -232,21 +230,8 @@ class A2ABenchmark:
         summary_path = os.path.join(RESULTS_DIR, f"{MODEL_NAME}_summary_{timestamp}.json")
         debug_path = os.path.join(RESULTS_DIR, f"{MODEL_NAME}_debug_{timestamp}.json")
 
-        summary_payload = {
-            "benchmark_metadata": {
-                "timestamp": timestamp,
-                "overall_metrics": {
-                    "average_cr": avg_cr,
-                    "average_f1": avg_f1,
-                    "total_shop_tokens": total_s_tokens
-                }
-            },
-            "results": self.results
-        }
-        
-        # Save results to disk
         with open(summary_path, "w", encoding="utf-8") as f:
-            json.dump(summary_payload, f, indent=4)
+            json.dump({"metadata": {"timestamp": timestamp, "avg_cr": avg_cr, "avg_f1": avg_f1}, "results": self.results}, f, indent=4)
         with open(debug_path, "w", encoding="utf-8") as f:
             json.dump(details_log, f, indent=4)
 
