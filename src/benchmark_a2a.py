@@ -191,37 +191,45 @@ class A2ABenchmark:
     async def run_single_task(self, task: Dict):
         """
         Executes a single benchmark task with robust URL processing and normalization.
-        Pre-processes URLs, broadcasts to shop agents, and aggregates results for buyer decision.
+        Broadcasts queries to shop agents and aggregates results for metrics calculation.
         """
         task_id = task['id']
         
-        # 1. URL Pre-processing: Resolve {{URL_X}} placeholders
+        # 1. URL Pre-processing: Resolve {{URL_X}} placeholders in task wish
         query = fill_urls(task['task'], URLS)
         
-        # Resolve Ground Truth URLs and apply normalization for accurate comparison
+        # Resolve and Normalize Ground Truth URLs for accurate comparison
         raw_gt_urls = self.resolve_gt_urls(task.get('correct_answer', {}).get('answers', []))
         gt_urls_normalized = [normalize_url(u) for u in raw_gt_urls]
         
         start_time = time.time()
         
-        # Increased timeout to 60s for multi-step agent reasoning
+        # 2. Broadcast to Shop Agents using parallel execution with a 60s timeout
+        # Increased timeout allows for multi-step agent reasoning chains
         async with httpx.AsyncClient(timeout=60.0) as client:
-            # 2. Broadcast the resolved wish to all shop agents
-            shop_responses = await asyncio.gather(*[self.call_shop_agent(client, url, query) for url in self.endpoints])
+            shop_responses = await asyncio.gather(
+                *[self.call_shop_agent(client, url, query) for url in self.endpoints]
+            )
             
             debug_shops = []
             shop_context = ""
             total_shop_prompt = 0
             total_shop_completion = 0
             
-            # 3. Process Shop Responses (JSON-RPC 2.0)
+            # 3. Process Shop Responses (Resilient Fast-Path Logic)
             for i, res in enumerate(shop_responses):
-                if res.get("jsonrpc") == "2.0" and "result" in res:
-                    data = res['result']
+                # Check for 'result' field or handle raw result objects directly
+                data = None
+                if isinstance(res, dict):
+                    data = res.get("result") if "result" in res else res
+                
+                # If valid data containing 'offers' is found, process the results
+                if isinstance(data, dict) and "offers" in data:
                     usage = data.get("tokens", {})
-                    # Normalize offers received from shops
+                    # Normalize shop offers immediately to prevent format mismatch
                     offers = [normalize_url(u) for u in data.get("offers", [])]
                     
+                    # Accumulate actual token usage from the shop agent
                     total_shop_prompt += usage.get("prompt_tokens", 0)
                     total_shop_completion += usage.get("completion_tokens", 0)
                     
@@ -230,32 +238,28 @@ class A2ABenchmark:
                         "offers_returned": offers,
                         "tokens": usage
                     })
+                    # Build context for the Buyer Agent decision phase
                     shop_context += f"\nShop {i+1} offers: {json.dumps(offers)}\n"
                 else:
+                    # Fallback for errors: Capture specific messages from JSON-RPC error objects
+                    error_msg = "Invalid JSON-RPC response or timeout"
+                    if isinstance(res, dict) and "error" in res:
+                        error_msg = res["error"].get("message", error_msg)
+                    
                     debug_shops.append({
                         "shop_id": f"webmall_{i+1}",
-                        "error": res.get("error", "Invalid JSON-RPC response or timeout")
+                        "error": error_msg
                     })
-        
-        # 4. Buyer Decision Phase
+
+        # 4. Buyer Decision Phase: Aggregate shop results and select final products
         decision_str, buyer_usage = await self.get_buyer_decision(query, shop_context)
         
-        # Robust URL extraction from buyer output
+        # Extract and normalize predicted URLs from buyer's raw text response
         extracted_urls = extract_urls_from_response(decision_str)
         predicted_urls = [normalize_url(u) for u in extracted_urls]
         
-        # 5. Metric Calculation using normalized lists
+        # 5. Metric Calculation using normalized predicted and ground truth lists
         metrics = calculation_results(gt_urls_normalized, predicted_urls)
-        
-        task_detail = {
-            "task_id": task_id,
-            "wish": query,
-            "ground_truth": raw_gt_urls, # Keep raw for debug view
-            "predicted_urls": predicted_urls,
-            "metrics": metrics,
-            "buyer_raw_output": decision_str,
-            "shops_detail": debug_shops
-        }
         
         return {
             "summary": {
@@ -268,57 +272,78 @@ class A2ABenchmark:
                                 buyer_usage["prompt_tokens"] + buyer_usage["completion_tokens"]),
                 "execution_time_seconds": time.time() - start_time
             },
-            "detail": task_detail
+            "detail": {
+                "task_id": task_id,
+                "wish": query,
+                "ground_truth": raw_gt_urls,
+                "predicted_urls": predicted_urls,
+                "metrics": metrics,
+                "buyer_raw_output": decision_str,
+                "shops_detail": debug_shops
+            }
         }
 
     async def run_benchmark(self):
         """
-        Main execution loop with overall metrics calculation.
+        Main execution loop adapted for nested task sets. 
+        Iterates through task sets and then individual tasks to calculate overall metrics.
         """
         if not os.path.exists(TASK_FILE):
             print(f"Error: Task file not found at {TASK_FILE}")
             return
 
         with open(TASK_FILE, 'r', encoding='utf-8') as f:
-            tasks = json.load(f)
+            # The new format is a list of task sets
+            task_sets = json.load(f)
 
-        print(f"📊 Starting A2A Benchmark for {len(tasks)} tasks...")
+        # Calculate total tasks across all sets for progress tracking
+        total_task_count = sum(len(ts.get('tasks', [])) for ts in task_sets)
+        print(f"📊 Starting A2A Benchmark for {total_task_count} tasks in {len(task_sets)} sets...")
         
         details_log = []
         self.results = []
+        start_wall_time = time.time()
 
-        for task in tasks:
-            res = await self.run_single_task(task)
-            summary = res["summary"]
-            self.results.append(summary)
-            details_log.append(res["detail"])
+        # First loop: Iterate through each task set
+        for task_set in task_sets:
+            set_id = task_set.get('id', 'Unknown Set')
+            print(f"\n📂 Processing Task Set: {set_id}")
             
-            task_tokens = summary.get('prompt_tokens', 0) + summary.get('completion_tokens', 0)
-            print(f"Task: {summary['task_id']} | "
-                  f"CR: {summary['task_completion_rate']} | "
-                  f"F1: {summary['f1_score']:.2f} | "
-                  f"Tokens: {task_tokens} | "
-                  f"Time: {summary['execution_time_seconds']:.2f}s")
+            # Second loop: Iterate through individual tasks in the set
+            for task in task_set.get('tasks', []):
+                # Execute the task logic
+                res = await self.run_single_task(task)
+                
+                summary = res["summary"]
+                self.results.append(summary)
+                details_log.append(res["detail"])
+                
+                # Display individual task results
+                task_tokens = summary.get('shop_tokens', 0) + summary.get('buyer_tokens', 0)
+                print(f"Task: {summary['task_id']} | "
+                      f"CR: {summary['task_completion_rate']} | "
+                      f"F1: {summary['f1_score']:.2f} | "
+                      f"Tokens: {task_tokens} | "
+                      f"Time: {summary['execution_time_seconds']:.2f}s")
 
         # --- Calculate Overall Metrics ---
-        total_tasks = len(self.results)
-        avg_cr = sum(r["task_completion_rate"] for r in self.results) / total_tasks
-        avg_f1 = sum(r["f1_score"] for r in self.results) / total_tasks
-        total_p_tokens = sum(r.get("prompt_tokens", 0) for r in self.results)
-        total_c_tokens = sum(r.get("completion_tokens", 0) for r in self.results)
-        total_tokens = total_p_tokens + total_c_tokens
+        total_processed = len(self.results)
+        if total_processed == 0:
+            print("⚠️ No tasks were processed.")
+            return
 
-        # Generate unique timestamp 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        
-        # Define storage paths
-        task_count = len(self.results)
-        summary_path = os.path.join(RESULTS_DIR, f"{MODEL_NAME}_{task_count}tasks_summary_{timestamp}.json")
-        debug_path = os.path.join(RESULTS_DIR, f"{MODEL_NAME}_{task_count}tasks_debug_{timestamp}.json")
-
+        avg_cr = sum(r["task_completion_rate"] for r in self.results) / total_processed
+        avg_f1 = sum(r["f1_score"] for r in self.results) / total_processed
         total_s_tokens = sum(r.get("shop_tokens", 0) for r in self.results)
         total_b_tokens = sum(r.get("buyer_tokens", 0) for r in self.results)
         total_tokens = total_s_tokens + total_b_tokens
+
+        # Generate unique timestamp for file naming
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        
+        # Define storage paths
+        summary_path = os.path.join(RESULTS_DIR, f"{MODEL_NAME}_{total_processed}tasks_summary_{timestamp}.json")
+        debug_path = os.path.join(RESULTS_DIR, f"{MODEL_NAME}_{total_processed}tasks_debug_{timestamp}.json")
 
         summary_payload = {
             "benchmark_metadata": {
@@ -339,6 +364,7 @@ class A2ABenchmark:
             "results": self.results
         }
         
+        # Persistence: Save results and debug traces to disk
         with open(summary_path, "w", encoding="utf-8") as f:
             json.dump(summary_payload, f, indent=4)
         with open(debug_path, "w", encoding="utf-8") as f:
@@ -353,8 +379,9 @@ class A2ABenchmark:
         print(f"🤖 Shop Tokens:  {total_s_tokens}")  
         print(f"🛒 Buyer Tokens: {total_b_tokens}")  
         print(f"💰 Total Tokens: {total_tokens}")
-        print(f"⏱️ Total Time:   {sum(r['execution_time_seconds'] for r in self.results):.2f}s")
+        print(f"⏱️ Total Time:   {time.time() - start_wall_time:.2f}s")
         print("="*40)
+        print(f"📁 Summary saved to: {summary_path}")
 
 if __name__ == "__main__":
     asyncio.run(A2ABenchmark().run_benchmark())

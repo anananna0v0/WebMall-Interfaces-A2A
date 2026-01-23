@@ -155,29 +155,29 @@ class ShopAgentInstance:
         )
 
     async def process_message(self, wish: str):
-        """Processes the buyer wish with robust URL extraction."""
-        # Force the model to think about JSON structure
-        inputs = {"messages": [("user", f"{wish}\n\nIMPORTANT: Your final response must be a JSON object: {{\"urls\": [\"URL_HERE\"]}}")]}
-        
-        try:
-            result = await self.agent_executor.ainvoke(
-                inputs, 
-                config={"recursion_limit": 25}
-            )
-            
-            agent_output = result["messages"][-1].content
-            
-            # Use the ported robust extractor
-            urls_set = extract_urls_from_response(agent_output)
-            urls = list(urls_set)
-            
-            # Simple token tracking fallback
-            usage = {"prompt_tokens": 0, "completion_tokens": 0}
-            return urls, usage
-            
-        except Exception as e:
-            print(f"⚠️ Agent failed: {e}")
-            return [], {"error": str(e)}
+        """Processes the buyer wish and captures REAL token usage."""
+        from langchain_community.callbacks import get_openai_callback
+        inputs = {"messages": [("user", wish)]}
+
+        with get_openai_callback() as cb:
+            try:
+                result = await self.agent_executor.ainvoke(
+                    inputs, 
+                    config={"recursion_limit": 25}
+                )
+                agent_output = result["messages"][-1].content
+                urls = list(extract_urls_from_response(agent_output))
+                
+                return urls, {
+                    "prompt_tokens": cb.prompt_tokens,
+                    "completion_tokens": cb.completion_tokens
+                }
+            except Exception as e:
+                return [], {
+                    "error": str(e),
+                    "prompt_tokens": cb.prompt_tokens,
+                    "completion_tokens": cb.completion_tokens
+                }
 
 
 app = FastAPI()
@@ -187,31 +187,35 @@ app = FastAPI()
 shop_instance: ShopAgentInstance = None
 @app.post("/messages")
 async def handle_a2a_request(request: Request):
-    """Standard A2A JSON-RPC interface with error protection."""
+    """
+    Standard A2A JSON-RPC 2.0 interface.
+    Handles the incoming buyer wish and returns structured offers and usage.
+    """
     try:
         body = await request.json()
         wish = body.get("params", {}).get("query", "")
         
-        # Process via LangGraph
+        # Call the LangGraph process_message
+        # Ensure process_message returns (urls, usage)
         urls, usage = await shop_instance.process_message(wish)
         
         return {
             "jsonrpc": "2.0",
             "result": {
                 "agent_name": shop_instance.shop_id,
-                "offers": urls,
-                "tokens": usage
+                "offers": urls,  # Must be a list of strings
+                "tokens": usage  # Must be {"prompt_tokens": X, "completion_tokens": Y}
             },
             "id": body.get("id")
         }
     except Exception as e:
-        # --- Change: Ensure error response follows JSON-RPC 2.0 ---
+        # Return a valid JSON-RPC error instead of crashing
+        print(f"❌ Shop Agent encountered an error: {e}")
         return {
             "jsonrpc": "2.0",
             "error": {"code": -32000, "message": str(e)},
-            "id": None
+            "id": body.get("id") if body else None
         }
-
 # --- CLI Entry Point ---
 # This part allows run_a2a_exp.sh to pass --shop_id and --port
 if __name__ == "__main__":
