@@ -1200,7 +1200,7 @@ def generate_csv_metrics(enhanced_summary, output_dir: Path):
 
 
 if __name__ == "__main__":
-    BENCHMARK_JSON_PATH = "task_sets/task_sets_35.json"  # adjust as needed
+    BENCHMARK_JSON_PATH = "task_sets/experiment_tasks_32.json"  # adjust as needed
     model_name = "gpt-5-mini"
 
     chat_model = ChatOpenAI(model=model_name,  reasoning_effort="medium")

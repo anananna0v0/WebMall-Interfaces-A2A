@@ -115,8 +115,27 @@ class A2ABenchmark:
                 print(f"❌ Call failed to {url}: {e}")
                 return {"error": str(e)}
 
+    def _parse_price(self, price_value: Any) -> float:
+        """
+        Robustly extracts a float from various price formats (e.g., '$120.00', 120).
+        Used to prevent comparison errors when LLM returns currency symbols.
+        """
+        if isinstance(price_value, (int, float)):
+            return float(price_value)
+        if isinstance(price_value, str):
+            # Remove currency symbols and commas
+            clean_price = re.sub(r'[^\d.]', '', price_value)
+            try:
+                return float(clean_price)
+            except ValueError:
+                return float('inf')
+        return float('inf')
+
     async def run_single_task(self, task: Dict):
-        """Processes one task: Broadcase -> Harvest -> Min-Selection."""
+        """
+        Processes one task: Broadcast -> Harvest -> Relevance Filter -> Min-Selection.
+        Ensures the decision is based on both relevance and price.
+        """
         task_id = task['id']
         query = fill_urls(task['task'], URLS)
         raw_gt_urls = self.resolve_gt_urls(task.get('correct_answer', {}).get('answers', []))
@@ -124,11 +143,11 @@ class A2ABenchmark:
         
         start_time = time.time()
         
-        # 1. Broadcast concurrently
+        # 1. Broadcast concurrently to all registered shop endpoints
         tasks = [self._execute_shop_call(url, query) for url in self.endpoints]
         responses = await asyncio.gather(*tasks)
         
-        # 2. Token & Offer Harvesting
+        # 2. Token & Offer Harvesting from JSON-RPC results
         total_shop_prompt = 0
         total_shop_completion = 0
         all_offers = []
@@ -136,38 +155,54 @@ class A2ABenchmark:
         for resp in responses:
             if "result" in resp:
                 res_obj = resp["result"]
-                # Track token usage from the shop's LLM
+                # Accumulate token usage for efficiency analysis
                 tokens = res_obj.get("tokens", {})
                 total_shop_prompt += tokens.get("prompt_tokens", 0)
                 total_shop_completion += tokens.get("completion_tokens", 0)
                 
-                # Handle 'offers' as a list of strings (URLs) or dicts (Products)
+                # Collect full Schema.org product objects
                 offers = res_obj.get("offers", [])
                 for o in offers:
                     if isinstance(o, dict):
                         all_offers.append(o)
                     else:
-                        # Default high price if not specified
+                        # Fallback for simple URL string format
                         all_offers.append({"url": str(o), "price": 999999.0})
 
-        # 3. Decision Logic: Select products matching the minimum price
+        # 3. Decision Logic: Filter by Relevance then find Cheapest
         predicted_urls = []
         if all_offers:
+            # Step A: Basic Relevance Filtering
+            # Extract keywords (length > 3) to exclude noise like 'Bose Case' for 'Bose Headphones'
+            clean_query = re.sub(r'<.*?>', '', query).lower() # Strip <task> tags
+            keywords = [word for word in clean_query.split() if len(word) > 3]
+            
+            relevant_offers = []
+            for o in all_offers:
+                product_name = o.get('name', '').lower()
+                # Consider relevant if any keyword matches or if it's a substitution task
+                if any(k in product_name for k in keywords) or "substitute" in task_id.lower():
+                    relevant_offers.append(o)
+            
+            # Use filtered list if not empty, otherwise fallback to all offers
+            target_list = relevant_offers if relevant_offers else all_offers
+
             try:
-                # Calculate minimum price across all collected offers
+                # Step B: Select product(s) with the minimum price among relevant options
                 min_price = min(self._parse_price(o.get('offers', {}).get('price', o.get('price', 999999))) 
-                               for o in all_offers)
+                               for o in target_list)
                 
-                # Filter for all offers that share this minimum price
                 predicted_urls = [
                     normalize_url(o['url']) 
-                    for o in all_offers 
+                    for o in target_list 
                     if self._parse_price(o.get('offers', {}).get('price', o.get('price', 999999))) == min_price
                 ]
-            except Exception:
-                predicted_urls = [normalize_url(o['url']) for o in all_offers if 'url' in o]
+            except Exception as e:
+                # Final fallback to all URLs in case of logic error
+                print(f"⚠️ Decision logic error for {task_id}: {e}")
+                predicted_urls = [normalize_url(o['url']) for o in target_list if 'url' in o]
 
-        # 4. Metric Calculation
+        # 4. Metric Calculation using the standard utility
         metrics = calculation_results(gt_urls_normalized, predicted_urls)
         
         return {

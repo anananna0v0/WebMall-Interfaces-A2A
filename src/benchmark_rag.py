@@ -20,8 +20,8 @@ import csv
 
 # LangChain imports for model-agnostic approach
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from langchain_mistralai import ChatMistralAI
-from langchain_anthropic import ChatAnthropic
+# from langchain_mistralai import ChatMistralAI
+# from langchain_anthropic import ChatAnthropic
 from langchain_core.tools import tool
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.callbacks import get_usage_metadata_callback
@@ -630,7 +630,7 @@ RESPONSE FORMAT:
 
 
 # Load benchmark JSON file
-BENCHMARK_JSON_PATH = "task_sets/task_sets.json"
+BENCHMARK_JSON_PATH = "task_sets/experiment_tasks_32.json"
 
 with open(BENCHMARK_JSON_PATH, "r", encoding="utf-8") as f:
     benchmark = json.load(f)
@@ -1247,8 +1247,14 @@ async def main():
         # Uncomment to use SAIA API with openai-gpt-oss-120b or other models
         # Requires GOAI_API_KEY environment variable
 
-        model_name = "codestral-22b"
-        chat_model = create_saia_model(model_name=model_name, temperature=0.0)
+        # === OpenAI Models ===
+        model_name = "gpt-5-mini"
+        chat_model = ChatOpenAI(
+            model=model_name,
+            reasoning_effort="medium",   
+            temperature=0.0
+        )
+
 
         # Other SAIA models you can try:
         # model_name = "llama-3.3-70b-instruct"

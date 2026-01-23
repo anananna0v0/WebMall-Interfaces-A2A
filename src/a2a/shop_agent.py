@@ -5,7 +5,7 @@ import logging
 import argparse
 import uvicorn
 import re
-from typing import List, Dict, Any, Tuple, Set
+from typing import List, Dict, Any, Tuple
 from fastapi import FastAPI, Request
 from pydantic import BaseModel
 from dotenv import load_dotenv 
@@ -22,7 +22,7 @@ src_path = os.path.dirname(current_dir)
 if src_path not in sys.path:
     sys.path.insert(0, src_path)
 
-# Load environment variables from the project root .env
+# Load environment variables from project root
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(src_path), ".env"))
 
 # Local Package Imports
@@ -33,45 +33,33 @@ from nlweb_mcp.embedding_service import EmbeddingService
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-def extract_urls_from_response(response_text: str) -> Set[str]:
+def extract_json_payload(text: str) -> List[Dict]:
     """
-    Directly embedded URL extraction logic from benchmark_nlweb_mcp.py.
-    Extracts URLs from the agent's final response by parsing JSON or using regex fallback.
+    Extracts the structured JSON 'offers' array from the agent's output.
+    Handles potential raw text or markdown wrapping if LLM deviates.
     """
-    if not isinstance(response_text, str):
-        return set()
-    
-    # Try to parse the entire response as JSON first
     try:
-        data = json.loads(response_text.strip())
-        if isinstance(data, dict) and "urls" in data:
-            urls = data["urls"]
-            if isinstance(urls, list):
-                return set(u for u in urls if isinstance(u, str) and u.strip().lower() != "done")
-        elif isinstance(data, list):
-            return set(u for u in data if isinstance(u, str) and u.strip().lower() != "done")
+        # Try to parse the entire text as JSON first
+        data = json.loads(text.strip())
+        return data.get("offers", [])
     except (json.JSONDecodeError, TypeError):
         pass
+
+    # Fallback: Find JSON-like object patterns in the response string
+    try:
+        match = re.search(r'\{.*\}', text, re.DOTALL)
+        if match:
+            data = json.loads(match.group())
+            return data.get("offers", [])
+    except Exception:
+        pass
     
-    # Try to find JSON patterns within mixed content
-    json_pattern = r'\{"urls":\s*\[.*?\]\}'
-    json_matches = re.findall(json_pattern, response_text, re.DOTALL)
-    for match in json_matches:
-        try:
-            data = json.loads(match)
-            if isinstance(data, dict) and "urls" in data and isinstance(data["urls"], list):
-                return set(u for u in data["urls"] if isinstance(u, str) and u.strip().lower() != "done")
-        except (json.JSONDecodeError, TypeError):
-            continue
-    
-    # Final fallback to regex if no JSON patterns worked
-    urls_found = re.findall(r'https?://\S+', response_text)
-    return set([url.strip(')>."\',') for url in urls_found])
+    return []
 
 class ShopAgentInstance:
     def __init__(self, shop_id: str, index_name: str):
         """
-        Initializes the Shop Agent with search capabilities and LLM.
+        Initializes the Shop Agent with search capabilities and gpt-5-mini.
         """
         self.shop_id = shop_id
         self.index_name = index_name
@@ -85,7 +73,7 @@ class ShopAgentInstance:
             index_name=index_name
         )
 
-        # Configured with gpt-5-mini
+        # Configured with gpt-5-mini as requested
         self.llm = ChatOpenAI(model="gpt-5-mini", temperature=0)
         self.agent_executor = self._setup_agent()
 
@@ -96,25 +84,34 @@ class ShopAgentInstance:
         def search_inventory(query: str) -> str:
             """
             Search for products in this shop's inventory index.
-            Returns a list of products in JSON format including title, price, and url.
+            Returns full product details including price and Schema.org fields.
             """
             results = self.search_engine.search(query=query, top_k=5)
             return json.dumps(results)
 
-        # Latest prompt logic from your image
+        # The requested latest prompt
         system_message = (
             f"You are an advanced e-commerce Shop Agent for {self.shop_id}.\n\n"
             "TASK-SPECIFIC INSTRUCTIONS:\n"
-            "- Extract precise keywords from the user wish and use the 'search_inventory' tool.\n"
-            "- If no products are found, you may try ONLY ONCE with simpler or broader keywords.\n"
-            "- After one retry, if still no results are found, you MUST STOP and return an empty list.\n"
-            "- If the user asks for 'cheapest', only return the product(s) with the absolute lowest price.\n"
-            "- Ensure the products strictly align with the user's requirements (color, model, specs).\n\n"
+            "- Use 'search_inventory' to find products. This tool returns full product details.\n"
+            "- If multiple products match, return them as a list of structured objects.\n\n"
             "RESPONSE FORMAT REQUIREMENTS:\n"
             "- Your final response MUST be a valid JSON object ONLY.\n"
-            "- Required format: {{\"urls\": [\"url1\", \"url2\", ...]}}\n"
-            "- Do NOT include any explanatory text, conversational filler, or Markdown code blocks.\n"
-            "- If no matches exist, you MUST return: {{\"urls\": []}}"
+            "- The 'offers' field must contain objects matching Schema.org 'Product' format.\n"
+            "- Example Format:\n"
+            "{\n"
+            "  \"offers\": [\n"
+            "    {\n"
+            "      \"@context\": \"https://schema.org/\",\n"
+            "      \"@type\": \"Product\",\n"
+            "      \"name\": \"Product Name\",\n"
+            "      \"offers\": { \"price\": 120.0, \"priceCurrency\": \"EUR\" },\n"
+            "      \"url\": \"https://...\"\n"
+            "    }\n"
+            "  ]\n"
+            "}\n"
+            "- Do NOT include Markdown code blocks or any conversational text.\n"
+            "- If no matches exist, return: {{\"offers\": []}}"
         )
 
         return create_react_agent(
@@ -124,8 +121,7 @@ class ShopAgentInstance:
         )
 
     async def process_message(self, wish: str):
-        """Processes the buyer wish and captures REAL token usage."""
-        from langchain_community.callbacks import get_openai_callback
+        """Processes the buyer wish and captures full token usage."""
         inputs = {"messages": [("user", wish)]}
 
         with get_openai_callback() as cb:
@@ -135,10 +131,11 @@ class ShopAgentInstance:
                     config={"recursion_limit": 25}
                 )
                 agent_output = result["messages"][-1].content
-                # Use the embedded extraction function directly
-                urls = list(extract_urls_from_response(agent_output))
                 
-                return urls, {
+                # Extract full Schema.org objects from the response
+                offers = extract_json_payload(agent_output)
+                
+                return offers, {
                     "prompt_tokens": cb.prompt_tokens,
                     "completion_tokens": cb.completion_tokens
                 }
@@ -155,22 +152,26 @@ shop_instance: ShopAgentInstance = None
 
 @app.post("/messages")
 async def handle_a2a_request(request: Request):
-    """Standard A2A JSON-RPC 2.0 interface."""
+    """Standard A2A JSON-RPC 2.0 interface with full schema support."""
     try:
         body = await request.json()
         method = body.get("method")
         
+        # 1. Health check
         if method == "ping":
             return {"jsonrpc": "2.0", "result": "pong", "id": body.get("id")}
             
         wish = body.get("params", {}).get("query", "")
-        urls, usage = await shop_instance.process_message(wish)
         
+        # 2. Invoke shop agent logic
+        offers, usage = await shop_instance.process_message(wish)
+        
+        # Return full structure per 2026/01/22 protocol
         return {
             "jsonrpc": "2.0",
             "result": {
                 "agent_name": shop_instance.shop_id,
-                "offers": urls,
+                "offers": offers,
                 "tokens": usage
             },
             "id": body.get("id")
