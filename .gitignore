@@ -207,3 +207,10 @@ marimo/_lsp/
 __marimo__/
 .DS_Store
 results/
+# local debug / samples (do not commit)
+debug_call_api_mcp_tool.py
+debug_call_nlweb_tool.py
+sample_api_mcp_webmall1.json
+sample_nlweb_schemaorg.json
+webmall_1_nlweb_mapping.json
+webmall_1_nlweb_one_doc.json
