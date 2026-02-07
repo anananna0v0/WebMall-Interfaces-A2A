@@ -1,8 +1,72 @@
 {
   "shops": [
-    { "id": "webmall_1", "url": "http://localhost:8001/messages" },
-    { "id": "webmall_2", "url": "http://localhost:8002/messages" },
-    { "id": "webmall_3", "url": "http://localhost:8003/messages" },
-    { "id": "webmall_4", "url": "http://localhost:8004/messages" }
+    {
+      "id": "webmall_1",
+      "url": "http://localhost:8001/messages",
+      "card": {
+        "name": "WebMall-1",
+        "id": "agent-webmall-1",
+        "type": "shop",
+        "description": "E-commerce Shop Agent for WebMall-1 (E-Store Athletes), providing electronics and hardware product search.",
+        "capabilities": [
+          "product_search",
+          "price_reporting"
+        ],
+        "supported_schemas": [
+          "https://schema.org/Product"
+        ]
+      }
+    },
+    {
+      "id": "webmall_2",
+      "url": "http://localhost:8002/messages",
+      "card": {
+        "name": "WebMall-2",
+        "id": "agent-webmall-2",
+        "type": "shop",
+        "description": "E-commerce Shop Agent for WebMall-2 (TechTalk), providing electronics and hardware product search.",
+        "capabilities": [
+          "product_search",
+          "price_reporting"
+        ],
+        "supported_schemas": [
+          "https://schema.org/Product"
+        ]
+      }
+    },
+    {
+      "id": "webmall_3",
+      "url": "http://localhost:8003/messages",
+      "card": {
+        "name": "WebMall-3",
+        "id": "agent-webmall-3",
+        "type": "shop",
+        "description": "E-commerce Shop Agent for WebMall-3 (CamelCases), providing electronics and hardware product search.",
+        "capabilities": [
+          "product_search",
+          "price_reporting"
+        ],
+        "supported_schemas": [
+          "https://schema.org/Product"
+        ]
+      }
+    },
+    {
+      "id": "webmall_4",
+      "url": "http://localhost:8004/messages",
+      "card": {
+        "name": "WebMall-4",
+        "id": "agent-webmall-4",
+        "type": "shop",
+        "description": "E-commerce Shop Agent for WebMall-4 (Hardware Cafe), providing electronics and hardware product search.",
+        "capabilities": [
+          "product_search",
+          "price_reporting"
+        ],
+        "supported_schemas": [
+          "https://schema.org/Product"
+        ]
+      }
+    }
   ]
 }

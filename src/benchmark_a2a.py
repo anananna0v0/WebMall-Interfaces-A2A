@@ -19,7 +19,7 @@ from utils import calculation_results
 
 # Configuration Constants
 REGISTRY_PATH = os.path.join(BASE_DIR, "src", "a2a", "registry.json")
-TASK_FILE = os.path.join(BASE_DIR, "task_sets", "experiment_tasks_5.json")
+TASK_FILE = os.path.join(BASE_DIR, "task_sets", "test_tasks_1.json")
 RESULTS_DIR = os.path.join(BASE_DIR, "results", "a2a", "scripted_buyer")
 MODEL_NAME = "scripted-buyer-logic"
 
@@ -50,17 +50,30 @@ class A2ABenchmark:
         Focuses on A2A protocol compliance and deterministic results.
         """
         os.makedirs(RESULTS_DIR, exist_ok=True)
-        self.endpoints = self._load_registry()
+        # Modified: Now loads full shop objects (including cards) instead of just endpoints
+        self.shops = self._load_registry()
         self.results = []
 
-    def _load_registry(self) -> List[str]:
-        """Discovery: Load shop agent URLs from registry.json."""
+    def _load_registry(self) -> List[Dict[str, Any]]:
+        """
+        Discovery: Load full shop objects from registry.json.
+        This enables the buyer to inspect Agent Cards (capabilities) before connecting.
+        """
         if not os.path.exists(REGISTRY_PATH):
-            return [f"http://localhost:800{i+1}/messages" for i in range(4)]
+            # Fallback with default capabilities if registry is missing
+            return [
+                {
+                    "url": f"http://localhost:800{i+1}/messages",
+                    "id": f"webmall_{i+1}",
+                    "card": {"capabilities": ["product_search"]}
+                } 
+                for i in range(4)
+            ]
         try:
             with open(REGISTRY_PATH, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                return [shop['url'] for shop in data.get('shops', [])]
+                # Return the list of shop dictionaries (containing url, id, and card)
+                return data.get('shops', [])
         except Exception as e:
             print(f"❌ Discovery failed: {e}")
             return []
@@ -115,25 +128,9 @@ class A2ABenchmark:
                 print(f"❌ Call failed to {url}: {e}")
                 return {"error": str(e)}
 
-    def _parse_price(self, price_value: Any) -> float:
-        """
-        Robustly extracts a float from various price formats (e.g., '$120.00', 120).
-        Used to prevent comparison errors when LLM returns currency symbols.
-        """
-        if isinstance(price_value, (int, float)):
-            return float(price_value)
-        if isinstance(price_value, str):
-            # Remove currency symbols and commas
-            clean_price = re.sub(r'[^\d.]', '', price_value)
-            try:
-                return float(clean_price)
-            except ValueError:
-                return float('inf')
-        return float('inf')
-
     async def run_single_task(self, task: Dict):
         """
-        Processes a single benchmark task: Broadcasts to shops, filters by relevance,
+        Processes a single benchmark task: Broadcasts to CAPABLE shops, filters by relevance,
         selects the cheapest product, and calculates metrics.
         """
         task_id = task['id']
@@ -143,8 +140,38 @@ class A2ABenchmark:
         
         start_time = time.time()
         
-        # 1. Broadcast: Send the query to all shop agent endpoints concurrently
-        tasks = [self._execute_shop_call(url, query) for url in self.endpoints]
+        # 1. Discovery & Broadcast: 
+        # Inspect Agent Cards and send query ONLY to shops with 'product_search' capability.
+        tasks = []
+        for shop in self.shops:
+            # Safe access to nested card capabilities
+            capabilities = shop.get("card", {}).get("capabilities", [])
+            
+            if "product_search" in capabilities:
+                url = shop.get("url")
+                if url:
+                    tasks.append(self._execute_shop_call(url, query))
+        
+        # Handle case where no capable agents are found
+        if not tasks:
+            print(f"⚠️ No shops with 'product_search' capability found for task {task_id}")
+            return {
+                "summary": {
+                    "task_id": task_id,
+                    "task_completion_rate": 0.0,
+                    "f1_score": 0.0,
+                    "shop_tokens": 0,
+                    "buyer_tokens": 0,
+                    "total_tokens": 0,
+                    "execution_time_seconds": time.time() - start_time
+                },
+                "detail": {
+                    "task_id": task_id,
+                    "wish": query,
+                    "error": "Discovery failed: No capable agents."
+                }
+            }
+
         responses = await asyncio.gather(*tasks)
         
         # 2. Data Harvesting: Collect tokens and product offers
@@ -172,30 +199,25 @@ class A2ABenchmark:
         # 3. Decision Logic: Filter by relevance and select the cheapest item
         predicted_urls = []
         if all_offers:
-            # Step A: Relevance Filtering to eliminate noise (e.g., accessories or irrelevant brands)
+            # Step A: Relevance Filtering to eliminate noise
             clean_query = re.sub(r'<.*?>', '', query).lower()
             keywords = [word for word in clean_query.split() if len(word) > 3]
             
             relevant_offers = []
             for o in all_offers:
                 product_name = o.get('name', '').lower()
-                # Ensure the product name aligns with the keywords in user wish
                 if any(k in product_name for k in keywords):
                     relevant_offers.append(o)
-                # For substitute tasks, we allow more flexibility if no exact match is found
                 elif "substitute" in task_id.lower() and len(relevant_offers) == 0:
                     relevant_offers.append(o)
             
-            # Use the filtered list if matches were found, otherwise fallback to prevent empty results
             target_list = relevant_offers if relevant_offers else all_offers
 
             try:
                 # Step B: Price-based selection (Min-Price among relevant items)
-                # Robustly extract price using the _parse_price helper
                 min_price = min(self._parse_price(o.get('offers', {}).get('price', o.get('price', 999999))) 
                                for o in target_list)
                 
-                # Return all URLs sharing the lowest price and ensure uniqueness
                 unique_predicted = {
                     normalize_url(o['url']) 
                     for o in target_list 
@@ -203,11 +225,10 @@ class A2ABenchmark:
                 }
                 predicted_urls = list(unique_predicted)
             except Exception as e:
-                # Graceful recovery for unexpected data issues
                 print(f"⚠️ Decision logic error for {task_id}: {e}")
                 predicted_urls = list({normalize_url(o['url']) for o in target_list if 'url' in o})
 
-        # 4. Metric Calculation: Compute CR and F1 scores according to research standards
+        # 4. Metric Calculation
         metrics = calculation_results(gt_urls_normalized, predicted_urls)
         
         return {
@@ -248,7 +269,6 @@ class A2ABenchmark:
         self.results = []
         start_wall_time = time.time()
 
-        # Iterate through each task set and execute tasks
         for task_set in task_sets:
             print(f"\n📂 Processing Task Set: {task_set.get('id', 'Unknown')}")
             for task in task_set.get('tasks', []):
@@ -262,7 +282,7 @@ class A2ABenchmark:
                       f"F1: {summary['f1_score']:.2f} | "
                       f"ShopTokens: {summary['shop_tokens']:<6}")
 
-        # --- Final Aggregation and Performance Tracking ---
+        # --- Final Aggregation ---
         total_processed = len(self.results)
         if total_processed == 0: return
 
@@ -270,12 +290,10 @@ class A2ABenchmark:
         avg_f1 = sum(r["f1_score"] for r in self.results) / total_processed
         total_s_tokens = sum(r.get("shop_tokens", 0) for r in self.results)
         
-        # --- Categorized Performance Summary Table ---
         print("\n" + "="*70)
         print("📊 CATEGORIZED PERFORMANCE SUMMARY")
         print("-" * 70)
         
-        # Group metrics by category name prefix
         categories = {}
         for r in self.results:
             cat_name = r["task_id"].split("_Task")[0] if "_Task" in r["task_id"] else "General"
@@ -286,7 +304,6 @@ class A2ABenchmark:
             categories[cat_name]["cr"].append(r["task_completion_rate"])
             categories[cat_name]["tokens"] += r.get("shop_tokens", 0)
 
-        # Print table header for clarity
         print(f"{'Category':<35} | {'Avg CR':<8} | {'Avg F1':<8} | {'Tokens':<10}")
         print("-" * 70)
         
@@ -295,7 +312,6 @@ class A2ABenchmark:
             cat_cr = sum(data["cr"]) / len(data["cr"])
             print(f"{cat:<35} | {cat_cr:<8.4f} | {cat_f1:<8.4f} | {data['tokens']:<10}")
         
-        # --- Save results to disk ---
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         summary_path = os.path.join(RESULTS_DIR, f"{MODEL_NAME}_summary_{timestamp}.json")
         debug_path = os.path.join(RESULTS_DIR, f"{MODEL_NAME}_debug_{timestamp}.json")
