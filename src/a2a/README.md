@@ -1,25 +1,23 @@
 # A2A Module
 
-This folder contains a small proof-of-concept implementation of the Agent - to - Agent protocol for the WebMall benchmark.  The aim is to showcase how the emerging A2A standard can be used to connect multiple shop agents and a buyer agent in a multi-agent workflow.
+This folder contains a proof-of-concept implementation of the **Agent-to-Agent (A2A) Protocol** within the WebMall benchmark. It demonstrates a complete multi-agent commerce workflow: Discovery, Connection, and Message Exchange.
 
 ## Overview
 
-- **`shop_agent.py`** – a FastAPI server implementing the A2A JSON-RPC endpoint.  It wraps a LangGraph ReAct agent that queries the existing NLWeb search index and returns structured product offers in Schema.org format while recording token usage.
-- **`run_a2a_exp.sh`** – a convenience script to launch four shop agents, perform a connectivity pre-check and run the A2A benchmark.
-- **`benchmark_a2a.py`** – a scripted buyer that broadcasts each task to all shop agents, collects offers and selects the cheapest product.
-- **`registry.json`** – defines the shop endpoints used by the benchmark.
-- **`test_connection.py`** – checks whether all registered shop agents are reachable.
+The system consists of independent Shop Agents and a Buyer Agent interacting via JSON-RPC over HTTP:
+
+- **`shop_agent.py`** – A FastAPI server acting as an A2A-compliant Shop Agent. It wraps a LangGraph ReAct agent that queries the local Elasticsearch index and returns structured product offers.
+- **`benchmark_a2a.py`** – The **Buyer Agent**. It implements **Capability Discovery** by inspecting Agent Cards to find suitable shops before broadcasting tasks. It aggregates responses and selects the cheapest product.
+- **`registry.json`** – A **static centralized registry** used for discovery simulation. It hosts **Agent Cards** containing metadata and capability lists (e.g., `["product_search"]`), enabling the buyer to look up and filter agents before connection.
+- **`run_a2a_exp.sh`** – An automated orchestration script that launches four shop agents, performs connectivity checks, and runs the full benchmark suite.
+- **`test_connection.py`** – A utility to verify that all registered shop agents are reachable and responding correctly.
 
 ## Prerequisites
 
-- Python 3.8+
-- Elasticsearch 8.x running at `http://localhost:9200`
-- An OpenAI API key set in `.env` (copy `.env.example` and fill in your credentials)
-- Data indexed with `python src/nlweb_mcp/ingest_data.py --shop all --force-recreate`
-
-## Running
-
-Start the shop agents and benchmark with:
-
-```bash
-bash run_a2a_exp.sh
+- **Python 3.8+**
+- **Elasticsearch 8.11.0** (Strictly required to match the Python client version)
+  - Must be running at `http://localhost:9200`.
+- **OpenAI API Key**: Set in `.env` (copy `.env.example` and fill in your credentials).
+- **Data Ingestion**: Ensure the shop data is indexed:
+  ```bash
+  python src/nlweb_mcp/ingest_data.py --shop all --force-recreate
